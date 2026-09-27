@@ -1,4 +1,6 @@
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using SmartSurvey.Application;
 using SmartSurvey.Domain.Identity;
@@ -57,6 +59,27 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.ConfigureApiFriendlyCookies();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
+// ----- Hosting concerns -----------------------------------------------------------------------
+// Persist data-protection keys (auth cookies, bearer tokens, antiforgery) when a path is configured,
+// e.g. a Docker volume, so logins survive restarts and scale-out instances share keys.
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("SmartSurvey");
+if (builder.Configuration["DataProtection:KeysPath"] is { Length: > 0 } keysPath)
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+}
+
+// Behind a reverse proxy (nginx, Traefik, Azure App Service…) honour X-Forwarded-For/Proto.
+var behindProxy = builder.Configuration.GetValue("ReverseProxy:Enabled", false);
+if (behindProxy)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+}
+
 // ----- API plumbing ---------------------------------------------------------------------------
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
@@ -66,6 +89,11 @@ builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 var app = builder.Build();
 
 // ----- HTTP pipeline --------------------------------------------------------------------------
+if (behindProxy)
+{
+    app.UseForwardedHeaders();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -80,7 +108,12 @@ else
 app.UseWhen(ctx => WebSetup.IsApiRequest(ctx.Request), api => api.UseExceptionHandler());
 app.UseWhen(ctx => !WebSetup.IsApiRequest(ctx.Request), ui => ui.UseStatusCodePagesWithReExecute("/not-found"));
 
-app.UseHttpsRedirection();
+// Containers usually terminate TLS at the proxy; set Https:Redirect=false there.
+if (app.Configuration.GetValue("Https:Redirect", true))
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseStaticFiles();
 app.UseRouting();
 app.UseRateLimiter();
