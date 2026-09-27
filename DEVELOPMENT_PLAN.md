@@ -240,11 +240,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Report result model + SVG chart renderer contract + exporter contract
 - [x] DI registration skeleton; Program.cs skeleton; shared UI components; nav
 
-### Phase 4 — Backend services (parallel tracks)
+### Phase 4 — Backend services
 - [~] 4A SurveyService (implemented + merged 2026-09-27; review+fix pending): CRUD + graph reconciliation, slug, status transitions, duplicate/templates, import/export, validators
 - [~] 4B ResponseService (implemented + merged 2026-09-27; review+fix pending): eligibility, start/resume, drafts, submit (server-side logic + validation), admin listing/detail/delete
-- [~] 4C Reporting (in progress; resumed after usage limit): ReportService CRUD, ReportEngine (filters, aggregations, crosstab, stats, time series), SVG charts, exporters (PDF/CSV/TXT/XLSX/JSON), raw response export
-- [~] 4D Infrastructure services (in progress; resumed): AuditService, UserAdminService, DashboardService, DbSeeder (demo data)
+- [~] 4C Reporting (in progress; being finished directly on main): ReportService CRUD, ReportEngine (filters, aggregations, crosstab, stats, time series), SVG charts, exporters (PDF/CSV/TXT/XLSX/JSON), raw response export
+- [~] 4D Infrastructure services (in progress; being finished directly on main): AuditService, UserAdminService, DashboardService, DbSeeder (demo data)
 - [ ] Unit tests for each track
 
 ### Phase 5 — Web host & REST API
@@ -253,7 +253,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] `docs/examples/*.http` + JSON examples
 - [ ] Integration tests (WebApplicationFactory + SQLite)
 
-### Phase 6 — Blazor UI (parallel tracks)
+### Phase 6 — Blazor UI
 - [ ] 6A Layout, nav, dark mode, shared components, Home, FAQ, Buy Me a Coffee, surveys list
 - [ ] 6B Admin: survey list/create/import/templates, builder (sections, questions, options, settings, logic), share page
 - [ ] 6C Respondent: survey runner (multi-page, logic, validation, drafts), preview, thank-you, my responses
@@ -317,17 +317,16 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## 9. Progress Log
 
-### How parallel phases are orchestrated (read when resuming)
+### Working mode (read when resuming)
 
-* Tracks run in separate git worktrees under `../SmartSurvay-worktrees/<key>` on branches `phase4/<key>` / `phase56/<key>`
-  (the harness' own worktree isolation does not work in this environment). Create them from the current `main`:
-  `git worktree add ../SmartSurvay-worktrees/<key> -b phase56/<key> <mainSha>`.
-* Workflow scripts live in `.claude/workflows/`. Run with the Workflow tool (`scriptPath`) and args:
-  * `phase4-complete.js` — `{ baseSha, originalBase: "3ebb3b6", repo, worktreeRoot, implShas: {"4A-surveys","4B-responses"}, bases: {"4C-reporting","4D-infrastructure"} }`
-  * `phase56-api-and-ui.js` — `{ baseSha: <main after Phase 4 merge>, repo, worktreeRoot }`; keys `5-api, 6a-public, 6b-builder, 6c-runner, 6d-reports, 6e-admin`.
-* After a workflow: merge each track branch into `main` (`git merge --no-ff phase56/<key>`), build, `dotnet test`, smoke test, commit,
-  update this log. `scripts/smoke.sh` boots the app on SQLite with demo data and checks pages (admin login included).
-* Machine limits: 4 logical CPUs / 6 GB RAM → workflows run 2 agents at a time.
+* **No multi-agent workflows** (user instruction, 2026-09-27): all remaining work is done directly in the main
+  session, one task at a time, on `main`. Do not use the Workflow tool, subagents, parallel worktree tracks or
+  separate review/fix agent rounds. Verification = unit/integration tests + `scripts/smoke.sh` + manual checks.
+* Phase 6 "tracks" are now just the order of work: 6A → 6B → 6C → 6D → 6E.
+* Keep reads targeted (grep / line ranges) to limit usage.
+* History: Phases 4A/4B were built by parallel agents in worktrees under `../SmartSurvay-worktrees/`; the saved
+  scripts in `.claude/workflows/` are kept for reference only and are no longer run.
+* `scripts/smoke.sh` boots the app on SQLite with demo data and checks pages (admin login included).
 
 ### Log
 
@@ -339,3 +338,4 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Phase 4 (run 1) | Parallel worktrees (harness worktree isolation failed → manual `git worktree add` under `../SmartSurvay-worktrees`). 4A + 4B implemented (285/222 tests) and merged; 4C/4D interrupted by a usage limit (partial work kept in their worktrees) |
 | 2026-09-27 | Branding | New user request: admin-customisable product name/tagline/icon/logo. Entity + `AddBrandingSettings` migration, cached `IBrandingService`, `/branding/logo` + `/branding/favicon`, `BrandMark` component; 457 unit tests green. Admin page + API assigned to Phase 5/6 (tracks 5-api, 6E) |
 | 2026-09-27 | Phase 4 (run 2) | Workflow `phase4-complete`: finish 4C/4D, independent review+fix of 4A–4D (incl. PostgreSQL query checks). Workflow scripts saved in `.claude/workflows/` (`phase4-complete.js`, next `phase56-api-and-ui.js`; args documented at the top of §9) |
+| 2026-09-27 | Working mode | User asked to stop multi-agent workflows (usage). Workflow run 2 stopped mid-4C/4D; partial files kept. Remaining work continues directly on `main`, sequentially (see "Working mode" above). Login page fix: internal CookieOrBearer scheme hidden from external-login list |
