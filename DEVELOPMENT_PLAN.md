@@ -241,11 +241,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] DI registration skeleton; Program.cs skeleton; shared UI components; nav
 
 ### Phase 4 — Backend services
-- [~] 4A SurveyService (implemented + merged 2026-09-27; review+fix pending): CRUD + graph reconciliation, slug, status transitions, duplicate/templates, import/export, validators
-- [~] 4B ResponseService (implemented + merged 2026-09-27; review+fix pending): eligibility, start/resume, drafts, submit (server-side logic + validation), admin listing/detail/delete
-- [~] 4C Reporting (in progress; being finished directly on main): ReportService CRUD, ReportEngine (filters, aggregations, crosstab, stats, time series), SVG charts, exporters (PDF/CSV/TXT/XLSX/JSON), raw response export
-- [~] 4D Infrastructure services (in progress; being finished directly on main): AuditService, UserAdminService, DashboardService, DbSeeder (demo data)
-- [ ] Unit tests for each track
+- [x] 4A SurveyService: CRUD + graph reconciliation, slug, status transitions, duplicate/templates, import/export, validators
+- [x] 4B ResponseService: eligibility, start/resume, drafts, submit (server-side logic + validation), admin listing/detail/delete
+- [x] 4C Reporting: ReportService CRUD, ReportEngine (filters, aggregations, crosstab, stats, time series), SVG charts, exporters (PDF/CSV/TXT/XLSX/JSON), raw response export
+- [x] 4D Infrastructure services: AuditService, UserAdminService, DashboardService, DbSeeder (demo data)
+- [x] Unit tests for each track (564 unit tests green; separate agent review rounds dropped — see "Working mode")
 
 ### Phase 5 — Web host & REST API
 - [ ] Program.cs: Identity (cookie + bearer), policies, API 401/403 handling, rate limiting, health, Swagger, exception handler
@@ -339,3 +339,4 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Branding | New user request: admin-customisable product name/tagline/icon/logo. Entity + `AddBrandingSettings` migration, cached `IBrandingService`, `/branding/logo` + `/branding/favicon`, `BrandMark` component; 457 unit tests green. Admin page + API assigned to Phase 5/6 (tracks 5-api, 6E) |
 | 2026-09-27 | Phase 4 (run 2) | Workflow `phase4-complete`: finish 4C/4D, independent review+fix of 4A–4D (incl. PostgreSQL query checks). Workflow scripts saved in `.claude/workflows/` (`phase4-complete.js`, next `phase56-api-and-ui.js`; args documented at the top of §9) |
 | 2026-09-27 | Working mode | User asked to stop multi-agent workflows (usage). Workflow run 2 stopped mid-4C/4D; partial files kept. Remaining work continues directly on `main`, sequentially (see "Working mode" above). Login page fix: internal CookieOrBearer scheme hidden from external-login list |
+| 2026-09-27 | Phase 4 done | 4C finished directly: ReportService, PDF/CSV/TXT/XLSX/JSON exporters, raw response export (QuestPDF configured by the PDF exporter). Tests added for 4C (79) and 4D (28: audit, dashboard, users with real Identity, seeder). 564 unit tests green; seeder verified on PostgreSQL (admin login + demo data). Next: Phase 5 (REST API) |
