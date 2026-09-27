@@ -487,3 +487,4 @@ $RECYCLE.BIN/
 *.db-wal
 .claude/scheduled_tasks.lock
 .claude/worktrees/
+.smoke/
