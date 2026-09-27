@@ -45,8 +45,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and export footers, `AddBrandingSettings` migration, `Branding` configuration section for initial values.
 - Hosting: persistent data-protection keys, optional forwarded headers, configurable HTTPS redirect;
   cookie-or-bearer default authentication scheme; string enums in API JSON.
+- DevOps: Dockerfile, docker-compose (app + PostgreSQL), GitHub Actions CI, `scripts/smoke.sh`.
+
 ### Fixed
 - Login page no longer lists the internal cookie-or-bearer authentication scheme as an external login provider.
-
-### Added (continued)
-- DevOps: Dockerfile, docker-compose (app + PostgreSQL), GitHub Actions CI, `scripts/smoke.sh`.
