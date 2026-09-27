@@ -134,6 +134,7 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
       numeric statistics (mean/median/min/max/std-dev), responses-over-time chart,
       auto-generated "default report" for any survey, duplicate report
 - [x] Extra export formats: XLSX, JSON; CSV-injection protection
+- [x] **Branding (user request 2026-09-27):** admins customise product name, tagline and icon (built-in Bootstrap icon or uploaded logo, also used as favicon) at `/admin/branding`; used by navbar, sidebar, footer, page titles, favicon and export footers
 - [x] Admin dashboard (KPIs, responses per day, top surveys)
 - [x] User management (roles, lock/unlock, create user)
 - [x] Audit log
@@ -169,6 +170,7 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 | `/admin/reports/{id}` | admin | Report viewer + export buttons |
 | `/admin/users` | admin | User management |
 | `/admin/audit` | admin | Audit log |
+| `/admin/branding` | admin | Product name, tagline, icon / logo |
 
 ### REST API (`/api/v1`, cookie or bearer auth)
 | Method & Route | Access | Purpose |
@@ -202,6 +204,8 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 | `GET /api/v1/dashboard` | admin | Dashboard KPIs |
 | `GET /api/v1/users`, `POST /api/v1/users`, `PUT /api/v1/users/{id}/roles`, `POST /api/v1/users/{id}/lock\|unlock` | admin | User admin |
 | `GET /api/v1/audit` | admin | Audit log |
+| `GET /api/v1/public/branding`, `PUT /api/v1/branding`, `POST/DELETE /api/v1/branding/logo`, `POST /api/v1/branding/reset` | public / admin | Branding |
+| `GET /branding/logo`, `GET /branding/favicon` | public | Brand images (versioned caching) |
 | `GET /health` | public | Health check |
 | `/swagger` | dev/configurable | OpenAPI UI |
 
@@ -237,10 +241,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] DI registration skeleton; Program.cs skeleton; shared UI components; nav
 
 ### Phase 4 — Backend services (parallel tracks)
-- [ ] 4A SurveyService: CRUD + graph reconciliation, slug, status transitions, duplicate/templates, import/export, validators
-- [ ] 4B ResponseService: eligibility, start/resume, drafts, submit (server-side logic + validation), admin listing/detail/delete
-- [ ] 4C Reporting: ReportService CRUD, ReportEngine (filters, aggregations, crosstab, stats, time series), SVG charts, exporters (PDF/CSV/TXT/XLSX/JSON), raw response export
-- [ ] 4D Infrastructure services: CurrentUser (+middleware/circuit handler), AuditService, UserAdminService, DashboardService, DbSeeder (demo data)
+- [~] 4A SurveyService (implemented + merged 2026-09-27; review+fix pending): CRUD + graph reconciliation, slug, status transitions, duplicate/templates, import/export, validators
+- [~] 4B ResponseService (implemented + merged 2026-09-27; review+fix pending): eligibility, start/resume, drafts, submit (server-side logic + validation), admin listing/detail/delete
+- [~] 4C Reporting (in progress; resumed after usage limit): ReportService CRUD, ReportEngine (filters, aggregations, crosstab, stats, time series), SVG charts, exporters (PDF/CSV/TXT/XLSX/JSON), raw response export
+- [~] 4D Infrastructure services (in progress; resumed): AuditService, UserAdminService, DashboardService, DbSeeder (demo data)
 - [ ] Unit tests for each track
 
 ### Phase 5 — Web host & REST API
@@ -253,7 +257,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] 6A Layout, nav, dark mode, shared components, Home, FAQ, Buy Me a Coffee, surveys list
 - [ ] 6B Admin: survey list/create/import/templates, builder (sections, questions, options, settings, logic), share page
 - [ ] 6C Respondent: survey runner (multi-page, logic, validation, drafts), preview, thank-you, my responses
-- [ ] 6D Admin: dashboard, responses browser/detail, report list/builder/viewer/exports, users, audit log
+- [ ] 6D Admin reports: report list/builder (live preview)/viewer/exports
+- [ ] 6E Admin: dashboard, responses browser/detail, users, audit log, **branding page**
 
 ### Phase 7 — Verification
 - [ ] Full build (0 warnings target), all tests green
@@ -312,8 +317,25 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ## 9. Progress Log
 
+### How parallel phases are orchestrated (read when resuming)
+
+* Tracks run in separate git worktrees under `../SmartSurvay-worktrees/<key>` on branches `phase4/<key>` / `phase56/<key>`
+  (the harness' own worktree isolation does not work in this environment). Create them from the current `main`:
+  `git worktree add ../SmartSurvay-worktrees/<key> -b phase56/<key> <mainSha>`.
+* Workflow scripts live in `.claude/workflows/`. Run with the Workflow tool (`scriptPath`) and args:
+  * `phase4-complete.js` — `{ baseSha, originalBase: "3ebb3b6", repo, worktreeRoot, implShas: {"4A-surveys","4B-responses"}, bases: {"4C-reporting","4D-infrastructure"} }`
+  * `phase56-api-and-ui.js` — `{ baseSha: <main after Phase 4 merge>, repo, worktreeRoot }`; keys `5-api, 6a-public, 6b-builder, 6c-runner, 6d-reports, 6e-admin`.
+* After a workflow: merge each track branch into `main` (`git merge --no-ff phase56/<key>`), build, `dotnet test`, smoke test, commit,
+  update this log. `scripts/smoke.sh` boots the app on SQLite with demo data and checks pages (admin login included).
+* Machine limits: 4 logical CPUs / 6 GB RAM → workflows run 2 agents at a time.
+
+### Log
+
 | Date | Phase / task | Notes |
 |---|---|---|
 | 2026-09-26 | Phase 0 | .NET 8 SDK installed, git repo initialised, plan + changelog created |
 | 2026-09-27 | Phase 0 | Docker Desktop engine unavailable (WSL1) → PostgreSQL 16.15 installed natively via winget (service `postgresql-x64-16`, superuser `postgres/postgres`); role+db `smartsurvey/smartsurvey` created |
 | 2026-09-27 | Phases 1–3 | Solution scaffolded (6 projects, CPM, dotnet-ef 8.0.31 local tool); domain model, AppDbContext + configurations, InitialCreate migration (applied to PostgreSQL); application contracts, LogicEvaluator, ResponseValidator; web host (auth cookie+bearer, policies, ProblemDetails, rate limiting, health, Swagger); design system + layouts + shared components; stubs for Phase 4 services; test support + 72 passing core tests; app boots against PostgreSQL |
+| 2026-09-27 | Phase 4 (run 1) | Parallel worktrees (harness worktree isolation failed → manual `git worktree add` under `../SmartSurvay-worktrees`). 4A + 4B implemented (285/222 tests) and merged; 4C/4D interrupted by a usage limit (partial work kept in their worktrees) |
+| 2026-09-27 | Branding | New user request: admin-customisable product name/tagline/icon/logo. Entity + `AddBrandingSettings` migration, cached `IBrandingService`, `/branding/logo` + `/branding/favicon`, `BrandMark` component; 457 unit tests green. Admin page + API assigned to Phase 5/6 (tracks 5-api, 6E) |
+| 2026-09-27 | Phase 4 (run 2) | Workflow `phase4-complete`: finish 4C/4D, independent review+fix of 4A–4D (incl. PostgreSQL query checks). Workflow scripts saved in `.claude/workflows/` (`phase4-complete.js`, next `phase56-api-and-ui.js`; args documented at the top of §9) |

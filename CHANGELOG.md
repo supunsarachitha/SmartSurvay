@@ -25,3 +25,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Design system (Bootstrap 5.3.8, Bootstrap Icons, Inter; light/dark theme), public and admin layouts,
   shared UI components (page header, badges, modal, confirm dialog, toasts, pager, empty state, charts).
 - 72 unit tests for logic evaluation, condition matching, answer validation, slugs and persistence.
+- **SurveyService**: survey CRUD with graph reconciliation, normalisation (ids, order, question codes, slugs),
+  comprehensive design validation (incl. logic ordering rules), lifecycle transitions, duplicate/templates,
+  JSON import/export, optimistic concurrency, audit logging (213 tests).
+- **ResponseService**: eligibility checks (schedule, quota, login, one response per user), start/resume with drafts,
+  logic-aware server-side validation on submission, admin response browsing/detail/deletion (150 tests; also verified
+  against PostgreSQL).
+- **Branding**: administrators can customise the product name, tagline and brand icon (built-in Bootstrap icon or an
+  uploaded PNG/JPEG/GIF/WebP/ICO/SVG logo, also used as favicon). Cached `IBrandingService`, public
+  `/branding/logo` and `/branding/favicon` endpoints, `BrandMark` component in all layouts, product name in page titles
+  and export footers, `AddBrandingSettings` migration, `Branding` configuration section for initial values.
+- Hosting: persistent data-protection keys, optional forwarded headers, configurable HTTPS redirect;
+  cookie-or-bearer default authentication scheme; string enums in API JSON.
+- DevOps: Dockerfile, docker-compose (app + PostgreSQL), GitHub Actions CI, `scripts/smoke.sh`.
