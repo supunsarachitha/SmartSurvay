@@ -1,0 +1,434 @@
+@page "/admin/surveys"
+@rendermode InteractiveServer
+@using System.Text.Json
+@inject ISurveyService SurveyService
+@inject ToastService Toasts
+@inject BrowserInterop Browser
+@inject NavigationManager Navigation
+@inject ILogger<SurveyList> Logger
+@* Admin survey list: search/filter/paging, lifecycle actions, duplicate/template/export/delete,
+   new survey, start from a template and import a definition file. *@
+
+<PageHeader Title="Surveys" Subtitle="Design, publish and manage your surveys.">
+    <Breadcrumb><li class="breadcrumb-item"><a href="admin">Admin</a></li><li class="breadcrumb-item active" aria-current="page">Surveys</li></Breadcrumb>
+    <Actions>
+        <label class="btn btn-light mb-0 @(importing ? "disabled" : "")" title="Import a survey definition (.json)">
+            @if (importing)
+            {
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+            }
+            else
+            {
+                <i class="bi bi-upload"></i>
+            }
+            Import
+            <InputFile OnChange="ImportAsync" accept=".json,application/json" class="d-none" disabled="@importing" />
+        </label>
+        <button class="btn btn-light" @onclick="OpenTemplatesAsync"><i class="bi bi-files"></i>From template</button>
+        <a class="btn btn-primary" href="admin/surveys/new"><i class="bi bi-plus-lg"></i>New survey</a>
+    </Actions>
+</PageHeader>
+
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-5">
+                <div class="input-group">
+                    <span class="input-group-text bg-body"><i class="bi bi-search"></i></span>
+                    <input class="form-control" type="search" placeholder="Search title, description or link" aria-label="Search surveys"
+                           @bind="search" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+                </div>
+            </div>
+            <div class="col-6 col-md-3">
+                <select class="form-select" aria-label="Filter by status" @bind="statusFilter" @bind:after="ReloadFromFirstPageAsync">
+                    <option value="">All statuses</option>
+                    @foreach (var status in Enum.GetValues<SurveyStatus>())
+                    {
+                        <option value="@status">@status</option>
+                    }
+                </select>
+            </div>
+            <div class="col-6 col-md-4 d-flex gap-3 justify-content-md-end">
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="filter-templates" @bind="templatesOnly" @bind:after="ReloadFromFirstPageAsync" />
+                    <label class="form-check-label small" for="filter-templates">Templates only</label>
+                </div>
+                <div class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" id="filter-archived" @bind="includeArchived" @bind:after="ReloadFromFirstPageAsync" />
+                    <label class="form-check-label small" for="filter-archived">Show archived</label>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@if (error is not null)
+{
+    <ErrorAlert Message="@error" OnDismiss="() => error = null" Class="mb-3" />
+}
+
+@if (result is null)
+{
+    <LoadingSpinner Text="Loading surveys…" />
+}
+else if (result.TotalCount == 0)
+{
+    @if (IsFiltered)
+    {
+        <EmptyState Icon="bi-search" Title="No surveys match the filters" Message="Try another search term or clear the filters.">
+            <button class="btn btn-soft-primary" @onclick="ClearFiltersAsync">Clear filters</button>
+        </EmptyState>
+    }
+    else
+    {
+        <EmptyState Icon="bi-clipboard-plus" Title="Create your first survey" Message="Start from scratch, from a template or import a survey definition file.">
+            <a class="btn btn-primary" href="admin/surveys/new"><i class="bi bi-plus-lg"></i>New survey</a>
+        </EmptyState>
+    }
+}
+else
+{
+    <div class="card table-card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Survey</th>
+                        <th scope="col">Status</th>
+                        <th scope="col" class="col-num d-none d-md-table-cell">Questions</th>
+                        <th scope="col" class="col-num">Responses</th>
+                        <th scope="col" class="d-none d-lg-table-cell">Updated</th>
+                        <th scope="col" class="text-end"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var survey in result.Items)
+                    {
+                        <tr @key="survey.Id">
+                            <td class="min-w-0">
+                                <a class="fw-semibold text-body text-decoration-none" href="admin/surveys/@survey.Id/edit">@survey.Title</a>
+                                <div class="small text-muted text-truncate" style="max-width:26rem">/s/@survey.Slug</div>
+                            </td>
+                            <td>
+                                <StatusBadge SurveyStatus="survey.Status" />
+                                @if (survey.IsTemplate)
+                                {
+                                    <StatusBadge IsTemplate="true" Class="ms-1" />
+                                }
+                            </td>
+                            <td class="col-num d-none d-md-table-cell">@survey.QuestionCount</td>
+                            <td class="col-num">
+                                <a class="text-body text-decoration-none" href="admin/surveys/@survey.Id/responses">@UiFormat.Number(survey.CompletedResponses)</a>
+                                @if (survey.InProgressResponses > 0)
+                                {
+                                    <div class="small text-muted">+@survey.InProgressResponses in progress</div>
+                                }
+                            </td>
+                            <td class="d-none d-lg-table-cell text-muted small">@UiFormat.Relative(survey.UpdatedAt ?? survey.CreatedAt)</td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-soft-primary" href="admin/surveys/@survey.Id/edit" title="Edit"><i class="bi bi-pencil"></i><span class="d-none d-xl-inline">Edit</span></a>
+                                <div class="dropdown d-inline-block">
+                                    <button class="btn btn-sm btn-light btn-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="More actions for @survey.Title" disabled="@(busyId == survey.Id)">
+                                        @if (busyId == survey.Id)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-three-dots"></i>
+                                        }
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" href="admin/surveys/@survey.Id/preview"><i class="bi bi-eye"></i>Preview</a></li>
+                                        <li><a class="dropdown-item" href="admin/surveys/@survey.Id/share"><i class="bi bi-share"></i>Share</a></li>
+                                        <li><a class="dropdown-item" href="admin/surveys/@survey.Id/responses"><i class="bi bi-inboxes"></i>Responses</a></li>
+                                        <li><a class="dropdown-item" href="admin/reports/new?surveyId=@survey.Id"><i class="bi bi-bar-chart-line"></i>New report</a></li>
+                                        <li><hr class="dropdown-divider" /></li>
+                                        @foreach (var action in SurveyUi.ActionsFor(survey.Status))
+                                        {
+                                            <li><button class="dropdown-item @(action.Danger ? "text-danger" : "")" @onclick="() => ChangeStatusAsync(survey, action)"><i class="bi @action.Icon"></i>@action.Label</button></li>
+                                        }
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li><button class="dropdown-item" @onclick="() => DuplicateAsync(survey, asTemplate: false)"><i class="bi bi-copy"></i>Duplicate</button></li>
+                                        @if (!survey.IsTemplate)
+                                        {
+                                            <li><button class="dropdown-item" @onclick="() => DuplicateAsync(survey, asTemplate: true)"><i class="bi bi-bookmark-plus"></i>Save as template</button></li>
+                                        }
+                                        <li><button class="dropdown-item" @onclick="() => ExportAsync(survey)"><i class="bi bi-filetype-json"></i>Export definition</button></li>
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li><button class="dropdown-item text-danger" @onclick="() => DeleteAsync(survey)"><i class="bi bi-trash"></i>Delete</button></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="small text-muted">@UiFormat.Plural(result.TotalCount, "survey")</span>
+            <Pager Page="result.Page" PageSize="result.PageSize" TotalCount="result.TotalCount" OnPageChanged="GoToPageAsync" />
+        </div>
+    </div>
+}
+
+<Modal Visible="templatesVisible" Title="Start from a template" Icon="bi-files" Size="lg" OnClose="() => templatesVisible = false">
+    @if (templates is null)
+    {
+        <LoadingSpinner Text="Loading templates…" />
+    }
+    else if (templates.Count == 0)
+    {
+        <EmptyState Icon="bi-bookmark" Title="No templates yet" Message="Open any survey's menu and choose “Save as template” to reuse its design." />
+    }
+    else
+    {
+        <div class="list-group">
+            @foreach (var template in templates)
+            {
+                <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-3 py-3"
+                        disabled="@(busyId is not null)" @onclick="() => UseTemplateAsync(template)">
+                    <span class="min-w-0">
+                        <span class="fw-semibold d-block">@template.Title</span>
+                        <span class="small text-muted">@UiFormat.Plural(template.QuestionCount, "question")@(string.IsNullOrWhiteSpace(template.Description) ? "" : $" · {template.Description}")</span>
+                    </span>
+                    @if (busyId == template.Id)
+                    {
+                        <span class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <span class="btn btn-sm btn-soft-primary">Use</span>
+                    }
+                </button>
+            }
+        </div>
+    }
+</Modal>
+
+<ConfirmDialog @ref="confirm" />
+
+@code {
+    private const int PageSize = 20;
+
+    private PagedResult<SurveySummaryDto>? result;
+    private IReadOnlyList<SurveySummaryDto>? templates;
+    private ConfirmDialog confirm = default!;
+    private string? error;
+    private string search = string.Empty;
+    private string statusFilter = string.Empty;
+    private bool templatesOnly;
+    private bool includeArchived;
+    private bool templatesVisible;
+    private bool importing;
+    private int page = 1;
+    private Guid? busyId;
+
+    private bool IsFiltered => !string.IsNullOrWhiteSpace(search) || statusFilter.Length > 0 || templatesOnly;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            result = await SurveyService.ListAsync(new SurveyQuery
+            {
+                Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
+                Status = Enum.TryParse<SurveyStatus>(statusFilter, out var status) ? status : null,
+                IsTemplate = templatesOnly ? true : null,
+                IncludeArchived = includeArchived || statusFilter == nameof(SurveyStatus.Archived),
+                Page = page,
+                PageSize = PageSize,
+            });
+            error = null;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            error = UiErrors.Describe(ex);
+            result ??= PagedResult<SurveySummaryDto>.Empty(page, PageSize);
+        }
+    }
+
+    private async Task ReloadFromFirstPageAsync()
+    {
+        page = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "Escape" || search.Length == 0 || search.Length >= 2)
+        {
+            if (e.Key == "Escape")
+            {
+                search = string.Empty;
+            }
+
+            await ReloadFromFirstPageAsync();
+        }
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        search = string.Empty;
+        statusFilter = string.Empty;
+        templatesOnly = false;
+        await ReloadFromFirstPageAsync();
+    }
+
+    private async Task GoToPageAsync(int newPage)
+    {
+        page = newPage;
+        await LoadAsync();
+    }
+
+    private async Task ChangeStatusAsync(SurveySummaryDto survey, SurveyStatusAction action)
+    {
+        if (!await confirm.ShowAsync($"{action.Label} “{survey.Title}”?", action.Confirmation, action.Label, action.Danger))
+        {
+            return;
+        }
+
+        await RunAsync(survey.Id, async () =>
+        {
+            await SurveyService.ChangeStatusAsync(survey.Id, action.Target);
+            Toasts.Success($"Survey {action.Target.ToString().ToLowerInvariant()}", survey.Title);
+            await LoadAsync();
+        });
+    }
+
+    private async Task DuplicateAsync(SurveySummaryDto survey, bool asTemplate)
+    {
+        await RunAsync(survey.Id, async () =>
+        {
+            var copy = await SurveyService.DuplicateAsync(survey.Id, new DuplicateSurveyRequest { AsTemplate = asTemplate });
+            Toasts.Success(asTemplate ? "Template created" : "Survey duplicated", copy.Title);
+            Navigation.NavigateTo($"admin/surveys/{copy.Id}/edit");
+        });
+    }
+
+    private async Task ExportAsync(SurveySummaryDto survey)
+    {
+        await RunAsync(survey.Id, async () =>
+        {
+            var document = await SurveyService.ExportDefinitionAsync(survey.Id);
+            var bytes = JsonSerializer.SerializeToUtf8Bytes(document, SurveyUi.DefinitionJson);
+            await Browser.DownloadAsync(new ExportFile(bytes, "application/json", SurveyUi.DefinitionFileName(document.Survey)));
+        });
+    }
+
+    private async Task DeleteAsync(SurveySummaryDto survey)
+    {
+        var responses = survey.CompletedResponses + survey.InProgressResponses;
+        var message = responses > 0
+            ? $"This permanently deletes the survey, its {UiFormat.Plural(responses, "response")} and every report built on it. This cannot be undone."
+            : "This permanently deletes the survey and every report built on it. This cannot be undone.";
+        if (!await confirm.ShowAsync($"Delete “{survey.Title}”?", message, "Delete survey", danger: true))
+        {
+            return;
+        }
+
+        await RunAsync(survey.Id, async () =>
+        {
+            await SurveyService.DeleteAsync(survey.Id);
+            Toasts.Success("Survey deleted", survey.Title);
+            if (result is { Items.Count: 1, Page: > 1 })
+            {
+                page--;
+            }
+
+            await LoadAsync();
+        });
+    }
+
+    private async Task OpenTemplatesAsync()
+    {
+        templatesVisible = true;
+        templates = null;
+        try
+        {
+            templates = await SurveyService.ListTemplatesAsync();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            templatesVisible = false;
+            Toasts.Error("Could not load templates", UiErrors.Describe(ex));
+        }
+    }
+
+    private async Task UseTemplateAsync(SurveySummaryDto template)
+    {
+        await RunAsync(template.Id, async () =>
+        {
+            var survey = await SurveyService.DuplicateAsync(template.Id, new DuplicateSurveyRequest { Title = template.Title, AsTemplate = false });
+            templatesVisible = false;
+            Toasts.Success("Survey created from template", survey.Title);
+            Navigation.NavigateTo($"admin/surveys/{survey.Id}/edit");
+        });
+    }
+
+    private async Task ImportAsync(InputFileChangeEventArgs e)
+    {
+        importing = true;
+        try
+        {
+            if (e.File.Size > SurveyUi.MaxImportBytes)
+            {
+                Toasts.Error("File too large", $"Survey definition files can be up to {SurveyUi.MaxImportBytes / 1024 / 1024} MB.");
+                return;
+            }
+
+            SurveyExportDocument? document;
+            await using (var stream = e.File.OpenReadStream(SurveyUi.MaxImportBytes))
+            {
+                document = await JsonSerializer.DeserializeAsync<SurveyExportDocument>(stream, SurveyUi.DefinitionJson);
+            }
+
+            if (document?.Survey is null)
+            {
+                Toasts.Error("Not a survey definition", "The file doesn't contain a survey. Export a survey from this page to see the expected format.");
+                return;
+            }
+
+            var imported = await SurveyService.ImportDefinitionAsync(document);
+            Toasts.Success("Survey imported", $"“{imported.Title}” was created as a draft.");
+            Navigation.NavigateTo($"admin/surveys/{imported.Id}/edit");
+        }
+        catch (JsonException)
+        {
+            Toasts.Error("Invalid file", "The file is not valid JSON. Choose a file exported from SmartSurvey.");
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Import failed", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            importing = false;
+        }
+    }
+
+    /// <summary>Runs an action for one row with a busy indicator and friendly error handling.</summary>
+    private async Task RunAsync(Guid id, Func<Task> action)
+    {
+        busyId = id;
+        try
+        {
+            await action();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("That didn't work", UiErrors.Describe(ex));
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Survey list action failed for {SurveyId}", id);
+            Toasts.Error("Unexpected error", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            busyId = null;
+        }
+    }
+}

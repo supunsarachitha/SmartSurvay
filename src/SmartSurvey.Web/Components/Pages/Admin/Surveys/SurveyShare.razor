@@ -1,0 +1,188 @@
+@page "/admin/surveys/{Id:guid}/share"
+@rendermode InteractiveServer
+@using QRCoder
+@inject ISurveyService SurveyService
+@inject ToastService Toasts
+@inject BrowserInterop Browser
+@inject NavigationManager Navigation
+@* Share a survey: public link (copy/open), QR code (SVG/PNG download) and a ready-to-send invitation text. *@
+
+@if (loadError is not null)
+{
+    <PageHeader Title="Share survey" />
+    <EmptyState Icon="bi-exclamation-circle" Title="This survey can't be opened" Message="@loadError">
+        <a class="btn btn-primary" href="admin/surveys"><i class="bi bi-arrow-left"></i>Back to surveys</a>
+    </EmptyState>
+}
+else if (survey is null)
+{
+    <LoadingSpinner Text="Loading survey…" />
+}
+else
+{
+    <PageHeader Title="@($"Share “{survey.Title}”")" Subtitle="Send the link or QR code to your respondents.">
+        <Breadcrumb>
+            <li class="breadcrumb-item"><a href="admin">Admin</a></li>
+            <li class="breadcrumb-item"><a href="admin/surveys">Surveys</a></li>
+            <li class="breadcrumb-item"><a href="admin/surveys/@survey.Id/edit">@survey.Title</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Share</li>
+        </Breadcrumb>
+        <TitleSuffix><StatusBadge SurveyStatus="survey.Status" Class="ms-2 align-middle fs-6" /></TitleSuffix>
+        <Actions>
+            <a class="btn btn-light" href="admin/surveys/@survey.Id/edit"><i class="bi bi-pencil"></i>Edit</a>
+            <a class="btn btn-light" href="admin/surveys/@survey.Id/responses"><i class="bi bi-inboxes"></i>Responses</a>
+        </Actions>
+    </PageHeader>
+
+    @if (survey.Status != SurveyStatus.Published)
+    {
+        <div class="alert alert-warning d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span><i class="bi bi-exclamation-triangle me-2"></i>Respondents can't open this link until the survey is published.</span>
+            @if (SurveyStatusTransitions.IsAllowed(survey.Status, SurveyStatus.Published))
+            {
+                <button class="btn btn-sm btn-warning" @onclick="PublishAsync" disabled="@publishing">
+                    @if (publishing)
+                    {
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-send"></i>
+                    }
+                    @(survey.Status == SurveyStatus.Closed ? "Reopen now" : "Publish now")
+                </button>
+            }
+        </div>
+    }
+    else if (survey.ClosesAt is { } closes)
+    {
+        <div class="alert alert-light border small"><i class="bi bi-calendar-event me-2"></i>Open until <LocalDateTime Value="closes" />.</div>
+    }
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-link-45deg me-1"></i>Survey link</h2>
+                    <div class="code-box mb-3">@url</div>
+                    <div class="d-flex flex-wrap gap-2">
+                        <button class="btn btn-primary" @onclick='() => CopyAsync(url, "Link copied")'><i class="bi bi-clipboard"></i>Copy link</button>
+                        <a class="btn btn-light" href="@url" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>Open</a>
+                        <a class="btn btn-light" href="admin/surveys/@survey.Id/preview"><i class="bi bi-eye"></i>Preview</a>
+                    </div>
+                    <div class="small text-muted mt-3">
+                        @if (survey.AllowAnonymous)
+                        {
+                            <span><i class="bi bi-globe me-1"></i>Anyone with the link can respond — no account needed.</span>
+                        }
+                        else
+                        {
+                            <span><i class="bi bi-person-lock me-1"></i>Respondents must sign in (or create a free account) before answering.</span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-envelope-paper me-1"></i>Invitation text</h2>
+                    <textarea class="form-control mb-3" rows="6" aria-label="Invitation text" @bind="invitation"></textarea>
+                    <button class="btn btn-soft-primary" @onclick='() => CopyAsync(invitation, "Invitation copied")'><i class="bi bi-clipboard"></i>Copy text</button>
+                    <span class="small text-muted ms-2">Paste it into an e-mail, chat or newsletter.</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card text-center">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-qr-code me-1"></i>QR code</h2>
+                    <div class="qr-box mb-3" role="img" aria-label="QR code for the survey link">@((MarkupString)qrSvg)</div>
+                    <div class="d-flex flex-wrap justify-content-center gap-2">
+                        <button class="btn btn-light" @onclick="DownloadPngAsync"><i class="bi bi-download"></i>PNG</button>
+                        <button class="btn btn-light" @onclick="DownloadSvgAsync"><i class="bi bi-download"></i>SVG</button>
+                    </div>
+                    <p class="small text-muted mt-3 mb-0">Print it on posters, slides or receipts — people scan it with their phone camera.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private SurveyDefinitionDto? survey;
+    private string url = string.Empty;
+    private string qrSvg = string.Empty;
+    private string invitation = string.Empty;
+    private string? loadError;
+    private bool publishing;
+
+    /// <summary>Survey id.</summary>
+    [Parameter] public Guid Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            survey = await SurveyService.GetAsync(Id);
+            url = Navigation.ToAbsoluteUri($"s/{survey.Slug}").AbsoluteUri;
+            qrSvg = RenderSvg(url);
+            invitation = $"Hi,\n\nWe'd love to hear your thoughts. Please take a few minutes to answer our survey “{survey.Title}”:\n{url}\n\nThank you!";
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            loadError = UiErrors.Describe(ex);
+        }
+    }
+
+    /// <summary>QR code as SVG markup (generated on the server from our own URL, so it is safe to inline).</summary>
+    private static string RenderSvg(string text)
+    {
+        using var generator = new QRCodeGenerator();
+        using var data = generator.CreateQrCode(text, QRCodeGenerator.ECCLevel.Q);
+        return new SvgQRCode(data).GetGraphic(8);
+    }
+
+    private static byte[] RenderPng(string text)
+    {
+        using var generator = new QRCodeGenerator();
+        using var data = generator.CreateQrCode(text, QRCodeGenerator.ECCLevel.Q);
+        return new PngByteQRCode(data).GetGraphic(20);
+    }
+
+    private async Task CopyAsync(string text, string message)
+    {
+        if (await Browser.CopyTextAsync(text))
+        {
+            Toasts.Success(message);
+        }
+        else
+        {
+            Toasts.Warning("Copy not available", "Select the text and copy it manually.");
+        }
+    }
+
+    private async Task DownloadPngAsync() =>
+        await Browser.DownloadAsync(new ExportFile(RenderPng(url), "image/png", $"{survey!.Slug}-qr.png"));
+
+    private async Task DownloadSvgAsync() =>
+        await Browser.DownloadAsync(new ExportFile(System.Text.Encoding.UTF8.GetBytes(qrSvg), "image/svg+xml", $"{survey!.Slug}-qr.svg"));
+
+    private async Task PublishAsync()
+    {
+        publishing = true;
+        try
+        {
+            survey = await SurveyService.ChangeStatusAsync(Id, SurveyStatus.Published);
+            Toasts.Success("Survey published", "The link is live now.");
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not publish", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            publishing = false;
+        }
+    }
+}

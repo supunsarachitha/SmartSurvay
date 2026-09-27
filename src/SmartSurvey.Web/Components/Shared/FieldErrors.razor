@@ -1,0 +1,10 @@
+@* Inline validation messages below a form field. *@
+@foreach (var message in Messages ?? [])
+{
+    <div class="invalid-feedback d-block"><i class="bi bi-exclamation-circle me-1"></i>@message</div>
+}
+
+@code {
+    /// <summary>Messages to show (nothing is rendered when empty).</summary>
+    [Parameter] public IReadOnlyList<string>? Messages { get; set; }
+}

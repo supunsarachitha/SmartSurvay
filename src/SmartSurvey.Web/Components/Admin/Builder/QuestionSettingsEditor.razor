@@ -1,0 +1,130 @@
+@* Type-specific validation and display settings of a question. *@
+@{ var s = Question.Settings; }
+
+<div class="row g-3">
+    @switch (Question.Type)
+    {
+        case QuestionType.ShortText or QuestionType.LongText:
+            <div class="col-md-6">
+                <label class="form-label small" for="ph-@Question.Id">Placeholder</label>
+                <input id="ph-@Question.Id" class="form-control form-control-sm" maxlength="200" disabled="@ReadOnly" @bind="s.Placeholder" @bind:after="ChangedAsync" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="minl-@Question.Id">Min. length</label>
+                <input id="minl-@Question.Id" type="number" min="0" class="form-control form-control-sm" disabled="@ReadOnly" @bind="s.MinLength" @bind:after="ChangedAsync" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="maxl-@Question.Id">Max. length</label>
+                <input id="maxl-@Question.Id" type="number" min="1" class="form-control form-control-sm" disabled="@ReadOnly" @bind="s.MaxLength" @bind:after="ChangedAsync" />
+            </div>
+            break;
+
+        case QuestionType.Email:
+            <div class="col-md-6">
+                <label class="form-label small" for="ph-@Question.Id">Placeholder</label>
+                <input id="ph-@Question.Id" class="form-control form-control-sm" maxlength="200" placeholder="name@example.com" disabled="@ReadOnly" @bind="s.Placeholder" @bind:after="ChangedAsync" />
+            </div>
+            break;
+
+        case QuestionType.Number:
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="minv-@Question.Id">Minimum</label>
+                <input id="minv-@Question.Id" type="number" step="any" class="form-control form-control-sm" disabled="@ReadOnly" @bind="s.MinValue" @bind:after="ChangedAsync" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="maxv-@Question.Id">Maximum</label>
+                <input id="maxv-@Question.Id" type="number" step="any" class="form-control form-control-sm" disabled="@ReadOnly" @bind="s.MaxValue" @bind:after="ChangedAsync" />
+            </div>
+            <div class="col-md-6 d-flex align-items-end">
+                <div class="form-check form-switch mb-1">
+                    <input class="form-check-input" type="checkbox" id="dec-@Question.Id" disabled="@ReadOnly" @bind="s.AllowDecimals" @bind:after="ChangedAsync" />
+                    <label class="form-check-label small" for="dec-@Question.Id">Allow decimals</label>
+                </div>
+            </div>
+            break;
+
+        case QuestionType.Date:
+            <div class="col-6 col-md-4">
+                <label class="form-label small" for="mind-@Question.Id">Earliest date</label>
+                <input id="mind-@Question.Id" type="date" class="form-control form-control-sm" disabled="@ReadOnly" @bind="s.MinDate" @bind:after="ChangedAsync" />
+            </div>
+            <div class="col-6 col-md-4">
+                <label class="form-label small" for="maxd-@Question.Id">Latest date</label>
+                <input id="maxd-@Question.Id" type="date" class="form-control form-control-sm" disabled="@ReadOnly" @bind="s.MaxDate" @bind:after="ChangedAsync" />
+            </div>
+            break;
+
+        case QuestionType.Rating:
+            <div class="col-6 col-md-4">
+                <label class="form-label small" for="stars-@Question.Id">Number of stars</label>
+                <select id="stars-@Question.Id" class="form-select form-select-sm" disabled="@ReadOnly" @bind="s.RatingMax" @bind:after="ChangedAsync">
+                    @for (var i = 2; i <= 10; i++)
+                    {
+                        <option value="@i">@i</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-8 d-flex align-items-end">
+                <span class="rating-stars small text-warning" aria-hidden="true">
+                    @for (var i = 0; i < s.RatingMax; i++)
+                    {
+                        <i class="bi bi-star-fill me-1"></i>
+                    }
+                </span>
+            </div>
+            break;
+
+        case QuestionType.Scale:
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="smin-@Question.Id">From</label>
+                <input id="smin-@Question.Id" type="number" min="0" max="100" class="form-control form-control-sm" disabled="@ReadOnly" @bind="s.ScaleMin" @bind:after="ChangedAsync" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="smax-@Question.Id">To</label>
+                <input id="smax-@Question.Id" type="number" min="1" max="100" class="form-control form-control-sm" disabled="@ReadOnly" @bind="s.ScaleMax" @bind:after="ChangedAsync" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="smil-@Question.Id">Low label</label>
+                <input id="smil-@Question.Id" class="form-control form-control-sm" maxlength="100" placeholder="Not likely" disabled="@ReadOnly" @bind="s.ScaleMinLabel" @bind:after="ChangedAsync" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="smal-@Question.Id">High label</label>
+                <input id="smal-@Question.Id" class="form-control form-control-sm" maxlength="100" placeholder="Very likely" disabled="@ReadOnly" @bind="s.ScaleMaxLabel" @bind:after="ChangedAsync" />
+            </div>
+            break;
+
+        case QuestionType.Checkbox:
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="mins-@Question.Id">Min. choices</label>
+                <input id="mins-@Question.Id" type="number" min="0" class="form-control form-control-sm" disabled="@ReadOnly" @bind="s.MinSelections" @bind:after="ChangedAsync" />
+            </div>
+            <div class="col-6 col-md-3">
+                <label class="form-label small" for="maxs-@Question.Id">Max. choices</label>
+                <input id="maxs-@Question.Id" type="number" min="1" class="form-control form-control-sm" disabled="@ReadOnly" @bind="s.MaxSelections" @bind:after="ChangedAsync" />
+            </div>
+            break;
+    }
+
+    @if (Question.Type.IsChoice())
+    {
+        <div class="col-12">
+            <div class="form-check form-switch mb-0">
+                <input class="form-check-input" type="checkbox" id="rnd-@Question.Id" disabled="@ReadOnly" @bind="s.RandomizeOptions" @bind:after="ChangedAsync" />
+                <label class="form-check-label small" for="rnd-@Question.Id">Shuffle options for each respondent (“Other” stays last)</label>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The question whose settings are edited.</summary>
+    [Parameter, EditorRequired] public QuestionDto Question { get; set; } = default!;
+
+    /// <summary>Disables editing.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>Raised after every change.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private Task ChangedAsync() => OnChanged.InvokeAsync();
+}

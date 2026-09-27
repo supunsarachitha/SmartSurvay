@@ -1,0 +1,197 @@
+@* One question in the builder: a compact header (number, type, text, badges, actions) that expands
+   into the full editor (text, description, type, required, code, options, settings, logic). *@
+
+<div class="question-editor @(Active ? "active" : "") @(Errors.Count > 0 ? "border-danger" : "")" id="q-@Question.Id" @key="Question.Id">
+    <div class="qe-header" role="button" tabindex="0" aria-expanded="@(Active ? "true" : "false")"
+         @onclick="() => OnActivate.InvokeAsync()" @onkeydown="OnHeaderKey">
+        <span class="type-icon" title="@Question.Type.DisplayName()"><i class="bi @UiFormat.QuestionTypeIcon(Question.Type)"></i></span>
+        <div class="min-w-0 flex-grow-1">
+            <div class="d-flex align-items-center gap-2">
+                <span class="qe-code">Q@(Number)</span>
+                <span class="fw-semibold text-truncate @(string.IsNullOrWhiteSpace(Question.Text) ? "text-muted fst-italic" : "")">
+                    @(string.IsNullOrWhiteSpace(Question.Text) ? "Untitled question" : Question.Text)
+                </span>
+                @if (Question.IsRequired)
+                {
+                    <span class="text-danger" title="Required">*</span>
+                }
+            </div>
+            <div class="small text-muted d-flex flex-wrap gap-2">
+                <span>@Question.Type.DisplayName()</span>
+                @if (Question.Type.IsChoice())
+                {
+                    <span>· @UiFormat.Plural(Question.Options.Count, "option")</span>
+                }
+                @if (ruleCount > 0)
+                {
+                    <span class="text-primary"><i class="bi bi-diagram-3"></i> @UiFormat.Plural(ruleCount, "rule")</span>
+                }
+                @if (Errors.Count > 0)
+                {
+                    <span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Needs attention</span>
+                }
+            </div>
+        </div>
+        @if (!ReadOnly)
+        {
+            <div class="d-flex gap-1" @onclick:stopPropagation="true">
+                <button type="button" class="btn btn-sm btn-light btn-icon" title="Move up" aria-label="Move question up" disabled="@IsFirst" @onclick="() => OnMove.InvokeAsync(-1)"><i class="bi bi-arrow-up"></i></button>
+                <button type="button" class="btn btn-sm btn-light btn-icon" title="Move down" aria-label="Move question down" disabled="@IsLast" @onclick="() => OnMove.InvokeAsync(1)"><i class="bi bi-arrow-down"></i></button>
+                <button type="button" class="btn btn-sm btn-light btn-icon" title="Duplicate" aria-label="Duplicate question" @onclick="() => OnDuplicate.InvokeAsync()"><i class="bi bi-copy"></i></button>
+                <button type="button" class="btn btn-sm btn-soft-danger btn-icon" title="Delete" aria-label="Delete question" @onclick="() => OnDelete.InvokeAsync()"><i class="bi bi-trash"></i></button>
+            </div>
+        }
+        <i class="bi @(Active ? "bi-chevron-up" : "bi-chevron-down") text-muted"></i>
+    </div>
+
+    @if (Active)
+    {
+        <div class="qe-body">
+            @if (Errors.Count > 0)
+            {
+                <div class="alert alert-danger py-2 small">
+                    @foreach (var message in Errors)
+                    {
+                        <div><i class="bi bi-exclamation-circle me-1"></i>@message</div>
+                    }
+                </div>
+            }
+
+            <div class="row g-3">
+                <div class="col-lg-8">
+                    <label class="form-label small fw-semibold" for="qt-@Question.Id">Question</label>
+                    <textarea id="qt-@Question.Id" class="form-control" rows="2" maxlength="1000" placeholder="Type your question"
+                              disabled="@ReadOnly" @bind="Question.Text" @bind:event="oninput" @bind:after="ChangedAsync"></textarea>
+                </div>
+                <div class="col-lg-4">
+                    <label class="form-label small fw-semibold" for="qtype-@Question.Id">Type</label>
+                    <select id="qtype-@Question.Id" class="form-select" disabled="@ReadOnly" value="@Question.Type" @onchange="ChangeTypeAsync">
+                        @foreach (var group in AddQuestionPicker.Groups)
+                        {
+                            <optgroup label="@group.Title">
+                                @foreach (var type in group.Types)
+                                {
+                                    <option value="@type">@type.DisplayName()</option>
+                                }
+                            </optgroup>
+                        }
+                    </select>
+                    @if (typeHint is not null)
+                    {
+                        <div class="form-text text-warning"><i class="bi bi-info-circle"></i> @typeHint</div>
+                    }
+                </div>
+                <div class="col-12">
+                    <label class="form-label small" for="qd-@Question.Id">Help text <span class="text-muted">(optional)</span></label>
+                    <input id="qd-@Question.Id" class="form-control form-control-sm" maxlength="2000" placeholder="Shown below the question"
+                           disabled="@ReadOnly" @bind="Question.Description" @bind:after="ChangedAsync" />
+                </div>
+                <div class="col-md-6 d-flex align-items-center gap-4">
+                    <div class="form-check form-switch mb-0">
+                        <input class="form-check-input" type="checkbox" id="qr-@Question.Id" disabled="@ReadOnly" @bind="Question.IsRequired" @bind:after="ChangedAsync" />
+                        <label class="form-check-label" for="qr-@Question.Id">Required</label>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="input-group input-group-sm">
+                        <span class="input-group-text" title="Short code used in exports and reports">Code</span>
+                        <input class="form-control" maxlength="50" placeholder="Automatic (Q@(Number))" aria-label="Question code"
+                               disabled="@ReadOnly" @bind="Question.Code" @bind:after="ChangedAsync" />
+                    </div>
+                </div>
+            </div>
+
+            @if (Question.Type.IsChoice())
+            {
+                <div class="mt-3">
+                    <OptionsEditor Survey="Survey" Question="Question" ReadOnly="ReadOnly" OnChanged="ChangedAsync" />
+                </div>
+            }
+
+            <details class="mt-3" open="@(HasCustomSettings ? true : null)">
+                <summary class="small fw-semibold text-muted">Answer settings</summary>
+                <div class="pt-3"><QuestionSettingsEditor Question="Question" ReadOnly="ReadOnly" OnChanged="ChangedAsync" /></div>
+            </details>
+
+            <details class="mt-3" open="@(ruleCount > 0 ? true : null)">
+                <summary class="small fw-semibold text-muted"><i class="bi bi-diagram-3 me-1"></i>Display logic</summary>
+                <div class="pt-3"><LogicRulesEditor Survey="Survey" TargetQuestion="Question" ReadOnly="ReadOnly" OnChanged="ChangedAsync" /></div>
+            </details>
+        </div>
+    }
+</div>
+
+@code {
+    private int ruleCount;
+    private string? typeHint;
+
+    /// <summary>The survey.</summary>
+    [Parameter, EditorRequired] public SurveyDefinitionDto Survey { get; set; } = default!;
+
+    /// <summary>The question.</summary>
+    [Parameter, EditorRequired] public QuestionDto Question { get; set; } = default!;
+
+    /// <summary>One-based number across the survey.</summary>
+    [Parameter] public int Number { get; set; }
+
+    /// <summary>First question of the survey (cannot move up).</summary>
+    [Parameter] public bool IsFirst { get; set; }
+
+    /// <summary>Last question of the survey (cannot move down).</summary>
+    [Parameter] public bool IsLast { get; set; }
+
+    /// <summary>Expanded.</summary>
+    [Parameter] public bool Active { get; set; }
+
+    /// <summary>Server validation messages for this question.</summary>
+    [Parameter] public IReadOnlyList<string> Errors { get; set; } = [];
+
+    /// <summary>Disables editing.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
+
+    [Parameter] public EventCallback OnActivate { get; set; }
+    [Parameter] public EventCallback OnChanged { get; set; }
+    [Parameter] public EventCallback<int> OnMove { get; set; }
+    [Parameter] public EventCallback OnDuplicate { get; set; }
+    [Parameter] public EventCallback OnDelete { get; set; }
+
+    private bool HasCustomSettings =>
+        Question.Settings.MinLength is not null || Question.Settings.MaxLength is not null || Question.Settings.MinValue is not null
+        || Question.Settings.MaxValue is not null || Question.Settings.MinSelections is not null || Question.Settings.MaxSelections is not null
+        || Question.Settings.MinDate is not null || Question.Settings.MaxDate is not null || Question.Type is QuestionType.Rating or QuestionType.Scale;
+
+    protected override void OnParametersSet() => ruleCount = Survey.LogicRules.Count(r => r.TargetQuestionId == Question.Id);
+
+    private async Task OnHeaderKey(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            await OnActivate.InvokeAsync();
+        }
+    }
+
+    private async Task ChangeTypeAsync(ChangeEventArgs e)
+    {
+        var type = Enum.Parse<QuestionType>(e.Value!.ToString()!);
+        var wasChoice = Question.Type.IsChoice();
+        Question.Type = type;
+        SurveyDesign.ApplyTypeDefaults(Question);
+        typeHint = wasChoice && !type.IsChoice() && Question.Options.Count > 0
+            ? "The answer options will be removed when you save."
+            : null;
+
+        // Conditions on this question must use operators of the new type.
+        foreach (var condition in Survey.LogicRules.SelectMany(r => r.Conditions).Where(c => c.SourceQuestionId == Question.Id))
+        {
+            SurveyDesign.ResetCondition(condition, Question);
+        }
+
+        await ChangedAsync();
+    }
+
+    private async Task ChangedAsync()
+    {
+        ruleCount = Survey.LogicRules.Count(r => r.TargetQuestionId == Question.Id);
+        await OnChanged.InvokeAsync();
+    }
+}

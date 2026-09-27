@@ -1,0 +1,46 @@
+@* "Add question" dropdown with a grid of question types grouped by kind. *@
+
+<div class="dropdown @Class">
+    <button type="button" class="btn @(Small ? "btn-sm" : "") btn-soft-primary" data-bs-toggle="dropdown" aria-expanded="false" disabled="@Disabled">
+        <i class="bi bi-plus-lg"></i>@Text
+    </button>
+    <div class="dropdown-menu p-3 shadow" style="width:min(560px, 92vw)">
+        @foreach (var group in Groups)
+        {
+            <div class="small-caps text-muted mb-2 @(group == Groups[0] ? "" : "mt-3")">@group.Title</div>
+            <div class="type-picker">
+                @foreach (var type in group.Types)
+                {
+                    <button type="button" @onclick="() => OnPick.InvokeAsync(type)">
+                        <span class="type-icon"><i class="bi @UiFormat.QuestionTypeIcon(type)"></i></span>@type.DisplayName()
+                    </button>
+                }
+            </div>
+        }
+    </div>
+</div>
+
+@code {
+    /// <summary>Question types grouped for the picker.</summary>
+    public static readonly IReadOnlyList<(string Title, QuestionType[] Types)> Groups =
+    [
+        ("Text", [QuestionType.ShortText, QuestionType.LongText, QuestionType.Email]),
+        ("Choice", [QuestionType.Radio, QuestionType.Checkbox, QuestionType.Dropdown]),
+        ("Numbers, dates & ratings", [QuestionType.Number, QuestionType.Date, QuestionType.Rating, QuestionType.Scale]),
+    ];
+
+    /// <summary>Button text.</summary>
+    [Parameter] public string Text { get; set; } = "Add question";
+
+    /// <summary>Small button.</summary>
+    [Parameter] public bool Small { get; set; }
+
+    /// <summary>Disables the button.</summary>
+    [Parameter] public bool Disabled { get; set; }
+
+    /// <summary>Extra classes for the wrapper.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>Raised with the chosen type.</summary>
+    [Parameter] public EventCallback<QuestionType> OnPick { get; set; }
+}

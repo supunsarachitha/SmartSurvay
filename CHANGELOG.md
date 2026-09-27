@@ -51,6 +51,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Public pages**: landing page with branded hero and feature overview, searchable FAQ, Buy Me a Coffee support page,
   open-surveys page (start/continue/completed states, member-only hint for guests) and "My responses"; restyled sign-in,
   registration, password-reset and account-settings pages; the user menu shows the account's display name.
+- **Survey management UI**: survey list with search, status/template filters, paging and actions (publish, close,
+  reopen, archive, restore, duplicate, save as template, export/import definition, delete); survey builder with pages,
+  10 question types, answer options (incl. "Other" with text box and pasting a list), per-type answer settings,
+  question and page display logic, outline, inline server validation and unsaved-changes protection; share page with
+  link, QR code (SVG/PNG) and invitation text.
 - Hosting: persistent data-protection keys, optional forwarded headers, configurable HTTPS redirect;
   cookie-or-bearer default authentication scheme; string enums in API JSON.
 - DevOps: Dockerfile, docker-compose (app + PostgreSQL), GitHub Actions CI, `scripts/smoke.sh`.

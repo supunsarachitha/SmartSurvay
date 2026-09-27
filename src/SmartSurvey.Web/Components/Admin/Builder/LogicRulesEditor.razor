@@ -1,0 +1,251 @@
+@* Display logic of one question or page: Show/Hide rules with All/Any conditions on earlier
+   questions. Operators and value inputs adapt to the source question's type. *@
+
+@if (sources.Count == 0)
+{
+    <p class="small text-muted mb-0">
+        <i class="bi bi-info-circle me-1"></i>Rules can only use questions that come before this @Noun. Add a question above it to create a rule.
+    </p>
+}
+else
+{
+    @foreach (var rule in rules)
+    {
+        <div class="logic-rule" @key="rule.Id">
+            <div class="d-flex flex-wrap gap-2 align-items-center mb-2 small">
+                <select class="form-select form-select-sm w-auto" aria-label="Rule action" disabled="@ReadOnly"
+                        value="@rule.Action" @onchange="e => SetAction(rule, e)">
+                    <option value="@LogicAction.Show">Show</option>
+                    <option value="@LogicAction.Hide">Hide</option>
+                </select>
+                <span>this @Noun when</span>
+                <select class="form-select form-select-sm w-auto" aria-label="Match type" disabled="@ReadOnly"
+                        value="@rule.MatchType" @onchange="e => SetMatch(rule, e)">
+                    <option value="@LogicMatchType.All">all</option>
+                    <option value="@LogicMatchType.Any">any</option>
+                </select>
+                <span>of these conditions are true:</span>
+                @if (!ReadOnly)
+                {
+                    <button type="button" class="btn btn-sm btn-soft-danger btn-icon ms-auto" title="Remove rule" aria-label="Remove rule" @onclick="() => RemoveRule(rule)"><i class="bi bi-trash"></i></button>
+                }
+            </div>
+
+            @foreach (var condition in rule.Conditions)
+            {
+                var source = sources.FirstOrDefault(p => p.Question.Id == condition.SourceQuestionId)?.Question;
+                <div class="row g-2 align-items-center mb-2" @key="condition.Id">
+                    <div class="col-md-5">
+                        <select class="form-select form-select-sm" aria-label="Question" disabled="@ReadOnly"
+                                value="@condition.SourceQuestionId" @onchange="e => SetSource(condition, e)">
+                            @if (source is null)
+                            {
+                                <option value="@condition.SourceQuestionId">(question no longer available)</option>
+                            }
+                            @foreach (var placed in sources)
+                            {
+                                <option value="@placed.Question.Id">@Label(placed)</option>
+                            }
+                        </select>
+                    </div>
+                    @if (source is not null)
+                    {
+                        <div class="col-md-3">
+                            <select class="form-select form-select-sm" aria-label="Comparison" disabled="@ReadOnly"
+                                    value="@condition.Operator" @onchange="e => SetOperator(condition, e)">
+                                @foreach (var op in source.Type.SupportedOperators())
+                                {
+                                    <option value="@op">@SurveyDesign.OperatorLabel(source.Type, op)</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            @if (SurveyDesign.NeedsOption(source.Type, condition.Operator))
+                            {
+                                <select class="form-select form-select-sm" aria-label="Option" disabled="@ReadOnly"
+                                        value="@condition.OptionId" @onchange="e => SetOption(condition, e)">
+                                    @foreach (var option in source.Options)
+                                    {
+                                        <option value="@option.Id">@(string.IsNullOrWhiteSpace(option.Text) ? "(empty option)" : option.Text)</option>
+                                    }
+                                </select>
+                            }
+                            else if (SurveyDesign.NeedsValue(source.Type, condition.Operator))
+                            {
+                                <input class="form-control form-control-sm" aria-label="Value" disabled="@ReadOnly"
+                                       type="@(source.Type.IsNumeric() ? "number" : source.Type.IsDate() ? "date" : "text")"
+                                       step="@(source.Type.IsNumeric() ? "any" : null)"
+                                       placeholder="@(source.Type.IsNumeric() ? "Number" : "Text")"
+                                       value="@condition.Value" @onchange="e => SetValue(condition, e)" />
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="col-md-6 small text-danger">This condition refers to a question that was moved below or deleted.</div>
+                    }
+                    @if (!ReadOnly)
+                    {
+                        <div class="col-md-1 text-end">
+                            <button type="button" class="btn btn-sm btn-light btn-icon" title="Remove condition" aria-label="Remove condition" @onclick="() => RemoveCondition(rule, condition)"><i class="bi bi-x-lg"></i></button>
+                        </div>
+                    }
+                </div>
+            }
+
+            @if (!ReadOnly)
+            {
+                <button type="button" class="btn btn-sm btn-link px-0" @onclick="() => AddCondition(rule)"><i class="bi bi-plus"></i>Add condition</button>
+            }
+        </div>
+    }
+
+    @if (!ReadOnly)
+    {
+        <button type="button" class="btn btn-sm btn-soft-primary" @onclick="AddRule"><i class="bi bi-diagram-3"></i>Add display rule</button>
+    }
+
+    @if (rules.Count > 0)
+    {
+        <p class="form-text mb-0 mt-2">
+            With a “Show” rule the @Noun stays hidden until the rule matches. If “Show” and “Hide” rules both match, it is hidden.
+            Hidden questions are skipped and never required.
+        </p>
+    }
+}
+
+@code {
+    private List<LogicRuleDto> rules = [];
+    private List<PlacedQuestion> sources = [];
+
+    /// <summary>The survey being edited.</summary>
+    [Parameter, EditorRequired] public SurveyDefinitionDto Survey { get; set; } = default!;
+
+    /// <summary>Target question (set this or <see cref="TargetSection"/>).</summary>
+    [Parameter] public QuestionDto? TargetQuestion { get; set; }
+
+    /// <summary>Target page.</summary>
+    [Parameter] public SectionDto? TargetSection { get; set; }
+
+    /// <summary>Disables editing.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>Raised after every change.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private string Noun => TargetQuestion is null ? "page" : "question";
+
+    protected override void OnParametersSet() => Refresh();
+
+    private void Refresh()
+    {
+        if (TargetQuestion is not null)
+        {
+            rules = SurveyDesign.RulesFor(Survey, TargetQuestion);
+            sources = SurveyDesign.QuestionsBefore(Survey, TargetQuestion.Id);
+        }
+        else if (TargetSection is not null)
+        {
+            rules = SurveyDesign.RulesFor(Survey, TargetSection);
+            sources = SurveyDesign.QuestionsBeforeSection(Survey, TargetSection.Id);
+        }
+    }
+
+    private static string Label(PlacedQuestion placed)
+    {
+        var text = string.IsNullOrWhiteSpace(placed.Question.Text) ? "Untitled question" : placed.Question.Text;
+        if (text.Length > 60)
+        {
+            text = text[..57] + "…";
+        }
+
+        return $"Q{placed.Number}. {text}";
+    }
+
+    private Task AddRule()
+    {
+        var rule = new LogicRuleDto
+        {
+            TargetQuestionId = TargetQuestion?.Id,
+            TargetSectionId = TargetQuestion is null ? TargetSection?.Id : null,
+            Action = LogicAction.Show,
+            MatchType = LogicMatchType.All,
+        };
+
+        // The nearest earlier question is the most likely trigger.
+        rule.Conditions.Add(SurveyDesign.NewCondition(sources[^1].Question));
+        Survey.LogicRules.Add(rule);
+        return ChangedAsync();
+    }
+
+    private Task RemoveRule(LogicRuleDto rule)
+    {
+        Survey.LogicRules.Remove(rule);
+        return ChangedAsync();
+    }
+
+    private Task AddCondition(LogicRuleDto rule)
+    {
+        rule.Conditions.Add(SurveyDesign.NewCondition(sources[^1].Question));
+        return ChangedAsync();
+    }
+
+    private Task RemoveCondition(LogicRuleDto rule, LogicConditionDto condition)
+    {
+        rule.Conditions.Remove(condition);
+        if (rule.Conditions.Count == 0)
+        {
+            Survey.LogicRules.Remove(rule);
+        }
+
+        return ChangedAsync();
+    }
+
+    private Task SetAction(LogicRuleDto rule, ChangeEventArgs e)
+    {
+        rule.Action = Enum.Parse<LogicAction>(e.Value!.ToString()!);
+        return ChangedAsync();
+    }
+
+    private Task SetMatch(LogicRuleDto rule, ChangeEventArgs e)
+    {
+        rule.MatchType = Enum.Parse<LogicMatchType>(e.Value!.ToString()!);
+        return ChangedAsync();
+    }
+
+    private Task SetSource(LogicConditionDto condition, ChangeEventArgs e)
+    {
+        var source = sources.FirstOrDefault(p => p.Question.Id.ToString() == e.Value?.ToString())?.Question;
+        if (source is not null)
+        {
+            condition.SourceQuestionId = source.Id;
+            SurveyDesign.ResetCondition(condition, source);
+        }
+
+        return ChangedAsync();
+    }
+
+    private Task SetOperator(LogicConditionDto condition, ChangeEventArgs e)
+    {
+        condition.Operator = Enum.Parse<ConditionOperator>(e.Value!.ToString()!);
+        return ChangedAsync();
+    }
+
+    private Task SetOption(LogicConditionDto condition, ChangeEventArgs e)
+    {
+        condition.OptionId = Guid.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        return ChangedAsync();
+    }
+
+    private Task SetValue(LogicConditionDto condition, ChangeEventArgs e)
+    {
+        condition.Value = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString()!.Trim();
+        return ChangedAsync();
+    }
+
+    private async Task ChangedAsync()
+    {
+        Refresh();
+        await OnChanged.InvokeAsync();
+    }
+}

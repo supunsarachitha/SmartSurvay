@@ -1,0 +1,677 @@
+@page "/admin/surveys/new"
+@page "/admin/surveys/{Id:guid}/edit"
+@rendermode InteractiveServer
+@using SmartSurvey.Web.Components.Admin.Builder
+@inject ISurveyService SurveyService
+@inject ToastService Toasts
+@inject BrowserInterop Browser
+@inject NavigationManager Navigation
+@inject ILogger<SurveyBuilder> Logger
+@* Survey builder: pages, questions, options, settings and display logic with an outline, validation
+   summary and unsaved-changes protection. New surveys are only created when first saved. *@
+
+<NavigationLock ConfirmExternalNavigation="dirty" OnBeforeInternalNavigation="ConfirmLeaveAsync" />
+
+@if (loadError is not null)
+{
+    <PageHeader Title="Survey not available" />
+    <EmptyState Icon="bi-exclamation-circle" Title="This survey can't be opened" Message="@loadError">
+        <a class="btn btn-primary" href="admin/surveys"><i class="bi bi-arrow-left"></i>Back to surveys</a>
+    </EmptyState>
+}
+else if (model is null)
+{
+    <LoadingSpinner Text="Loading survey…" />
+}
+else
+{
+    <PageHeader Title="@(string.IsNullOrWhiteSpace(model.Title) ? "Untitled survey" : model.Title)"
+                Subtitle="@(isNew ? "New survey — it is saved as a draft the first time you save." : $"Version {model.Version} · last saved {UiFormat.Relative(model.UpdatedAt ?? model.CreatedAt)}")">
+        <Breadcrumb>
+            <li class="breadcrumb-item"><a href="admin">Admin</a></li>
+            <li class="breadcrumb-item"><a href="admin/surveys">Surveys</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@(isNew ? "New" : "Edit")</li>
+        </Breadcrumb>
+        <TitleSuffix>
+            @if (!isNew)
+            {
+                <StatusBadge SurveyStatus="model.Status" Class="ms-2 align-middle fs-6" />
+            }
+        </TitleSuffix>
+        <Actions>
+            @if (!isNew)
+            {
+                <button class="btn btn-light" @onclick='() => GoAsync($"admin/surveys/{model.Id}/preview")'><i class="bi bi-eye"></i>Preview</button>
+                <button class="btn btn-light" @onclick='() => GoAsync($"admin/surveys/{model.Id}/share")'><i class="bi bi-share"></i>Share</button>
+                @if (SurveyUi.ActionsFor(model.Status) is { Count: > 0 } actions)
+                {
+                    <div class="dropdown">
+                        <button class="btn btn-light" data-bs-toggle="dropdown" aria-expanded="false" disabled="@saving"><i class="bi bi-flag"></i>Status</button>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            @foreach (var action in actions)
+                            {
+                                <li><button class="dropdown-item @(action.Danger ? "text-danger" : "")" @onclick="() => ChangeStatusAsync(action)"><i class="bi @action.Icon"></i>@action.Label</button></li>
+                            }
+                        </ul>
+                    </div>
+                }
+            }
+            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(saving || readOnly || (!dirty && !isNew))">
+                @if (saving)
+                {
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Saving…</span>
+                }
+                else
+                {
+                    <i class="bi bi-check2"></i><span>@(isNew ? "Create survey" : dirty ? "Save changes" : "Saved")</span>
+                }
+            </button>
+        </Actions>
+    </PageHeader>
+
+    @if (readOnly)
+    {
+        <div class="alert alert-warning d-flex flex-wrap align-items-center gap-2 justify-content-between">
+            <span><i class="bi bi-archive me-2"></i>This survey is archived and read-only. Restore it to draft to edit it.</span>
+            <button class="btn btn-sm btn-warning" @onclick="() => ChangeStatusAsync(SurveyUi.Describe(SurveyStatus.Archived, SurveyStatus.Draft))">Restore to draft</button>
+        </div>
+    }
+    else if (model.Status == SurveyStatus.Published)
+    {
+        <div class="alert alert-info small d-flex gap-2">
+            <i class="bi bi-broadcast"></i>
+            <span>This survey is live. Changes apply to new responses as soon as you save; deleting a question also removes its answers from reports.</span>
+        </div>
+    }
+
+    @if (conflict)
+    {
+        <div class="alert alert-danger d-flex flex-wrap align-items-center gap-2 justify-content-between">
+            <span><i class="bi bi-people me-2"></i>Someone else saved this survey while you were editing. Reload to get their version (your unsaved changes will be lost).</span>
+            <button class="btn btn-sm btn-danger" @onclick="ReloadAsync"><i class="bi bi-arrow-clockwise"></i>Reload</button>
+        </div>
+    }
+
+    <ul class="nav nav-tabs mb-3">
+        <li class="nav-item">
+            <button class="nav-link @(tab == Tab.Questions ? "active" : "")" @onclick="() => tab = Tab.Questions">
+                <i class="bi bi-list-check me-1"></i>Questions <span class="badge rounded-pill text-bg-light ms-1">@placed.Count</span>
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link @(tab == Tab.Settings ? "active" : "")" @onclick="() => tab = Tab.Settings">
+                <i class="bi bi-sliders me-1"></i>Settings
+                @if (surveyErrors.Count > 0)
+                {
+                    <span class="badge rounded-pill text-bg-danger ms-1">@surveyErrors.Count</span>
+                }
+            </button>
+        </li>
+    </ul>
+
+    <div class="builder-layout">
+        <div class="min-w-0">
+            @if (tab == Tab.Settings)
+            {
+                <SurveySettingsForm Survey="model" Errors="surveyErrors" ReadOnly="readOnly" OnChanged="MarkDirty" />
+            }
+            else
+            {
+                @for (var s = 0; s < model.Sections.Count; s++)
+                {
+                    var section = model.Sections[s];
+                    var sectionIndex = s;
+                    var sectionErrors = SectionErrors(sectionIndex);
+                    <div class="section-block" @key="section.Id" id="@($"p-{section.Id}")">
+                        <div class="section-block-header">
+                            <span class="badge text-bg-primary">Page @(s + 1)</span>
+                            <input class="form-control form-control-sm fw-semibold border-0 bg-transparent px-1" aria-label="Page title" placeholder="Page title"
+                                   maxlength="200" disabled="@readOnly" @bind="section.Title" @bind:after="MarkDirty" />
+                            @if (!readOnly)
+                            {
+                                <div class="d-flex gap-1 ms-auto">
+                                    <button class="btn btn-sm btn-light btn-icon" title="Move page up" aria-label="Move page up" disabled="@(s == 0)" @onclick="() => MoveSection(section, -1)"><i class="bi bi-chevron-double-up"></i></button>
+                                    <button class="btn btn-sm btn-light btn-icon" title="Move page down" aria-label="Move page down" disabled="@(s == model.Sections.Count - 1)" @onclick="() => MoveSection(section, 1)"><i class="bi bi-chevron-double-down"></i></button>
+                                    <button class="btn btn-sm btn-soft-danger btn-icon" title="Delete page" aria-label="Delete page" disabled="@(model.Sections.Count == 1)" @onclick="() => DeleteSectionAsync(section)"><i class="bi bi-trash"></i></button>
+                                </div>
+                            }
+                        </div>
+                        <div class="section-block-body">
+                            @if (sectionErrors.Count > 0)
+                            {
+                                <div class="alert alert-danger py-2 small">@string.Join(" ", sectionErrors)</div>
+                            }
+                            <input class="form-control form-control-sm mb-3" aria-label="Page description" placeholder="Page description (optional)"
+                                   maxlength="2000" disabled="@readOnly" @bind="section.Description" @bind:after="MarkDirty" />
+
+                            @if (section.Questions.Count == 0)
+                            {
+                                <div class="text-center text-muted small py-3 border rounded-3 mb-3">This page has no questions yet.</div>
+                            }
+                            @foreach (var question in section.Questions)
+                            {
+                                var place = placed.First(p => p.Question == question);
+                                <QuestionEditor @key="question.Id" Survey="model" Question="question" Number="place.Number"
+                                                IsFirst="place.Number == 1" IsLast="place.Number == placed.Count"
+                                                Active="activeQuestionId == question.Id" Errors="QuestionErrors(question)" ReadOnly="readOnly"
+                                                OnActivate="() => ToggleActive(question)" OnChanged="MarkDirty"
+                                                OnMove="delta => MoveQuestion(question, delta)"
+                                                OnDuplicate="() => DuplicateQuestion(section, question)"
+                                                OnDelete="() => DeleteQuestionAsync(question)" />
+                            }
+
+                            @if (!readOnly)
+                            {
+                                <div class="d-flex flex-wrap gap-2 align-items-center">
+                                    <AddQuestionPicker Small="true" OnPick="type => AddQuestion(section, type)" />
+                                    <details class="small">
+                                        <summary class="text-muted">Page logic @(SurveyDesign.RulesFor(model, section).Count is var n && n > 0 ? $"({n})" : "")</summary>
+                                        <div class="pt-2"><LogicRulesEditor Survey="model" TargetSection="section" ReadOnly="readOnly" OnChanged="MarkDirty" /></div>
+                                    </details>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (!readOnly)
+                {
+                    <button class="btn btn-light w-100 border-dashed py-3" @onclick="AddSection"><i class="bi bi-file-earmark-plus"></i>Add page</button>
+                }
+            }
+        </div>
+
+        <aside class="builder-aside">
+            @if (errorCount > 0)
+            {
+                <div class="card border-danger mb-3">
+                    <div class="card-body">
+                        <h2 class="h6 text-danger mb-2"><i class="bi bi-exclamation-triangle me-1"></i>@UiFormat.Plural(errorCount, "problem") to fix</h2>
+                        <ul class="small mb-0 ps-3">
+                            @foreach (var (location, message, target) in errorList.Take(8))
+                            {
+                                <li><a href="javascript:void(0)" class="text-danger" @onclick="() => FocusAsync(target)">@location:</a> @message</li>
+                            }
+                        </ul>
+                        @if (errorList.Count > 8)
+                        {
+                            <div class="small text-muted mt-1">…and @(errorList.Count - 8) more.</div>
+                        }
+                    </div>
+                </div>
+            }
+
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">Outline</h2>
+                    <div class="d-flex gap-3 small text-muted mb-3">
+                        <span><i class="bi bi-file-earmark"></i> @UiFormat.Plural(model.Sections.Count, "page")</span>
+                        <span><i class="bi bi-list-ol"></i> @UiFormat.Plural(placed.Count, "question")</span>
+                        <span><i class="bi bi-diagram-3"></i> @UiFormat.Plural(model.LogicRules.Count, "rule")</span>
+                    </div>
+                    <ol class="list-unstyled small mb-0" style="max-height:50vh;overflow:auto">
+                        @for (var s = 0; s < model.Sections.Count; s++)
+                        {
+                            var section = model.Sections[s];
+                            <li class="fw-semibold mt-2">@(string.IsNullOrWhiteSpace(section.Title) ? $"Page {s + 1}" : section.Title)</li>
+                            @foreach (var question in section.Questions)
+                            {
+                                var number = placed.First(p => p.Question == question).Number;
+                                <li>
+                                    <a href="javascript:void(0)" class="d-flex gap-2 py-1 text-decoration-none @(activeQuestionId == question.Id ? "fw-semibold" : "text-body")"
+                                       @onclick="() => FocusAsync(question.Id)">
+                                        <span class="text-muted">Q@(number)</span>
+                                        <span class="text-truncate">@(string.IsNullOrWhiteSpace(question.Text) ? "Untitled question" : question.Text)</span>
+                                    </a>
+                                </li>
+                            }
+                        }
+                    </ol>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body small text-muted">
+                    <div class="fw-semibold text-body mb-1"><i class="bi bi-lightbulb me-1"></i>Tips</div>
+                    <ul class="ps-3 mb-0">
+                        <li>Choice questions can include an “Other” option with a text box.</li>
+                        <li>Use display logic to show follow-up questions only when they matter.</li>
+                        <li>Split long surveys into pages — respondents see their progress.</li>
+                    </ul>
+                </div>
+            </div>
+        </aside>
+    </div>
+}
+
+<ConfirmDialog @ref="confirm" />
+
+@code {
+    private enum Tab { Questions, Settings }
+
+    private SurveyDefinitionDto? model;
+    private List<PlacedQuestion> placed = [];
+    private HashSet<Guid> savedQuestionIds = [];
+    private ConfirmDialog confirm = default!;
+    private Tab tab = Tab.Questions;
+    private Guid? activeQuestionId;
+    private bool isNew;
+    private bool dirty;
+    private bool saving;
+    private bool conflict;
+    private bool leaveConfirmed;
+    private string? loadError;
+
+    // Server validation errors (keys are property paths such as "Sections[0].Questions[1].Text").
+    private IReadOnlyDictionary<string, string[]> errors = new Dictionary<string, string[]>();
+    private List<LogicRuleDto> rulesAtSave = [];
+    private Dictionary<string, string[]> surveyErrors = [];
+    private List<(string Location, string Message, Guid Target)> errorList = [];
+    private int errorCount;
+
+    /// <summary>Survey id (edit mode).</summary>
+    [Parameter] public Guid? Id { get; set; }
+
+    private bool readOnly => model?.Status == SurveyStatus.Archived;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (model is not null && model.Id == Id && !isNew)
+        {
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        loadError = null;
+        conflict = false;
+        dirty = false;
+        ClearErrors();
+
+        if (Id is null)
+        {
+            isNew = true;
+            model = new SurveyDefinitionDto
+            {
+                Title = "Untitled survey",
+                AllowAnonymous = true,
+                ShowProgressBar = true,
+                ShowQuestionNumbers = true,
+                ThankYouMessage = "Thank you for your time! Your response has been recorded.",
+            };
+            var first = SurveyDesign.AddSection(model);
+            first.Title = "Page 1";
+            activeQuestionId = first.Questions[0].Id;
+            savedQuestionIds = [];
+        }
+        else
+        {
+            try
+            {
+                isNew = false;
+                model = await SurveyService.GetAsync(Id.Value);
+                savedQuestionIds = model.AllQuestions().Select(q => q.Id).ToHashSet();
+                activeQuestionId ??= model.AllQuestions().FirstOrDefault()?.Id;
+            }
+            catch (Exception ex) when (UiErrors.IsExpected(ex))
+            {
+                loadError = UiErrors.Describe(ex);
+                model = null;
+            }
+        }
+
+        Refresh();
+    }
+
+    private void Refresh()
+    {
+        if (model is not null)
+        {
+            placed = SurveyDesign.Placed(model);
+        }
+
+        BuildErrorList();
+    }
+
+    private void MarkDirty()
+    {
+        dirty = true;
+        Refresh();
+    }
+
+    private void MarkStructureChanged()
+    {
+        // Error keys are index based; structural edits would point them at the wrong items.
+        ClearErrors();
+        MarkDirty();
+    }
+
+    private void ToggleActive(QuestionDto question) =>
+        activeQuestionId = activeQuestionId == question.Id ? null : question.Id;
+
+    private void AddQuestion(SectionDto section, QuestionType type)
+    {
+        var question = SurveyDesign.AddQuestion(section, type);
+        activeQuestionId = question.Id;
+        MarkStructureChanged();
+    }
+
+    private void DuplicateQuestion(SectionDto section, QuestionDto question)
+    {
+        activeQuestionId = SurveyDesign.DuplicateQuestion(section, question).Id;
+        MarkStructureChanged();
+    }
+
+    private void MoveQuestion(QuestionDto question, int delta)
+    {
+        if (SurveyDesign.MoveQuestion(model!, question, delta))
+        {
+            MarkStructureChanged();
+        }
+    }
+
+    private async Task DeleteQuestionAsync(QuestionDto question)
+    {
+        var answers = 0;
+        if (savedQuestionIds.Contains(question.Id))
+        {
+            try
+            {
+                answers = await SurveyService.CountAnswersAsync(question.Id);
+            }
+            catch (Exception ex) when (UiErrors.IsExpected(ex))
+            {
+                Logger.LogDebug(ex, "Could not count answers of question {QuestionId}", question.Id);
+            }
+        }
+
+        var usedByLogic = model!.LogicRules.Any(r => r.TargetQuestionId == question.Id || r.Conditions.Any(c => c.SourceQuestionId == question.Id));
+        var details = new List<string>();
+        if (answers > 0)
+        {
+            details.Add($"It has {UiFormat.Plural(answers, "answer")}, which will be deleted when you save.");
+        }
+
+        if (usedByLogic)
+        {
+            details.Add("Display rules that use it will be removed too.");
+        }
+
+        var title = string.IsNullOrWhiteSpace(question.Text) ? "this question" : $"“{question.Text}”";
+        if ((answers > 0 || usedByLogic || !string.IsNullOrWhiteSpace(question.Text))
+            && !await confirm.ShowAsync($"Delete {title}?", details.Count > 0 ? string.Join(" ", details) : null, "Delete question", danger: true))
+        {
+            return;
+        }
+
+        SurveyDesign.DeleteQuestion(model, question);
+        if (activeQuestionId == question.Id)
+        {
+            activeQuestionId = null;
+        }
+
+        MarkStructureChanged();
+    }
+
+    private void AddSection()
+    {
+        var section = SurveyDesign.AddSection(model!);
+        activeQuestionId = section.Questions[0].Id;
+        MarkStructureChanged();
+    }
+
+    private void MoveSection(SectionDto section, int delta)
+    {
+        if (SurveyDesign.MoveSection(model!, section, delta))
+        {
+            MarkStructureChanged();
+        }
+    }
+
+    private async Task DeleteSectionAsync(SectionDto section)
+    {
+        var message = section.Questions.Count > 0
+            ? $"Its {UiFormat.Plural(section.Questions.Count, "question")} (and their answers, once saved) will be deleted, together with display rules that use them."
+            : null;
+        if (!await confirm.ShowAsync($"Delete page “{(string.IsNullOrWhiteSpace(section.Title) ? "Untitled" : section.Title)}”?", message, "Delete page", danger: true))
+        {
+            return;
+        }
+
+        SurveyDesign.DeleteSection(model!, section);
+        MarkStructureChanged();
+    }
+
+    private async Task<bool> SaveAsync()
+    {
+        if (model is null || saving)
+        {
+            return false;
+        }
+
+        saving = true;
+        try
+        {
+            rulesAtSave = model.LogicRules.ToList();
+            if (isNew)
+            {
+                var created = await SurveyService.CreateAsync(model);
+                dirty = false;
+                leaveConfirmed = true;
+                Toasts.Success("Survey created", "It's saved as a draft. Publish it when you're ready.");
+                Navigation.NavigateTo($"admin/surveys/{created.Id}/edit", replace: true);
+                return true;
+            }
+
+            model = await SurveyService.UpdateAsync(model.Id, model);
+            savedQuestionIds = model.AllQuestions().Select(q => q.Id).ToHashSet();
+            dirty = false;
+            ClearErrors();
+            Refresh();
+            Toasts.Success("Changes saved");
+            return true;
+        }
+        catch (AppValidationException ex)
+        {
+            errors = ex.Errors;
+            BuildErrorList();
+            Toasts.Error("Please fix the highlighted problems", $"{UiFormat.Plural(errorCount, "problem")} found.");
+            return false;
+        }
+        catch (ConflictException ex)
+        {
+            conflict = ex.Message.Contains("modified by someone else", StringComparison.OrdinalIgnoreCase);
+            Toasts.Error("Could not save", ex.Message);
+            return false;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not save", UiErrors.Describe(ex));
+            return false;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task ChangeStatusAsync(SurveyStatusAction action)
+    {
+        if (model is null || !await confirm.ShowAsync($"{action.Label} this survey?", action.Confirmation, action.Label, action.Danger))
+        {
+            return;
+        }
+
+        if (dirty && !await SaveAsync())
+        {
+            return;
+        }
+
+        try
+        {
+            model = await SurveyService.ChangeStatusAsync(model.Id, action.Target);
+            Toasts.Success($"Survey {action.Target.ToString().ToLowerInvariant()}");
+            Refresh();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error($"Could not {action.Label.ToLowerInvariant()} the survey", UiErrors.Describe(ex));
+        }
+    }
+
+    private async Task ReloadAsync()
+    {
+        dirty = false;
+        await LoadAsync();
+    }
+
+    private async Task GoAsync(string url)
+    {
+        if (dirty && !await SaveAsync())
+        {
+            return;
+        }
+
+        Navigation.NavigateTo(url);
+    }
+
+    private async Task ConfirmLeaveAsync(LocationChangingContext context)
+    {
+        if (!dirty || leaveConfirmed)
+        {
+            return;
+        }
+
+        if (!await confirm.ShowAsync("Leave without saving?", "You have unsaved changes that will be lost.", "Leave page", danger: true, cancelText: "Stay"))
+        {
+            context.PreventNavigation();
+        }
+    }
+
+    private async Task FocusAsync(Guid target)
+    {
+        if (target == Guid.Empty)
+        {
+            tab = Tab.Settings;
+            return;
+        }
+
+        tab = Tab.Questions;
+        if (placed.Any(p => p.Question.Id == target))
+        {
+            activeQuestionId = target;
+        }
+
+        StateHasChanged();
+        await Task.Yield();
+        await Browser.ScrollIntoViewAsync(placed.Any(p => p.Question.Id == target) ? $"#q-{target}" : $"#p-{target}");
+    }
+
+    // ------------------------------------------------------------------ validation errors
+
+    private void ClearErrors()
+    {
+        errors = new Dictionary<string, string[]>();
+        rulesAtSave = [];
+        BuildErrorList();
+    }
+
+    private IReadOnlyList<string> QuestionErrors(QuestionDto question)
+    {
+        var place = placed.FirstOrDefault(p => p.Question == question);
+        if (place is null || errors.Count == 0)
+        {
+            return [];
+        }
+
+        var questionIndex = place.Section.Questions.IndexOf(question);
+        var prefix = $"Sections[{place.SectionIndex}].Questions[{questionIndex}]";
+        var ruleIndexes = rulesAtSave.Select((r, i) => (r, i)).Where(x => x.r.TargetQuestionId == question.Id).Select(x => $"LogicRules[{x.i}]").ToList();
+
+        return errors
+            .Where(e => e.Key.StartsWith(prefix, StringComparison.Ordinal) || ruleIndexes.Any(r => e.Key.StartsWith(r, StringComparison.Ordinal)))
+            .SelectMany(e => e.Value)
+            .Distinct()
+            .ToList();
+    }
+
+    private IReadOnlyList<string> SectionErrors(int sectionIndex)
+    {
+        var prefix = $"Sections[{sectionIndex}]";
+        var sectionId = model!.Sections[sectionIndex].Id;
+        var ruleIndexes = rulesAtSave.Select((r, i) => (r, i)).Where(x => x.r.TargetSectionId == sectionId).Select(x => $"LogicRules[{x.i}]").ToList();
+
+        return errors
+            .Where(e => (e.Key == prefix || (e.Key.StartsWith(prefix + ".", StringComparison.Ordinal) && !e.Key.StartsWith(prefix + ".Questions", StringComparison.Ordinal)))
+                        || ruleIndexes.Any(r => e.Key.StartsWith(r, StringComparison.Ordinal)))
+            .SelectMany(e => e.Value)
+            .Distinct()
+            .ToList();
+    }
+
+    private void BuildErrorList()
+    {
+        errorList = [];
+        surveyErrors = [];
+        if (model is null || errors.Count == 0)
+        {
+            errorCount = 0;
+            return;
+        }
+
+        foreach (var (key, messages) in errors)
+        {
+            var (location, target) = Locate(key);
+            if (target == Guid.Empty)
+            {
+                surveyErrors[key] = messages;
+            }
+
+            foreach (var message in messages.Distinct())
+            {
+                errorList.Add((location, message, target));
+            }
+        }
+
+        errorCount = errorList.Count;
+    }
+
+    /// <summary>Human-readable location and focus target (question/page id; empty = settings) of an error key.</summary>
+    private (string Location, Guid Target) Locate(string key)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(key, @"^Sections\[(\d+)\](?:\.Questions\[(\d+)\])?");
+        if (match.Success && int.TryParse(match.Groups[1].Value, out var s) && s < model!.Sections.Count)
+        {
+            var section = model.Sections[s];
+            if (match.Groups[2].Success && int.TryParse(match.Groups[2].Value, out var q) && q < section.Questions.Count)
+            {
+                var question = section.Questions[q];
+                return ($"Q{placed.First(p => p.Question == question).Number}", question.Id);
+            }
+
+            return ($"Page {s + 1}", section.Id);
+        }
+
+        var rule = System.Text.RegularExpressions.Regex.Match(key, @"^LogicRules\[(\d+)\]");
+        if (rule.Success && int.TryParse(rule.Groups[1].Value, out var r) && r < rulesAtSave.Count)
+        {
+            var target = rulesAtSave[r];
+            if (target.TargetQuestionId is { } questionId && placed.FirstOrDefault(p => p.Question.Id == questionId) is { } p)
+            {
+                return ($"Logic of Q{p.Number}", questionId);
+            }
+
+            if (target.TargetSectionId is { } sectionId && model!.Sections.FindIndex(x => x.Id == sectionId) is var index and >= 0)
+            {
+                return ($"Logic of page {index + 1}", sectionId);
+            }
+
+            return ("Display logic", Guid.Empty);
+        }
+
+        return (key.Length == 0 ? "Survey" : "Settings", Guid.Empty);
+    }
+}

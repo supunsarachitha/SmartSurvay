@@ -1,0 +1,198 @@
+@inject ISurveyService SurveyService
+@inject BrowserInterop Browser
+@* Survey-level settings of the builder: basics, link, access, schedule and messages. Dates are
+   edited in the browser's time zone and stored in UTC. *@
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h6 mb-3"><i class="bi bi-card-heading me-1"></i>Basics</h2>
+        <div class="mb-3">
+            <label class="form-label" for="s-title">Title</label>
+            <input id="s-title" class="form-control @Invalid("Title")" maxlength="200" disabled="@ReadOnly"
+                   @bind="Survey.Title" @bind:event="oninput" @bind:after="ChangedAsync" />
+            <FieldErrors Messages="@For("Title")" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label" for="s-desc">Description <span class="text-muted small">(shown on the survey list and start page)</span></label>
+            <textarea id="s-desc" class="form-control @Invalid("Description")" rows="3" maxlength="4000" disabled="@ReadOnly"
+                      @bind="Survey.Description" @bind:after="ChangedAsync"></textarea>
+            <FieldErrors Messages="@For("Description")" />
+        </div>
+        <div>
+            <label class="form-label" for="s-slug">Link</label>
+            <div class="input-group">
+                <span class="input-group-text small">@Navigation.BaseUri<wbr />s/</span>
+                <input id="s-slug" class="form-control @Invalid("Slug") @(slugAvailable == false ? "is-invalid" : slugAvailable == true ? "is-valid" : "")"
+                       maxlength="100" placeholder="generated-from-the-title" disabled="@ReadOnly"
+                       @bind="Survey.Slug" @bind:after="SlugChangedAsync" />
+            </div>
+            @if (slugAvailable == false)
+            {
+                <div class="small text-danger mt-1">This link is already used by another survey.</div>
+            }
+            <FieldErrors Messages="@For("Slug")" />
+            <div class="form-text">Lower-case letters, digits and hyphens. Leave empty to generate it from the title.</div>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h6 mb-3"><i class="bi bi-people me-1"></i>Who can respond</h2>
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="s-anon" disabled="@ReadOnly" @bind="Survey.AllowAnonymous" @bind:after="ChangedAsync" />
+            <label class="form-check-label" for="s-anon">Allow anonymous responses <span class="text-muted small">(no account needed)</span></label>
+        </div>
+        <div class="form-check form-switch mb-3">
+            <input class="form-check-input" type="checkbox" id="s-multi" disabled="@ReadOnly" @bind="Survey.AllowMultipleResponses" @bind:after="ChangedAsync" />
+            <label class="form-check-label" for="s-multi">Allow signed-in users to respond more than once</label>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label small" for="s-max">Response limit</label>
+                <input id="s-max" type="number" min="1" class="form-control @Invalid("MaxResponses")" placeholder="No limit" disabled="@ReadOnly"
+                       @bind="Survey.MaxResponses" @bind:after="ChangedAsync" />
+                <FieldErrors Messages="@For("MaxResponses")" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small" for="s-open">Opens</label>
+                <input id="s-open" type="datetime-local" class="form-control @Invalid("OpensAt")" disabled="@ReadOnly"
+                       value="@LocalValue(Survey.OpensAt)" @onchange="e => SetDateAsync(e, opens: true)" />
+                <FieldErrors Messages="@For("OpensAt")" />
+            </div>
+            <div class="col-md-4">
+                <label class="form-label small" for="s-close">Closes</label>
+                <input id="s-close" type="datetime-local" class="form-control @Invalid("ClosesAt")" disabled="@ReadOnly"
+                       value="@LocalValue(Survey.ClosesAt)" @onchange="e => SetDateAsync(e, opens: false)" />
+                <FieldErrors Messages="@For("ClosesAt")" />
+            </div>
+        </div>
+        <div class="form-text">Times are in your time zone (@(timeZone?.DisplayName ?? "detecting…")). Leave empty for no schedule.</div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h6 mb-3"><i class="bi bi-layout-text-window me-1"></i>Appearance</h2>
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="s-progress" disabled="@ReadOnly" @bind="Survey.ShowProgressBar" @bind:after="ChangedAsync" />
+            <label class="form-check-label" for="s-progress">Show a progress bar</label>
+        </div>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="s-numbers" disabled="@ReadOnly" @bind="Survey.ShowQuestionNumbers" @bind:after="ChangedAsync" />
+            <label class="form-check-label" for="s-numbers">Number the questions</label>
+        </div>
+    </div>
+</div>
+
+<div class="card mb-3">
+    <div class="card-body">
+        <h2 class="h6 mb-3"><i class="bi bi-chat-square-text me-1"></i>Messages</h2>
+        <div class="mb-3">
+            <label class="form-label small" for="s-welcome">Welcome message <span class="text-muted">(before the first page)</span></label>
+            <textarea id="s-welcome" class="form-control @Invalid("WelcomeMessage")" rows="3" maxlength="4000" disabled="@ReadOnly"
+                      @bind="Survey.WelcomeMessage" @bind:after="ChangedAsync"></textarea>
+            <FieldErrors Messages="@For("WelcomeMessage")" />
+        </div>
+        <div>
+            <label class="form-label small" for="s-thanks">Thank-you message <span class="text-muted">(after submitting)</span></label>
+            <textarea id="s-thanks" class="form-control @Invalid("ThankYouMessage")" rows="3" maxlength="4000" disabled="@ReadOnly"
+                      @bind="Survey.ThankYouMessage" @bind:after="ChangedAsync"></textarea>
+            <FieldErrors Messages="@For("ThankYouMessage")" />
+        </div>
+    </div>
+</div>
+
+@if (OtherErrors.Count > 0)
+{
+    <div class="alert alert-danger small">
+        @foreach (var message in OtherErrors)
+        {
+            <div><i class="bi bi-exclamation-circle me-1"></i>@message</div>
+        }
+    </div>
+}
+
+@code {
+    private static readonly string[] KnownKeys = ["Title", "Description", "Slug", "MaxResponses", "OpensAt", "ClosesAt", "WelcomeMessage", "ThankYouMessage"];
+    private TimeZoneInfo? timeZone;
+    private bool? slugAvailable;
+
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    /// <summary>The survey being edited.</summary>
+    [Parameter, EditorRequired] public SurveyDefinitionDto Survey { get; set; } = default!;
+
+    /// <summary>Survey-level validation errors keyed by property name.</summary>
+    [Parameter] public IReadOnlyDictionary<string, string[]> Errors { get; set; } = new Dictionary<string, string[]>();
+
+    /// <summary>Disables editing.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>Raised after every change.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private List<string> OtherErrors => Errors.Where(e => !KnownKeys.Contains(e.Key)).SelectMany(e => e.Value).Distinct().ToList();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            timeZone = await Browser.GetTimeZoneAsync();
+            StateHasChanged();
+        }
+    }
+
+    private string[] For(string key) => Errors.TryGetValue(key, out var messages) ? messages : [];
+
+    private string Invalid(string key) => Errors.ContainsKey(key) ? "is-invalid" : string.Empty;
+
+    private string? LocalValue(DateTime? utc)
+    {
+        if (utc is null)
+        {
+            return null;
+        }
+
+        var local = TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(utc.Value, DateTimeKind.Utc), timeZone ?? TimeZoneInfo.Utc);
+        return local.ToString("yyyy-MM-ddTHH:mm", System.Globalization.CultureInfo.InvariantCulture);
+    }
+
+    private async Task SetDateAsync(ChangeEventArgs e, bool opens)
+    {
+        DateTime? utc = null;
+        if (DateTime.TryParse(e.Value?.ToString(), System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var local))
+        {
+            utc = TimeZoneInfo.ConvertTimeToUtc(DateTime.SpecifyKind(local, DateTimeKind.Unspecified), timeZone ?? TimeZoneInfo.Utc);
+        }
+
+        if (opens)
+        {
+            Survey.OpensAt = utc;
+        }
+        else
+        {
+            Survey.ClosesAt = utc;
+        }
+
+        await ChangedAsync();
+    }
+
+    private async Task SlugChangedAsync()
+    {
+        slugAvailable = null;
+        if (!string.IsNullOrWhiteSpace(Survey.Slug))
+        {
+            Survey.Slug = SlugGenerator.Generate(Survey.Slug);
+            slugAvailable = await SurveyService.IsSlugAvailableAsync(Survey.Slug, Survey.Id == Guid.Empty ? null : Survey.Id);
+        }
+        else
+        {
+            Survey.Slug = null;
+        }
+
+        await ChangedAsync();
+    }
+
+    private Task ChangedAsync() => OnChanged.InvokeAsync();
+}

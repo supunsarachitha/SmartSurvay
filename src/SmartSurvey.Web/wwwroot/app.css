@@ -487,3 +487,6 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
 .icon-picker button { height: 3rem; border: 1px solid var(--ss-border); border-radius: .6rem; background: var(--ss-surface); color: var(--ss-text); font-size: 1.25rem; }
 .icon-picker button:hover { border-color: var(--ss-primary); color: var(--ss-primary); }
 .icon-picker button.selected { border-color: var(--ss-primary); background: var(--ss-primary-soft); color: var(--ss-primary); box-shadow: 0 0 0 3px rgba(var(--ss-primary-rgb), .15); }
+
+/* Survey builder */
+.border-dashed { border: 1px dashed var(--ss-border) !important; }

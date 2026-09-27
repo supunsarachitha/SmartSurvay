@@ -1,0 +1,107 @@
+@* Answer options of a choice question: edit, reorder, delete, add an "Other" option with a free-text
+   box, or paste several options at once (one per line). *@
+
+<label class="form-label small fw-semibold mb-2">Answer options</label>
+@foreach (var option in Question.Options)
+{
+    var index = Question.Options.IndexOf(option);
+    <div class="option-row" @key="option.Id">
+        <i class="bi @(Question.Type == QuestionType.Checkbox ? "bi-square" : Question.Type == QuestionType.Dropdown ? "bi-chevron-down" : "bi-circle") drag-dot" aria-hidden="true"></i>
+        <div class="flex-grow-1">
+            <input class="form-control form-control-sm @(string.IsNullOrWhiteSpace(option.Text) ? "is-invalid" : "")" aria-label="Option @(index + 1)"
+                   maxlength="500" disabled="@ReadOnly" @bind="option.Text" @bind:event="oninput" @bind:after="ChangedAsync" />
+            @if (option.AllowsFreeText)
+            {
+                <div class="input-group input-group-sm mt-1">
+                    <span class="input-group-text"><i class="bi bi-input-cursor-text"></i></span>
+                    <input class="form-control" aria-label="Free-text placeholder" placeholder="Placeholder of the text box, e.g. Please specify" maxlength="200"
+                           disabled="@ReadOnly" @bind="option.FreeTextPlaceholder" @bind:after="ChangedAsync" />
+                </div>
+            }
+        </div>
+        @if (!ReadOnly)
+        {
+            <div class="form-check form-switch mb-0 small text-nowrap" title="Show a text box when this option is chosen">
+                <input class="form-check-input" type="checkbox" id="ft-@option.Id" @bind="option.AllowsFreeText" @bind:after="ChangedAsync" />
+                <label class="form-check-label" for="ft-@option.Id">Text box</label>
+            </div>
+            <button type="button" class="btn btn-sm btn-light btn-icon" title="Move up" aria-label="Move option up" disabled="@(index == 0)" @onclick="() => Move(option, -1)"><i class="bi bi-arrow-up"></i></button>
+            <button type="button" class="btn btn-sm btn-light btn-icon" title="Move down" aria-label="Move option down" disabled="@(index == Question.Options.Count - 1)" @onclick="() => Move(option, 1)"><i class="bi bi-arrow-down"></i></button>
+            <button type="button" class="btn btn-sm btn-soft-danger btn-icon" title="Delete option" aria-label="Delete option"
+                    disabled="@(Question.Options.Count <= MinOptions)" @onclick="() => Delete(option)"><i class="bi bi-x-lg"></i></button>
+        }
+    </div>
+}
+
+@if (!ReadOnly)
+{
+    <div class="d-flex flex-wrap gap-2 mt-2">
+        <button type="button" class="btn btn-sm btn-soft-primary" @onclick="() => Add(false)"><i class="bi bi-plus"></i>Add option</button>
+        @if (!Question.Options.Any(o => o.AllowsFreeText))
+        {
+            <button type="button" class="btn btn-sm btn-light" @onclick="() => Add(true)"><i class="bi bi-input-cursor-text"></i>Add “Other” with text box</button>
+        }
+        <button type="button" class="btn btn-sm btn-light" @onclick="() => bulkVisible = !bulkVisible"><i class="bi bi-list-ul"></i>Paste list</button>
+    </div>
+    @if (bulkVisible)
+    {
+        <div class="mt-2">
+            <textarea class="form-control form-control-sm" rows="4" placeholder="One option per line" aria-label="Options, one per line" @bind="bulkText"></textarea>
+            <div class="d-flex gap-2 mt-2">
+                <button type="button" class="btn btn-sm btn-primary" @onclick="AddBulk">Add options</button>
+                <button type="button" class="btn btn-sm btn-light" @onclick="() => { bulkVisible = false; bulkText = string.Empty; }">Cancel</button>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    private const int MinOptions = 2;
+    private bool bulkVisible;
+    private string bulkText = string.Empty;
+
+    /// <summary>The survey (needed to clean up logic conditions on delete).</summary>
+    [Parameter, EditorRequired] public SurveyDefinitionDto Survey { get; set; } = default!;
+
+    /// <summary>The choice question.</summary>
+    [Parameter, EditorRequired] public QuestionDto Question { get; set; } = default!;
+
+    /// <summary>Disables editing.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>Raised after every change.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private Task Add(bool freeText)
+    {
+        SurveyDesign.AddOption(Question, freeText);
+        return ChangedAsync();
+    }
+
+    private Task AddBulk()
+    {
+        var lines = bulkText.Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        foreach (var line in lines)
+        {
+            SurveyDesign.AddOption(Question).Text = line;
+        }
+
+        bulkText = string.Empty;
+        bulkVisible = false;
+        return ChangedAsync();
+    }
+
+    private Task Move(OptionDto option, int delta)
+    {
+        SurveyDesign.MoveOption(Question, option, delta);
+        return ChangedAsync();
+    }
+
+    private Task Delete(OptionDto option)
+    {
+        SurveyDesign.DeleteOption(Survey, Question, option);
+        return ChangedAsync();
+    }
+
+    private Task ChangedAsync() => OnChanged.InvokeAsync();
+}

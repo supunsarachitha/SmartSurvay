@@ -255,8 +255,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 
 ### Phase 6 — Blazor UI
 - [x] 6A Layout, nav, dark mode, shared components, Home, FAQ, Buy Me a Coffee, surveys list, my responses, account pages restyle
-- [ ] 6B Admin: survey list/create/import/templates, builder (sections, questions, options, settings, logic), share page
-- [ ] 6C Respondent: survey runner (multi-page, logic, validation, drafts), preview, thank-you, my responses
+- [x] 6B Admin: survey list/create/import/templates, builder (sections, questions, options, settings, logic), share page
+- [ ] 6C Respondent: survey runner (multi-page, logic, validation, drafts), preview, thank-you (my responses done in 6A). Must honour `RandomizeOptions` (free-text options stay last — promised in the builder); decide on iframe embedding (antiforgery sends X-Frame-Options: SAMEORIGIN)
 - [ ] 6D Admin reports: report list/builder (live preview)/viewer/exports
 - [ ] 6E Admin: dashboard, responses browser/detail, users, audit log, **branding page**
 
@@ -343,3 +343,4 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Phase 4 done | 4C finished directly: ReportService, PDF/CSV/TXT/XLSX/JSON exporters, raw response export (QuestPDF configured by the PDF exporter). Tests added for 4C (79) and 4D (28: audit, dashboard, users with real Identity, seeder). 564 unit tests green; seeder verified on PostgreSQL (admin login + demo data). Next: Phase 5 (REST API) |
 | 2026-09-27 | Phase 5 done | REST API: 8 groups + branding under `/api/v1` (Api/*Endpoints.cs), optional query records for list endpoints (`ApiQueries.cs`), logo upload as base64 JSON (CSRF-safe without antiforgery), `docs/examples` (.http walkthrough + survey/response/report JSON). 35 integration tests (auth 401/403, ProblemDetails, lifecycle, public flow, exports, reports, admin, branding, OpenAPI, examples). Next: Phase 6A |
 | 2026-09-27 | Phase 6A done | Home (branded hero, features, how it works), FAQ (grouped accordion + GET search), Buy Me a Coffee (Support options), /surveys (cards, guest prompt, search), /my/responses, account pages restyled (AuthCard, AccountLayout container, settings layout). Fixes: login now counts failures toward lockout, password minimum 8 on all forms, self-registered users get the User role, last sign-in recorded, display name claim in the user menu, BrowserInterop null time zone, dead scoped-CSS link. 14 bUnit tests; 613 tests green; smoke OK. Next: 6B builder |
+| 2026-09-27 | Phase 6B done | Admin survey list (filters, paging, lifecycle actions, duplicate/template/export/import/delete), builder (`/admin/surveys/new` creates on first save; pages, questions, options incl. "Other" + paste list, per-type settings, question/page display logic, outline, server-error mapping to questions, unsaved-changes guard, optimistic-concurrency reload), share page (link, QR SVG/PNG, invitation text). `SurveyDesign` operations + 24 new tests; 637 tests green. Next: 6C runner |
