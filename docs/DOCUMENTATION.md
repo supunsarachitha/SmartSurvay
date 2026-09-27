@@ -480,13 +480,18 @@ in Swagger (`/swagger`). Ready-to-run examples: [`docs/examples`](examples/).
    quota). Unsaved changes are protected.
 4. **Preview** (`/admin/surveys/{id}/preview`: the real runner with logic and validation, nothing saved,
    desktop/phone width) and **Share** (link, QR code, invitation text, embed snippet).
-5. **Responses** — filter, inspect, delete, export raw data.
+5. **Responses** (`/admin/surveys/{id}/responses`) — filter by status, date and respondent, open a response
+   (`/admin/responses/{id}`: answers by page, time taken, browser), delete, export raw data (CSV/Excel/JSON,
+   optionally including drafts).
 6. **Reports** (`/admin/reports`) — *Quick overview* builds a complete report for a survey in one click. In the
    builder (`/admin/reports/new`, `/admin/reports/{id}/edit`) pick the survey, start from the recommended overview or
    small, add widgets (the menu only offers widgets the survey has suitable questions for), choose which responses count
    (date range, drafts, answer filters combined with all/any) and watch the live preview update as you edit. Save, then
    open the viewer (`/admin/reports/{id}`) to refresh, print or export (PDF/Excel/CSV/TXT/JSON).
-7. **Users** and **Audit log** under *Administration*.
+7. **Users** (`/admin/users`) — create accounts, grant or revoke the administrator role, lock/unlock, delete (you
+   cannot lock, demote or delete yourself, and the last administrator is protected). **Audit log** (`/admin/audit`) —
+   who changed or exported what, with filters. **Branding** (`/admin/branding`) — product name, tagline, icon or logo
+   (also the favicon), with a live preview; saving refreshes the page so the navigation shows the new brand.
 
 ### 15.3 Design system
 

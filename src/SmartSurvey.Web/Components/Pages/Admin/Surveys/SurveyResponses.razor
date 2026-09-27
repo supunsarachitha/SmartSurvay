@@ -1,0 +1,322 @@
+@page "/admin/surveys/{Id:guid}/responses"
+@rendermode InteractiveServer
+@inject ISurveyService SurveyService
+@inject IResponseService Responses
+@inject IResponseExportService ResponseExports
+@inject ToastService Toasts
+@inject BrowserInterop Browser
+@* Responses of one survey: filter by status, date and respondent, open or delete a response, and export
+   the raw data (CSV, Excel, JSON) — one row per response, one column per question. *@
+
+@if (loadError is not null)
+{
+    <PageHeader Title="Responses" />
+    <EmptyState Icon="bi-exclamation-circle" Title="This survey can't be opened" Message="@loadError">
+        <a class="btn btn-primary" href="admin/surveys"><i class="bi bi-arrow-left"></i>Back to surveys</a>
+    </EmptyState>
+}
+else if (survey is null)
+{
+    <LoadingSpinner Text="Loading responses…" />
+}
+else
+{
+    <PageHeader Title="@($"Responses · {survey.Title}")" Subtitle="Every submission and unfinished draft of this survey.">
+        <Breadcrumb>
+            <li class="breadcrumb-item"><a href="admin">Admin</a></li>
+            <li class="breadcrumb-item"><a href="admin/surveys">Surveys</a></li>
+            <li class="breadcrumb-item"><a href="admin/surveys/@survey.Id/edit">@survey.Title</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Responses</li>
+        </Breadcrumb>
+        <TitleSuffix><StatusBadge SurveyStatus="survey.Status" Class="ms-2 align-middle fs-6" /></TitleSuffix>
+        <Actions>
+            <a class="btn btn-light" href="admin/reports/new?surveyId=@survey.Id"><i class="bi bi-bar-chart-line"></i>New report</a>
+            <div class="dropdown">
+                <button class="btn btn-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" disabled="@exporting">
+                    @if (exporting)
+                    {
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Exporting…</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-download"></i><span>Export data</span>
+                    }
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    <li><h6 class="dropdown-header">Raw responses</h6></li>
+                    <li><button class="dropdown-item" type="button" @onclick="() => ExportAsync(ExportFormat.Xlsx)"><i class="bi bi-file-earmark-excel"></i>Excel workbook</button></li>
+                    <li><button class="dropdown-item" type="button" @onclick="() => ExportAsync(ExportFormat.Csv)"><i class="bi bi-filetype-csv"></i>CSV</button></li>
+                    <li><button class="dropdown-item" type="button" @onclick="() => ExportAsync(ExportFormat.Json)"><i class="bi bi-filetype-json"></i>JSON</button></li>
+                    <li><hr class="dropdown-divider" /></li>
+                    <li class="px-3 py-1">
+                        <div class="form-check form-switch mb-0 small">
+                            <input class="form-check-input" type="checkbox" id="export-drafts" @bind="exportDrafts" />
+                            <label class="form-check-label" for="export-drafts">Include drafts</label>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+        </Actions>
+    </PageHeader>
+
+    <div class="card mb-3">
+        <div class="card-body py-3">
+            <div class="row g-2 align-items-center">
+                <div class="col-md-4">
+                    <div class="input-group">
+                        <span class="input-group-text bg-body"><i class="bi bi-search"></i></span>
+                        <input class="form-control" type="search" placeholder="Search respondent name or e-mail" aria-label="Search respondents"
+                               @bind="search" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+                    </div>
+                </div>
+                <div class="col-6 col-md-2">
+                    <select class="form-select" aria-label="Filter by status" @bind="statusFilter" @bind:after="ReloadFromFirstPageAsync">
+                        <option value="">All</option>
+                        <option value="@ResponseStatus.Completed">Completed</option>
+                        <option value="@ResponseStatus.InProgress">In progress</option>
+                    </select>
+                </div>
+                <div class="col-6 col-md-3">
+                    <input class="form-control" type="date" aria-label="From date" title="From (UTC date)" @bind="from" @bind:after="ReloadFromFirstPageAsync" />
+                </div>
+                <div class="col-6 col-md-3">
+                    <input class="form-control" type="date" aria-label="To date" title="To (UTC date)" @bind="to" @bind:after="ReloadFromFirstPageAsync" />
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <ErrorAlert Message="@error" OnDismiss="() => error = null" Class="mb-3" />
+
+    @if (result is null)
+    {
+        <LoadingSpinner Text="Loading responses…" />
+    }
+    else if (result.TotalCount == 0)
+    {
+        @if (IsFiltered)
+        {
+            <EmptyState Icon="bi-search" Title="No responses match the filters" Message="Try other filters or clear them.">
+                <button class="btn btn-soft-primary" @onclick="ClearFiltersAsync">Clear filters</button>
+            </EmptyState>
+        }
+        else
+        {
+            <EmptyState Icon="bi-inbox" Title="No responses yet" Message="@(survey.Status == SurveyStatus.Published ? "Share the survey link — responses appear here as soon as they are submitted." : "Publish the survey and share its link to start collecting responses.")">
+                <a class="btn btn-primary" href="admin/surveys/@survey.Id/share"><i class="bi bi-share"></i>Share survey</a>
+            </EmptyState>
+        }
+    }
+    else
+    {
+        <div class="card table-card">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th scope="col">Respondent</th>
+                            <th scope="col">Status</th>
+                            <th scope="col" class="d-none d-md-table-cell">Submitted</th>
+                            <th scope="col" class="col-num d-none d-lg-table-cell">Answers</th>
+                            <th scope="col" class="col-num d-none d-lg-table-cell">Time taken</th>
+                            <th scope="col" class="text-end"><span class="visually-hidden">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var response in result.Items)
+                        {
+                            <tr @key="response.Id">
+                                <td class="min-w-0">
+                                    <a class="fw-semibold text-body text-decoration-none" href="admin/responses/@response.Id">@response.RespondentName</a>
+                                    @if (!string.IsNullOrWhiteSpace(response.RespondentEmail) && response.RespondentEmail != response.RespondentName)
+                                    {
+                                        <div class="small text-muted text-truncate" style="max-width:20rem">@response.RespondentEmail</div>
+                                    }
+                                </td>
+                                <td><StatusBadge ResponseStatus="response.Status" /></td>
+                                <td class="d-none d-md-table-cell small text-muted">
+                                    @if (response.SubmittedAt is { } submitted)
+                                    {
+                                        <LocalDateTime Value="submitted" />
+                                    }
+                                    else
+                                    {
+                                        <span>Started <LocalDateTime Value="response.StartedAt" Relative="true" /></span>
+                                    }
+                                </td>
+                                <td class="col-num d-none d-lg-table-cell">@response.AnswerCount</td>
+                                <td class="col-num d-none d-lg-table-cell small">@UiFormat.Duration(response.DurationSeconds)</td>
+                                <td class="text-end text-nowrap">
+                                    <a class="btn btn-sm btn-soft-primary" href="admin/responses/@response.Id" title="View"><i class="bi bi-eye"></i><span class="d-none d-xl-inline">View</span></a>
+                                    <button class="btn btn-sm btn-soft-danger btn-icon" title="Delete" aria-label="Delete response of @response.RespondentName"
+                                            disabled="@(busyId == response.Id)" @onclick="() => DeleteAsync(response)">
+                                        @if (busyId == response.Id)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-trash"></i>
+                                        }
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="card-footer bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
+                <span class="small text-muted">@UiFormat.Plural(result.TotalCount, "response")</span>
+                <Pager Page="result.Page" PageSize="result.PageSize" TotalCount="result.TotalCount" OnPageChanged="GoToPageAsync" />
+            </div>
+        </div>
+    }
+
+    <ConfirmDialog @ref="confirm" />
+}
+
+@code {
+    private const int PageSize = 25;
+
+    private SurveyDefinitionDto? survey;
+    private PagedResult<ResponseSummaryDto>? result;
+    private ConfirmDialog confirm = default!;
+    private string? loadError;
+    private string? error;
+    private string search = string.Empty;
+    private string statusFilter = string.Empty;
+    private DateOnly? from;
+    private DateOnly? to;
+    private int page = 1;
+    private bool exporting;
+    private bool exportDrafts;
+    private Guid? busyId;
+
+    /// <summary>Survey id.</summary>
+    [Parameter] public Guid Id { get; set; }
+
+    private bool IsFiltered => !string.IsNullOrWhiteSpace(search) || statusFilter.Length > 0 || from is not null || to is not null;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            survey = await SurveyService.GetAsync(Id);
+            page = 1;
+            await LoadAsync();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            loadError = UiErrors.Describe(ex);
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        if (from is { } f && to is { } t && f > t)
+        {
+            error = "The start date must be on or before the end date.";
+            return;
+        }
+
+        try
+        {
+            result = await Responses.ListForSurveyAsync(Id, new ResponseQuery
+            {
+                Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
+                Status = Enum.TryParse<ResponseStatus>(statusFilter, out var status) ? status : null,
+                From = from,
+                To = to,
+                Page = page,
+                PageSize = PageSize,
+            });
+            error = null;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            error = UiErrors.Describe(ex);
+            result ??= PagedResult<ResponseSummaryDto>.Empty(page, PageSize);
+        }
+    }
+
+    private async Task ReloadFromFirstPageAsync()
+    {
+        page = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "Escape" || search.Length == 0 || search.Length >= 2)
+        {
+            if (e.Key == "Escape")
+            {
+                search = string.Empty;
+            }
+
+            await ReloadFromFirstPageAsync();
+        }
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        search = string.Empty;
+        statusFilter = string.Empty;
+        from = null;
+        to = null;
+        await ReloadFromFirstPageAsync();
+    }
+
+    private async Task GoToPageAsync(int newPage)
+    {
+        page = newPage;
+        await LoadAsync();
+    }
+
+    private async Task ExportAsync(ExportFormat format)
+    {
+        exporting = true;
+        try
+        {
+            var file = await ResponseExports.ExportResponsesAsync(Id, format, exportDrafts);
+            await Browser.DownloadAsync(file);
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Export failed", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            exporting = false;
+        }
+    }
+
+    private async Task DeleteAsync(ResponseSummaryDto response)
+    {
+        if (!await confirm.ShowAsync("Delete this response?", $"The response of {response.RespondentName} is removed permanently and no longer counted in reports.", "Delete response", danger: true))
+        {
+            return;
+        }
+
+        busyId = response.Id;
+        try
+        {
+            await Responses.DeleteAsync(response.Id);
+            Toasts.Success("Response deleted");
+            if (result is { Items.Count: 1, Page: > 1 })
+            {
+                page--;
+            }
+
+            await LoadAsync();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not delete the response", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            busyId = null;
+        }
+    }
+}

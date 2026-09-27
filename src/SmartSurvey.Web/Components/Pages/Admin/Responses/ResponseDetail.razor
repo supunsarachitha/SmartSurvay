@@ -1,0 +1,152 @@
+@page "/admin/responses/{Id:guid}"
+@rendermode InteractiveServer
+@inject IResponseService Responses
+@inject ToastService Toasts
+@inject BrowserInterop Browser
+@inject NavigationManager Navigation
+@* One response: respondent, timing and every answer grouped by page (unanswered and hidden questions
+   are listed as "Not answered"). Print or delete. *@
+
+@if (loadError is not null)
+{
+    <PageHeader Title="Response not available" />
+    <EmptyState Icon="bi-exclamation-circle" Title="This response can't be opened" Message="@loadError">
+        <a class="btn btn-primary" href="admin/surveys"><i class="bi bi-arrow-left"></i>Back to surveys</a>
+    </EmptyState>
+}
+else if (response is null)
+{
+    <LoadingSpinner Text="Loading response…" />
+}
+else
+{
+    <PageHeader Title="@($"Response from {response.RespondentName}")" Subtitle="@response.SurveyTitle">
+        <Breadcrumb>
+            <li class="breadcrumb-item"><a href="admin">Admin</a></li>
+            <li class="breadcrumb-item"><a href="admin/surveys">Surveys</a></li>
+            <li class="breadcrumb-item"><a href="admin/surveys/@response.SurveyId/responses">@response.SurveyTitle</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Response</li>
+        </Breadcrumb>
+        <TitleSuffix><StatusBadge ResponseStatus="response.Status" Class="ms-2 align-middle fs-6" /></TitleSuffix>
+        <Actions>
+            <a class="btn btn-light" href="admin/surveys/@response.SurveyId/responses"><i class="bi bi-arrow-left"></i>All responses</a>
+            <button class="btn btn-light" @onclick="PrintAsync"><i class="bi bi-printer"></i>Print</button>
+            <button class="btn btn-soft-danger" @onclick="DeleteAsync" disabled="@deleting"><i class="bi bi-trash"></i>Delete</button>
+        </Actions>
+    </PageHeader>
+
+    <div class="row g-4">
+        <div class="col-lg-4 order-lg-2">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h6 mb-3">Details</h2>
+                    <dl class="row small mb-0">
+                        <dt class="col-5 text-muted fw-normal">Respondent</dt>
+                        <dd class="col-7">
+                            @response.RespondentName
+                            @if (!string.IsNullOrWhiteSpace(response.RespondentEmail) && response.RespondentEmail != response.RespondentName)
+                            {
+                                <div class="text-muted text-break">@response.RespondentEmail</div>
+                            }
+                        </dd>
+                        <dt class="col-5 text-muted fw-normal">Status</dt>
+                        <dd class="col-7">@(response.Status == ResponseStatus.Completed ? "Completed" : "In progress (draft)")</dd>
+                        <dt class="col-5 text-muted fw-normal">Started</dt>
+                        <dd class="col-7"><LocalDateTime Value="response.StartedAt" /></dd>
+                        <dt class="col-5 text-muted fw-normal">Submitted</dt>
+                        <dd class="col-7"><LocalDateTime Value="response.SubmittedAt" /></dd>
+                        <dt class="col-5 text-muted fw-normal">Time taken</dt>
+                        <dd class="col-7">@UiFormat.Duration(response.SubmittedAt is { } s ? (s - response.StartedAt).TotalSeconds : null)</dd>
+                        <dt class="col-5 text-muted fw-normal">Answered</dt>
+                        <dd class="col-7">@answered of @UiFormat.Plural(response.Answers.Count, "question")</dd>
+                        @if (!string.IsNullOrWhiteSpace(response.UserAgent))
+                        {
+                            <dt class="col-5 text-muted fw-normal">Browser</dt>
+                            <dd class="col-7 text-break text-muted" style="font-size:.75rem">@response.UserAgent</dd>
+                        }
+                    </dl>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-8 order-lg-1">
+            @foreach (var group in response.Answers.GroupBy(a => a.SectionTitle))
+            {
+                <div class="card mb-3">
+                    <div class="card-body">
+                        @if (!string.IsNullOrWhiteSpace(group.Key))
+                        {
+                            <h2 class="h6 text-muted text-uppercase small fw-semibold mb-3">@group.Key</h2>
+                        }
+                        @foreach (var answer in group)
+                        {
+                            <div class="answer-row" @key="answer.QuestionId">
+                                <div class="small text-muted"><span class="qe-code me-1">@answer.QuestionCode</span>@answer.QuestionType.DisplayName()</div>
+                                <div class="fw-semibold">@answer.QuestionText</div>
+                                @if (answer.IsAnswered)
+                                {
+                                    <div class="text-pre-line">@answer.DisplayValue</div>
+                                }
+                                else
+                                {
+                                    <div class="text-muted fst-italic small">Not answered</div>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
+    <ConfirmDialog @ref="confirm" />
+}
+
+@code {
+    private ResponseDetailDto? response;
+    private ConfirmDialog confirm = default!;
+    private string? loadError;
+    private int answered;
+    private bool deleting;
+
+    /// <summary>Response id.</summary>
+    [Parameter] public Guid Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            response = await Responses.GetAsync(Id);
+            answered = response.Answers.Count(a => a.IsAnswered);
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            loadError = UiErrors.Describe(ex);
+        }
+    }
+
+    private async Task PrintAsync() => await Browser.PrintAsync();
+
+    private async Task DeleteAsync()
+    {
+        if (response is null || !await confirm.ShowAsync("Delete this response?", "It is removed permanently and no longer counted in reports.", "Delete response", danger: true))
+        {
+            return;
+        }
+
+        deleting = true;
+        try
+        {
+            await Responses.DeleteAsync(response.Id);
+            Toasts.Success("Response deleted");
+            Navigation.NavigateTo($"admin/surveys/{response.SurveyId}/responses");
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not delete the response", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            deleting = false;
+        }
+    }
+}

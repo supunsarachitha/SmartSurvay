@@ -62,9 +62,33 @@ public sealed class FakeResponseService : IResponseService
             : Task.FromResult(new SubmitResponseResult(Guid.NewGuid(), "Thanks!"));
     }
 
-    public Task<PagedResult<ResponseSummaryDto>> ListForSurveyAsync(Guid surveyId, ResponseQuery query, CancellationToken ct = default) => throw new NotSupportedException();
+    /// <summary>Rows returned by <see cref="ListForSurveyAsync"/>.</summary>
+    public List<ResponseSummaryDto> SurveyResponses { get; } = [];
 
-    public Task<ResponseDetailDto> GetAsync(Guid responseId, CancellationToken ct = default) => throw new NotSupportedException();
+    /// <summary>Queries passed to <see cref="ListForSurveyAsync"/>.</summary>
+    public List<ResponseQuery> ResponseQueries { get; } = [];
 
-    public Task DeleteAsync(Guid responseId, CancellationToken ct = default) => throw new NotSupportedException();
+    /// <summary>Response returned by <see cref="GetAsync"/>.</summary>
+    public ResponseDetailDto? Detail { get; set; }
+
+    /// <summary>Deleted response ids.</summary>
+    public List<Guid> Deleted { get; } = [];
+
+    public Task<PagedResult<ResponseSummaryDto>> ListForSurveyAsync(Guid surveyId, ResponseQuery query, CancellationToken ct = default)
+    {
+        ResponseQueries.Add(query);
+        var rows = SurveyResponses.Where(r => !Deleted.Contains(r.Id)).ToList();
+        return Task.FromResult(new PagedResult<ResponseSummaryDto>(rows, rows.Count, query.Page, query.PageSize));
+    }
+
+    public Task<ResponseDetailDto> GetAsync(Guid responseId, CancellationToken ct = default) =>
+        Detail is { } detail && detail.Id == responseId
+            ? Task.FromResult(detail)
+            : Task.FromException<ResponseDetailDto>(new NotFoundException("Response", responseId));
+
+    public Task DeleteAsync(Guid responseId, CancellationToken ct = default)
+    {
+        Deleted.Add(responseId);
+        return Task.CompletedTask;
+    }
 }

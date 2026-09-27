@@ -1,0 +1,316 @@
+@page "/admin/branding"
+@rendermode InteractiveServer
+@using System.Text.RegularExpressions
+@using SmartSurvey.Application.Branding
+@inject IBrandingService BrandingService
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+@* Branding: product name, tagline and brand icon or uploaded logo (also the favicon). A live preview shows
+   the navigation bar, browser tab and footer; saving refreshes the page so the layout shows the new brand. *@
+
+<PageHeader Title="Branding" Subtitle="Your product name, tagline and logo appear in the navigation, page titles, footer and exports.">
+    <Breadcrumb><li class="breadcrumb-item"><a href="admin">Admin</a></li><li class="breadcrumb-item active" aria-current="page">Branding</li></Breadcrumb>
+    <Actions>
+        <button class="btn btn-light" @onclick="ResetAsync" disabled="@IsBusy"><i class="bi bi-arrow-counterclockwise"></i>Reset to defaults</button>
+        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(IsBusy || !dirty)">
+            @if (saving)
+            {
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Saving…</span>
+            }
+            else
+            {
+                <i class="bi bi-check2"></i><span>@(dirty ? "Save changes" : "Saved")</span>
+            }
+        </button>
+    </Actions>
+</PageHeader>
+
+@if (current is null)
+{
+    <LoadingSpinner Text="Loading branding…" />
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-type me-1"></i>Name and tagline</h2>
+                    <div class="mb-3">
+                        <label class="form-label small" for="b-name">Product name <span class="text-danger">*</span></label>
+                        <input class="form-control @Invalid(nameof(UpdateBrandingRequest.ProductName))" id="b-name" maxlength="@BrandingDefaults.MaxProductNameLength"
+                               @bind="form.ProductName" @bind:event="oninput" @bind:after="MarkDirty" />
+                        <FieldErrors Messages="@ErrorsFor(nameof(UpdateBrandingRequest.ProductName))" />
+                    </div>
+                    <div>
+                        <label class="form-label small" for="b-tagline">Tagline <span class="text-muted">(optional, shown in the footer and on the home page)</span></label>
+                        <input class="form-control @Invalid(nameof(UpdateBrandingRequest.Tagline))" id="b-tagline" maxlength="@BrandingDefaults.MaxTaglineLength"
+                               @bind="form.Tagline" @bind:event="oninput" @bind:after="MarkDirty" />
+                        <FieldErrors Messages="@ErrorsFor(nameof(UpdateBrandingRequest.Tagline))" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h6 mb-1"><i class="bi bi-image me-1"></i>Logo</h2>
+                    <p class="small text-muted">Upload a square PNG, SVG, WebP, JPEG, GIF or ICO (max @(BrandingDefaults.MaxLogoBytes / 1024) KB). It replaces the icon everywhere and is used as the favicon.</p>
+                    <div class="d-flex flex-wrap align-items-center gap-3">
+                        <span class="brand-mark brand-mark-lg @(current.HasLogo ? "has-logo" : null)" aria-hidden="true">
+                            @if (current.HasLogo)
+                            {
+                                <img src="@current.LogoUrl" alt="" />
+                            }
+                            else
+                            {
+                                <i class="bi @PreviewIcon"></i>
+                            }
+                        </span>
+                        <label class="btn btn-soft-primary mb-0 @(IsBusy ? "disabled" : null)">
+                            @if (uploading)
+                            {
+                                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Uploading…</span>
+                            }
+                            else
+                            {
+                                <i class="bi bi-upload"></i><span>@(current.HasLogo ? "Replace logo" : "Upload logo")</span>
+                            }
+                            <InputFile OnChange="UploadAsync" accept=".png,.svg,.webp,.jpg,.jpeg,.gif,.ico,image/*" class="d-none" disabled="@IsBusy" />
+                        </label>
+                        @if (current.HasLogo)
+                        {
+                            <button class="btn btn-light" @onclick="RemoveLogoAsync" disabled="@IsBusy"><i class="bi bi-x-circle"></i>Remove logo</button>
+                        }
+                    </div>
+                    <ErrorAlert Message="@logoError" OnDismiss="() => logoError = null" Class="mt-3 mb-0" />
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h6 mb-1"><i class="bi bi-grid-3x3-gap me-1"></i>Icon</h2>
+                    <p class="small text-muted">
+                        Shown when no logo is uploaded@(current.HasLogo ? " (currently the logo is used)" : "").
+                    </p>
+                    <div class="icon-picker mb-3" role="radiogroup" aria-label="Brand icon">
+                        @foreach (var icon in BrandingDefaults.SuggestedIcons)
+                        {
+                            <button type="button" class="@(form.IconName == icon ? "selected" : null)" role="radio" aria-checked="@(form.IconName == icon ? "true" : "false")"
+                                    title="@icon" aria-label="@icon" @onclick="() => PickIcon(icon)">
+                                <i class="bi @icon" aria-hidden="true"></i>
+                            </button>
+                        }
+                    </div>
+                    <label class="form-label small" for="b-icon">Or any <a href="https://icons.getbootstrap.com/" target="_blank" rel="noopener">Bootstrap icon</a> class</label>
+                    <input class="form-control font-monospace @Invalid(nameof(UpdateBrandingRequest.IconName))" id="b-icon" style="max-width:20rem" placeholder="bi-clipboard-data"
+                           @bind="form.IconName" @bind:event="oninput" @bind:after="MarkDirty" />
+                    <FieldErrors Messages="@ErrorsFor(nameof(UpdateBrandingRequest.IconName))" />
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card builder-aside">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-eye me-1"></i>Preview</h2>
+                    <div class="small text-muted mb-1">Navigation bar</div>
+                    <div class="brand-preview-bar mb-3">
+                        <span class="brand-mark @(current.HasLogo ? "has-logo" : null)" aria-hidden="true">
+                            @if (current.HasLogo)
+                            {
+                                <img src="@current.LogoUrl" alt="" />
+                            }
+                            else
+                            {
+                                <i class="bi @PreviewIcon"></i>
+                            }
+                        </span>
+                        <span class="brand-name text-truncate">@PreviewName</span>
+                    </div>
+                    <div class="small text-muted mb-1">Browser tab</div>
+                    <div class="brand-preview-tab mb-3">
+                        <span class="brand-mark brand-mark-sm @(current.HasLogo ? "has-logo" : null)" aria-hidden="true">
+                            @if (current.HasLogo)
+                            {
+                                <img src="@current.LogoUrl" alt="" />
+                            }
+                            else
+                            {
+                                <i class="bi @PreviewIcon"></i>
+                            }
+                        </span>
+                        <span class="text-truncate small">Surveys · @PreviewName</span>
+                    </div>
+                    <div class="small text-muted mb-1">Footer</div>
+                    <div class="brand-preview-footer">
+                        <div class="fw-semibold small">@PreviewName</div>
+                        <div class="small text-muted">@(string.IsNullOrWhiteSpace(form.Tagline) ? "(no tagline)" : form.Tagline)</div>
+                    </div>
+                    @if (current.UpdatedAt is { } updated)
+                    {
+                        <p class="small text-muted mt-3 mb-0">Last changed <LocalDateTime Value="updated" Relative="true" />.</p>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+<ConfirmDialog @ref="confirm" />
+
+@code {
+    private static readonly Regex IconPattern = new("^bi-[a-z0-9-]+$", RegexOptions.CultureInvariant);
+
+    private BrandingDto? current;
+    private UpdateBrandingRequest form = new();
+    private IReadOnlyDictionary<string, string[]> errors = new Dictionary<string, string[]>();
+    private ConfirmDialog confirm = default!;
+    private string? logoError;
+    private bool dirty;
+    private bool saving;
+    private bool uploading;
+    private bool resetting;
+
+    private bool IsBusy => saving || uploading || resetting;
+
+    private string PreviewName => string.IsNullOrWhiteSpace(form.ProductName) ? BrandingDefaults.ProductName : form.ProductName.Trim();
+
+    private string PreviewIcon => form.IconName is { } icon && IconPattern.IsMatch(icon) ? icon : BrandingDefaults.IconName;
+
+    protected override async Task OnInitializedAsync() => Apply(await BrandingService.GetAsync());
+
+    private void Apply(BrandingDto branding)
+    {
+        current = branding;
+        form = new UpdateBrandingRequest { ProductName = branding.ProductName, Tagline = branding.Tagline, IconName = branding.IconName };
+        errors = new Dictionary<string, string[]>();
+        dirty = false;
+    }
+
+    private string? Invalid(string field) => errors.ContainsKey(field) ? "is-invalid" : null;
+
+    private IReadOnlyList<string> ErrorsFor(string field) => errors.TryGetValue(field, out var messages) ? messages : [];
+
+    private void MarkDirty() => dirty = true;
+
+    private void PickIcon(string icon)
+    {
+        form.IconName = icon;
+        dirty = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        try
+        {
+            Apply(await BrandingService.UpdateAsync(form));
+            Toasts.Success("Branding saved", "The new brand is shown everywhere.");
+            RefreshLayout();
+        }
+        catch (AppValidationException ex)
+        {
+            errors = ex.Errors;
+            Toasts.Error("Please fix the highlighted fields");
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not save the branding", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs e)
+    {
+        logoError = null;
+        if (e.File.Size > BrandingDefaults.MaxLogoBytes)
+        {
+            logoError = $"The file is too large ({e.File.Size / 1024:N0} KB). Logos can be up to {BrandingDefaults.MaxLogoBytes / 1024} KB.";
+            return;
+        }
+
+        uploading = true;
+        try
+        {
+            byte[] content;
+            await using (var stream = e.File.OpenReadStream(BrandingDefaults.MaxLogoBytes))
+            {
+                using var buffer = new MemoryStream();
+                await stream.CopyToAsync(buffer);
+                content = buffer.ToArray();
+            }
+
+            current = await BrandingService.SetLogoAsync(content, e.File.Name);
+            Toasts.Success("Logo uploaded");
+            if (!dirty)
+            {
+                RefreshLayout(); // unsaved name/icon edits would be lost by a refresh
+            }
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            logoError = UiErrors.Describe(ex);
+        }
+        finally
+        {
+            uploading = false;
+        }
+    }
+
+    private async Task RemoveLogoAsync()
+    {
+        if (!await confirm.ShowAsync("Remove the logo?", "The brand icon is shown instead.", "Remove logo", danger: true))
+        {
+            return;
+        }
+
+        uploading = true;
+        try
+        {
+            current = await BrandingService.RemoveLogoAsync();
+            Toasts.Success("Logo removed");
+            if (!dirty)
+            {
+                RefreshLayout();
+            }
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not remove the logo", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            uploading = false;
+        }
+    }
+
+    private async Task ResetAsync()
+    {
+        if (!await confirm.ShowAsync("Reset branding?", "The default name, tagline and icon are restored and the uploaded logo is removed.", "Reset", danger: true))
+        {
+            return;
+        }
+
+        resetting = true;
+        try
+        {
+            Apply(await BrandingService.ResetAsync());
+            Toasts.Success("Branding reset to the defaults");
+            RefreshLayout();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not reset the branding", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            resetting = false;
+        }
+    }
+
+    // The layouts are rendered on the server: refresh the page so the navigation, title and favicon update.
+    private void RefreshLayout() => Navigation.Refresh();
+}

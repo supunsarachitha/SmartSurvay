@@ -1,0 +1,201 @@
+@page "/admin/audit"
+@rendermode InteractiveServer
+@inject IAuditService Audit
+@* Audit log: who did what and when (survey design, lifecycle, responses, reports, exports, users,
+   branding). Newest first; search, entity type and date filters. *@
+
+<PageHeader Title="Audit log" Subtitle="A record of changes and exports, newest first.">
+    <Breadcrumb><li class="breadcrumb-item"><a href="admin">Admin</a></li><li class="breadcrumb-item active" aria-current="page">Audit log</li></Breadcrumb>
+</PageHeader>
+
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text bg-body"><i class="bi bi-search"></i></span>
+                    <input class="form-control" type="search" placeholder="Search action, user or details" aria-label="Search the audit log"
+                           @bind="search" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+                </div>
+            </div>
+            <div class="col-md-2 col-6">
+                <select class="form-select" aria-label="Filter by type" @bind="entityType" @bind:after="ReloadFromFirstPageAsync">
+                    <option value="">All types</option>
+                    @foreach (var type in EntityTypes)
+                    {
+                        <option value="@type">@type</option>
+                    }
+                </select>
+            </div>
+            <div class="col-md-3 col-6">
+                <input class="form-control" type="date" aria-label="From date" title="From (UTC date)" @bind="from" @bind:after="ReloadFromFirstPageAsync" />
+            </div>
+            <div class="col-md-3 col-6">
+                <input class="form-control" type="date" aria-label="To date" title="To (UTC date)" @bind="to" @bind:after="ReloadFromFirstPageAsync" />
+            </div>
+        </div>
+    </div>
+</div>
+
+<ErrorAlert Message="@error" OnDismiss="() => error = null" Class="mb-3" />
+
+@if (result is null)
+{
+    <LoadingSpinner Text="Loading audit log…" />
+}
+else if (result.TotalCount == 0)
+{
+    <EmptyState Icon="bi-journal-text" Title="@(IsFiltered ? "No entries match the filters" : "Nothing recorded yet")"
+                Message="@(IsFiltered ? "Try other filters or clear them." : "Changes to surveys, reports, users and branding appear here.")">
+        @if (IsFiltered)
+        {
+            <button class="btn btn-soft-primary" @onclick="ClearFiltersAsync">Clear filters</button>
+        }
+    </EmptyState>
+}
+else
+{
+    <div class="card table-card">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">When</th>
+                        <th scope="col">Who</th>
+                        <th scope="col">Action</th>
+                        <th scope="col" class="d-none d-lg-table-cell">Details</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var entry in result.Items)
+                    {
+                        <tr @key="entry.Id">
+                            <td class="small text-nowrap"><LocalDateTime Value="entry.Timestamp" Format="d MMM yyyy, HH:mm:ss" /></td>
+                            <td class="small">@(entry.UserName ?? "System / guest")</td>
+                            <td>
+                                <span class="badge @ActionClass(entry.Action)">@ActionLabel(entry.Action)</span>
+                                <div class="small text-muted mt-1">
+                                    @if (LinkFor(entry) is { } link)
+                                    {
+                                        <a href="@link">@entry.EntityType</a>
+                                    }
+                                    else
+                                    {
+                                        <span>@entry.EntityType</span>
+                                    }
+                                </div>
+                            </td>
+                            <td class="d-none d-lg-table-cell small text-muted text-break">@entry.Details</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="small text-muted">@UiFormat.Plural(result.TotalCount, "entry", "entries")</span>
+            <Pager Page="result.Page" PageSize="result.PageSize" TotalCount="result.TotalCount" OnPageChanged="GoToPageAsync" />
+        </div>
+    </div>
+}
+
+@code {
+    private const int PageSize = 50;
+
+    /// <summary>Entity types written by the application services.</summary>
+    private static readonly string[] EntityTypes = ["Survey", "Response", "Report", "User", "Branding"];
+
+    private PagedResult<AuditLogDto>? result;
+    private string? error;
+    private string search = string.Empty;
+    private string entityType = string.Empty;
+    private DateOnly? from;
+    private DateOnly? to;
+    private int page = 1;
+
+    private bool IsFiltered => !string.IsNullOrWhiteSpace(search) || entityType.Length > 0 || from is not null || to is not null;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            result = await Audit.ListAsync(new AuditQuery
+            {
+                Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
+                EntityType = entityType.Length == 0 ? null : entityType,
+                From = from,
+                To = to,
+                Page = page,
+                PageSize = PageSize,
+            });
+            error = null;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            error = UiErrors.Describe(ex);
+            result ??= PagedResult<AuditLogDto>.Empty(page, PageSize);
+        }
+    }
+
+    private async Task ReloadFromFirstPageAsync()
+    {
+        page = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "Escape" || search.Length == 0 || search.Length >= 2)
+        {
+            if (e.Key == "Escape")
+            {
+                search = string.Empty;
+            }
+
+            await ReloadFromFirstPageAsync();
+        }
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        search = string.Empty;
+        entityType = string.Empty;
+        from = null;
+        to = null;
+        await ReloadFromFirstPageAsync();
+    }
+
+    private async Task GoToPageAsync(int newPage)
+    {
+        page = newPage;
+        await LoadAsync();
+    }
+
+    /// <summary>"survey.status_changed" → "Survey status changed".</summary>
+    internal static string ActionLabel(string action)
+    {
+        var words = action.Replace('.', ' ').Replace('_', ' ').Trim();
+        return words.Length == 0 ? action : char.ToUpperInvariant(words[0]) + words[1..];
+    }
+
+    private static string ActionClass(string action) => action switch
+    {
+        _ when action.EndsWith(".deleted", StringComparison.Ordinal) => "badge-closed",
+        _ when action.EndsWith(".created", StringComparison.Ordinal) || action.EndsWith(".submitted", StringComparison.Ordinal) => "badge-completed",
+        _ when action.Contains("export", StringComparison.Ordinal) => "badge-inprogress",
+        _ when action.StartsWith("user.", StringComparison.Ordinal) || action.StartsWith("branding.", StringComparison.Ordinal) => "badge-template",
+        _ => "badge-soft-primary",
+    };
+
+    /// <summary>Link to the affected item when it can still be opened.</summary>
+    private static string? LinkFor(AuditLogDto entry) => entry.EntityId is { Length: > 0 } id && Guid.TryParse(id, out _) && !entry.Action.EndsWith(".deleted", StringComparison.Ordinal)
+        ? entry.EntityType switch
+        {
+            "Survey" => $"admin/surveys/{id}/edit",
+            "Report" => $"admin/reports/{id}",
+            "Response" => $"admin/responses/{id}",
+            _ => null,
+        }
+        : null;
+}

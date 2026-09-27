@@ -65,6 +65,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   builder (response filters incl. answer filters, widgets with type-aware options, recommended or blank start, live
   preview on current data, inline validation) and report viewer (refresh, print, duplicate, export as PDF, Excel, CSV,
   text or JSON).
+- **Administration UI**: dashboard (KPIs, 30-day trend, top surveys, latest responses), per-survey response browser
+  (status/date/respondent filters, raw export as CSV/Excel/JSON with optional drafts, delete), response detail (answers
+  grouped by page, print, delete), user management (create, grant/revoke administrator, lock/unlock, delete), audit log
+  (search, type and date filters, links to the affected items) and branding page (name, tagline, icon picker, logo
+  upload, reset, live preview).
 - **Embedding**: surveys can be embedded in other websites via `/embed/s/{slug}` (snippet on the share page);
   `Embedding:Enabled` / `Embedding:AllowedOrigins` settings. All other pages refuse to be framed by other sites
   (`X-Frame-Options` + CSP `frame-ancestors`).

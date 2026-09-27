@@ -529,5 +529,13 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
 .icon-picker button:hover { border-color: var(--ss-primary); color: var(--ss-primary); }
 .icon-picker button.selected { border-color: var(--ss-primary); background: var(--ss-primary-soft); color: var(--ss-primary); box-shadow: 0 0 0 3px rgba(var(--ss-primary-rgb), .15); }
 
+/* Branding preview */
+.brand-preview-bar { display: flex; align-items: center; gap: .55rem; padding: .7rem 1rem; border: 1px solid var(--ss-border); border-radius: .6rem; background: var(--ss-surface); min-width: 0; }
+.brand-preview-tab { display: flex; align-items: center; gap: .5rem; padding: .45rem .8rem; border: 1px solid var(--ss-border); border-bottom: 0; border-radius: .6rem .6rem 0 0; background: var(--ss-surface-2); max-width: 16rem; min-width: 0; }
+.brand-preview-footer { padding: .7rem 1rem; border: 1px solid var(--ss-border); border-radius: .6rem; background: var(--ss-surface-2); }
+.answer-row { padding: .75rem 0; border-bottom: 1px solid var(--ss-border); }
+.answer-row:last-child { border-bottom: 0; padding-bottom: 0; }
+.answer-row:first-child { padding-top: 0; }
+
 /* Survey builder */
 .border-dashed { border: 1px dashed var(--ss-border) !important; }

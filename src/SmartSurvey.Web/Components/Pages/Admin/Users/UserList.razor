@@ -1,0 +1,407 @@
+@page "/admin/users"
+@rendermode InteractiveServer
+@inject IUserAdminService Users
+@inject ICurrentUser CurrentUser
+@inject ToastService Toasts
+@* User management: search and role filter, create accounts, grant/revoke the administrator role, lock,
+   unlock and delete. The service protects the acting admin and the last administrator. *@
+
+<PageHeader Title="Users" Subtitle="Accounts, roles and access.">
+    <Breadcrumb><li class="breadcrumb-item"><a href="admin">Admin</a></li><li class="breadcrumb-item active" aria-current="page">Users</li></Breadcrumb>
+    <Actions>
+        <button class="btn btn-primary" @onclick="OpenCreate"><i class="bi bi-person-plus"></i>New user</button>
+    </Actions>
+</PageHeader>
+
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <span class="input-group-text bg-body"><i class="bi bi-search"></i></span>
+                    <input class="form-control" type="search" placeholder="Search name or e-mail" aria-label="Search users"
+                           @bind="search" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" aria-label="Filter by role" @bind="roleFilter" @bind:after="ReloadFromFirstPageAsync">
+                    <option value="">All roles</option>
+                    @foreach (var role in AppRoles.All)
+                    {
+                        <option value="@role">@(role == AppRoles.Admin ? "Administrators" : "Users")</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<ErrorAlert Message="@error" OnDismiss="() => error = null" Class="mb-3" />
+
+@if (result is null)
+{
+    <LoadingSpinner Text="Loading users…" />
+}
+else if (result.TotalCount == 0)
+{
+    <EmptyState Icon="bi-search" Title="No users match" Message="Try another search term or role.">
+        <button class="btn btn-soft-primary" @onclick="ClearFiltersAsync">Clear filters</button>
+    </EmptyState>
+}
+else
+{
+    <div class="card table-card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">User</th>
+                        <th scope="col">Role</th>
+                        <th scope="col" class="d-none d-md-table-cell">Status</th>
+                        <th scope="col" class="d-none d-lg-table-cell">Last sign-in</th>
+                        <th scope="col" class="col-num d-none d-lg-table-cell">Responses</th>
+                        <th scope="col" class="text-end"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var user in result.Items)
+                    {
+                        var isSelf = user.Id == CurrentUser.UserId;
+                        var isAdmin = user.Roles.Contains(AppRoles.Admin);
+                        <tr @key="user.Id">
+                            <td class="min-w-0">
+                                <div class="d-flex align-items-center gap-2">
+                                    <span class="avatar avatar-sm" aria-hidden="true">@Initials(user)</span>
+                                    <div class="min-w-0">
+                                        <div class="fw-semibold text-truncate">
+                                            @(string.IsNullOrWhiteSpace(user.DisplayName) ? user.Email : user.DisplayName)
+                                            @if (isSelf)
+                                            {
+                                                <span class="badge badge-soft-primary ms-1">You</span>
+                                            }
+                                        </div>
+                                        @if (!string.IsNullOrWhiteSpace(user.DisplayName))
+                                        {
+                                            <div class="small text-muted text-truncate">@user.Email</div>
+                                        }
+                                    </div>
+                                </div>
+                            </td>
+                            <td>
+                                @if (isAdmin)
+                                {
+                                    <span class="badge-status badge-published">Admin</span>
+                                }
+                                else
+                                {
+                                    <span class="badge-status badge-draft">User</span>
+                                }
+                            </td>
+                            <td class="d-none d-md-table-cell">
+                                @if (user.IsLockedOut)
+                                {
+                                    <span class="badge-status badge-closed">Locked</span>
+                                }
+                                else
+                                {
+                                    <span class="badge-status badge-completed">Active</span>
+                                }
+                                @if (!user.EmailConfirmed)
+                                {
+                                    <div class="small text-muted mt-1">E-mail not confirmed</div>
+                                }
+                            </td>
+                            <td class="d-none d-lg-table-cell small text-muted">
+                                @(user.LastLoginAt is { } last ? UiFormat.Relative(last) : "Never")
+                                <div>Joined @UiFormat.Relative(user.CreatedAt)</div>
+                            </td>
+                            <td class="col-num d-none d-lg-table-cell">@UiFormat.Number(user.ResponseCount)</td>
+                            <td class="text-end">
+                                <div class="dropdown d-inline-block">
+                                    <button class="btn btn-sm btn-light btn-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                                            aria-label="Actions for @user.Email" disabled="@(busyId == user.Id)">
+                                        @if (busyId == user.Id)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-three-dots"></i>
+                                        }
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        @if (isAdmin)
+                                        {
+                                            <li><button class="dropdown-item" disabled="@isSelf" @onclick="() => SetAdminAsync(user, false)"><i class="bi bi-shield-x"></i>Remove administrator role</button></li>
+                                        }
+                                        else
+                                        {
+                                            <li><button class="dropdown-item" @onclick="() => SetAdminAsync(user, true)"><i class="bi bi-shield-plus"></i>Make administrator</button></li>
+                                        }
+                                        @if (user.IsLockedOut)
+                                        {
+                                            <li><button class="dropdown-item" @onclick="() => UnlockAsync(user)"><i class="bi bi-unlock"></i>Unlock</button></li>
+                                        }
+                                        else
+                                        {
+                                            <li><button class="dropdown-item" disabled="@isSelf" @onclick="() => LockAsync(user)"><i class="bi bi-lock"></i>Lock account</button></li>
+                                        }
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li><button class="dropdown-item text-danger" disabled="@isSelf" @onclick="() => DeleteAsync(user)"><i class="bi bi-trash"></i>Delete account</button></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="small text-muted">@UiFormat.Plural(result.TotalCount, "user")</span>
+            <Pager Page="result.Page" PageSize="result.PageSize" TotalCount="result.TotalCount" OnPageChanged="GoToPageAsync" />
+        </div>
+    </div>
+}
+
+<Modal Visible="createVisible" Title="New user" Icon="bi-person-plus" OnClose="() => createVisible = false">
+    <ChildContent>
+        <p class="small text-muted">The account is ready to use right away (the e-mail address counts as confirmed). Share the password securely; the user can change it under account settings.</p>
+        <div class="mb-3">
+            <label class="form-label small" for="nu-email">E-mail <span class="text-danger">*</span></label>
+            <input class="form-control @Invalid("Email")" id="nu-email" type="email" autocomplete="off" @bind="newUser.Email" @bind:event="oninput" />
+            <FieldErrors Messages="@ErrorsFor("Email")" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label small" for="nu-name">Display name</label>
+            <input class="form-control @Invalid("DisplayName")" id="nu-name" @bind="newUser.DisplayName" @bind:event="oninput" />
+            <FieldErrors Messages="@ErrorsFor("DisplayName")" />
+        </div>
+        <div class="mb-3">
+            <label class="form-label small" for="nu-password">Password <span class="text-danger">*</span></label>
+            <input class="form-control @Invalid("Password")" id="nu-password" type="password" autocomplete="new-password" @bind="newUser.Password" @bind:event="oninput" />
+            <div class="form-text">At least 8 characters with upper- and lower-case letters, a digit and a symbol.</div>
+            <FieldErrors Messages="@ErrorsFor("Password")" />
+        </div>
+        <div class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="nu-admin" @bind="newUserIsAdmin" />
+            <label class="form-check-label small" for="nu-admin">Administrator (full access to surveys, responses, reports and users)</label>
+        </div>
+        <FieldErrors Messages="@ErrorsFor("Roles")" />
+        <ErrorAlert Message="@createError" Class="mt-3 mb-0" />
+    </ChildContent>
+    <Footer>
+        <button type="button" class="btn btn-light" @onclick="() => createVisible = false">Cancel</button>
+        <button type="button" class="btn btn-primary" @onclick="CreateAsync" disabled="@creating">
+            @if (creating)
+            {
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Creating…</span>
+            }
+            else
+            {
+                <i class="bi bi-check2"></i><span>Create user</span>
+            }
+        </button>
+    </Footer>
+</Modal>
+
+<ConfirmDialog @ref="confirm" />
+
+@code {
+    private const int PageSize = 25;
+
+    private PagedResult<UserDto>? result;
+    private ConfirmDialog confirm = default!;
+    private CreateUserRequest newUser = new();
+    private IReadOnlyDictionary<string, string[]> createErrors = new Dictionary<string, string[]>();
+    private string? error;
+    private string? createError;
+    private string search = string.Empty;
+    private string roleFilter = string.Empty;
+    private int page = 1;
+    private bool createVisible;
+    private bool creating;
+    private bool newUserIsAdmin;
+    private Guid? busyId;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            result = await Users.ListAsync(new UserQuery
+            {
+                Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
+                Role = roleFilter.Length == 0 ? null : roleFilter,
+                Page = page,
+                PageSize = PageSize,
+            });
+            error = null;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            error = UiErrors.Describe(ex);
+            result ??= PagedResult<UserDto>.Empty(page, PageSize);
+        }
+    }
+
+    private async Task ReloadFromFirstPageAsync()
+    {
+        page = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "Escape" || search.Length == 0 || search.Length >= 2)
+        {
+            if (e.Key == "Escape")
+            {
+                search = string.Empty;
+            }
+
+            await ReloadFromFirstPageAsync();
+        }
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        search = string.Empty;
+        roleFilter = string.Empty;
+        await ReloadFromFirstPageAsync();
+    }
+
+    private async Task GoToPageAsync(int newPage)
+    {
+        page = newPage;
+        await LoadAsync();
+    }
+
+    private static string Initials(UserDto user)
+    {
+        var source = string.IsNullOrWhiteSpace(user.DisplayName) ? user.Email : user.DisplayName;
+        var parts = source.Split([' ', '.', '@', '_', '-'], StringSplitOptions.RemoveEmptyEntries);
+        return string.Concat(parts.Take(2).Select(p => char.ToUpperInvariant(p[0])));
+    }
+
+    private string? Invalid(string field) => createErrors.ContainsKey(field) ? "is-invalid" : null;
+
+    private IReadOnlyList<string> ErrorsFor(string field) => createErrors.TryGetValue(field, out var messages) ? messages : [];
+
+    private void OpenCreate()
+    {
+        newUser = new CreateUserRequest();
+        newUserIsAdmin = false;
+        createErrors = new Dictionary<string, string[]>();
+        createError = null;
+        createVisible = true;
+    }
+
+    private async Task CreateAsync()
+    {
+        creating = true;
+        createError = null;
+        createErrors = new Dictionary<string, string[]>();
+        try
+        {
+            newUser.Roles = newUserIsAdmin ? [AppRoles.Admin, AppRoles.User] : [AppRoles.User];
+            var created = await Users.CreateAsync(newUser);
+            createVisible = false;
+            Toasts.Success("User created", created.Email);
+            await LoadAsync();
+        }
+        catch (AppValidationException ex)
+        {
+            createErrors = ex.Errors;
+            var unplaced = ex.Errors.Where(e => e.Key is not ("Email" or "DisplayName" or "Password" or "Roles")).SelectMany(e => e.Value).ToList();
+            createError = unplaced.Count > 0 ? string.Join(" ", unplaced) : null;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            createError = UiErrors.Describe(ex);
+        }
+        finally
+        {
+            creating = false;
+        }
+    }
+
+    private async Task SetAdminAsync(UserDto user, bool admin)
+    {
+        var roles = admin ? [AppRoles.Admin, AppRoles.User] : user.Roles.Where(r => r != AppRoles.Admin).DefaultIfEmpty(AppRoles.User).ToList();
+        var question = admin
+            ? $"Make {user.Email} an administrator? They get full access to surveys, responses, reports and users."
+            : $"Remove the administrator role from {user.Email}? They keep their account as a regular user.";
+        if (!await confirm.ShowAsync(admin ? "Grant administrator role?" : "Remove administrator role?", question, admin ? "Make administrator" : "Remove role", danger: !admin))
+        {
+            return;
+        }
+
+        await RunAsync(user.Id, async () =>
+        {
+            await Users.SetRolesAsync(user.Id, roles);
+            Toasts.Success(admin ? "Administrator role granted" : "Administrator role removed", user.Email);
+            await LoadAsync();
+        });
+    }
+
+    private async Task LockAsync(UserDto user)
+    {
+        if (!await confirm.ShowAsync($"Lock {user.Email}?", "The user can no longer sign in until you unlock the account. Their responses stay.", "Lock account", danger: true))
+        {
+            return;
+        }
+
+        await RunAsync(user.Id, async () =>
+        {
+            await Users.LockAsync(user.Id);
+            Toasts.Success("Account locked", user.Email);
+            await LoadAsync();
+        });
+    }
+
+    private Task UnlockAsync(UserDto user) => RunAsync(user.Id, async () =>
+    {
+        await Users.UnlockAsync(user.Id);
+        Toasts.Success("Account unlocked", user.Email);
+        await LoadAsync();
+    });
+
+    private async Task DeleteAsync(UserDto user)
+    {
+        if (!await confirm.ShowAsync($"Delete {user.Email}?", "The account is removed permanently. Their survey responses are kept as anonymous responses.", "Delete account", danger: true))
+        {
+            return;
+        }
+
+        await RunAsync(user.Id, async () =>
+        {
+            await Users.DeleteAsync(user.Id);
+            Toasts.Success("Account deleted", user.Email);
+            if (result is { Items.Count: 1, Page: > 1 })
+            {
+                page--;
+            }
+
+            await LoadAsync();
+        });
+    }
+
+    /// <summary>Runs an action for one row with a busy indicator and friendly error handling.</summary>
+    private async Task RunAsync(Guid id, Func<Task> action)
+    {
+        busyId = id;
+        try
+        {
+            await action();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Something went wrong", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            busyId = null;
+        }
+    }
+}
