@@ -67,7 +67,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddApiEndpoints();
 
 builder.Services.ConfigureApiFriendlyCookies();
-builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+builder.Services.AddScoped<IEmailSender<ApplicationUser>, IdentityEmailSender>();
 
 // ----- Hosting concerns -----------------------------------------------------------------------
 // Persist data-protection keys (auth cookies, bearer tokens, antiforgery) when a path is configured,

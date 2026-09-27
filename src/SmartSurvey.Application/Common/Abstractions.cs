@@ -89,3 +89,24 @@ public interface ICurrentUser
     /// <summary>Role membership check.</summary>
     bool IsInRole(string role);
 }
+
+/// <summary>An e-mail ready to be delivered.</summary>
+/// <param name="To">Recipient address.</param>
+/// <param name="Subject">Subject line.</param>
+/// <param name="HtmlBody">HTML body.</param>
+/// <param name="TextBody">Plain-text alternative (shown by clients that don't render HTML).</param>
+/// <param name="SenderName">Sender display name used when none is configured (e.g. the product name).</param>
+public sealed record EmailMessage(string To, string Subject, string HtmlBody, string TextBody, string? SenderName = null);
+
+/// <summary>
+/// Delivers e-mails (account confirmation, password reset). Implemented with SMTP in the
+/// Infrastructure layer; when no server is configured messages are only logged.
+/// </summary>
+public interface IEmailTransport
+{
+    /// <summary>True when messages actually leave the application (an SMTP server is configured).</summary>
+    bool IsEnabled { get; }
+
+    /// <summary>Sends the message. Throws when the server rejects it or cannot be reached.</summary>
+    Task SendAsync(EmailMessage message, CancellationToken ct = default);
+}

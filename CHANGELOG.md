@@ -70,6 +70,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   grouped by page, print, delete), user management (create, grant/revoke administrator, lock/unlock, delete), audit log
   (search, type and date filters, links to the affected items) and branding page (name, tagline, icon picker, logo
   upload, reset, live preview).
+- **E-mail**: account confirmation and password-reset e-mails are sent through SMTP (MailKit; `Email:FromAddress`,
+  `Email:FromName`, `Email:Smtp:*`) as branded HTML with a plain-text part. Without a configured server nothing is sent
+  and the message is logged (full text only in Development). Administrators can set a new password for any user (Users
+  page, `POST /api/v1/users/{id}/password`), e.g. when e-mail isn't configured.
 - **Embedding**: surveys can be embedded in other websites via `/embed/s/{slug}` (snippet on the share page);
   `Embedding:Enabled` / `Embedding:AllowedOrigins` settings. All other pages refuse to be framed by other sites
   (`X-Frame-Options` + CSP `frame-ancestors`).

@@ -42,6 +42,11 @@ public static class AdminEndpoints
             .WithName("SetUserRoles")
             .WithSummary("Replaces the roles of a user (Admin, User).");
 
+        group.MapPost("/{id:guid}/password", (IUserAdminService users, Guid id, SetUserPasswordRequest request, CancellationToken ct) =>
+                users.SetPasswordAsync(id, request.Password, ct))
+            .WithName("SetUserPassword")
+            .WithSummary("Sets a new password for a user and signs them out everywhere.");
+
         group.MapPost("/{id:guid}/lock", (IUserAdminService users, Guid id, CancellationToken ct) => users.LockAsync(id, ct))
             .WithName("LockUser")
             .WithSummary("Locks a user out until unlocked.");

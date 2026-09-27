@@ -3,8 +3,8 @@
 @inject IUserAdminService Users
 @inject ICurrentUser CurrentUser
 @inject ToastService Toasts
-@* User management: search and role filter, create accounts, grant/revoke the administrator role, lock,
-   unlock and delete. The service protects the acting admin and the last administrator. *@
+@* User management: search and role filter, create accounts, grant/revoke the administrator role, set a new
+   password, lock, unlock and delete. The service protects the acting admin and the last administrator. *@
 
 <PageHeader Title="Users" Subtitle="Accounts, roles and access.">
     <Breadcrumb><li class="breadcrumb-item"><a href="admin">Admin</a></li><li class="breadcrumb-item active" aria-current="page">Users</li></Breadcrumb>
@@ -138,6 +138,7 @@ else
                                         {
                                             <li><button class="dropdown-item" @onclick="() => SetAdminAsync(user, true)"><i class="bi bi-shield-plus"></i>Make administrator</button></li>
                                         }
+                                        <li><button class="dropdown-item" @onclick="() => OpenPassword(user)"><i class="bi bi-key"></i>Set new password…</button></li>
                                         @if (user.IsLockedOut)
                                         {
                                             <li><button class="dropdown-item" @onclick="() => UnlockAsync(user)"><i class="bi bi-unlock"></i>Unlock</button></li>
@@ -204,6 +205,33 @@ else
     </Footer>
 </Modal>
 
+<Modal Visible="passwordUser is not null" Title="Set new password" Icon="bi-key" OnClose="() => passwordUser = null">
+    <ChildContent>
+        <p class="small text-muted">
+            Set a new password for <strong class="text-body">@passwordUser?.Email</strong>. They are signed out everywhere and use the new
+            password from now on. Share it securely and ask them to change it under account settings.
+        </p>
+        <label class="form-label small" for="pw-new">New password <span class="text-danger">*</span></label>
+        <input class="form-control @(passwordErrors.Count > 0 ? "is-invalid" : null)" id="pw-new" type="password" autocomplete="new-password"
+               @bind="newPassword" @bind:event="oninput" />
+        <div class="form-text">At least 8 characters with upper- and lower-case letters, a digit and a symbol.</div>
+        <FieldErrors Messages="passwordErrors" />
+    </ChildContent>
+    <Footer>
+        <button type="button" class="btn btn-light" @onclick="() => passwordUser = null">Cancel</button>
+        <button type="button" class="btn btn-primary" @onclick="SetPasswordAsync" disabled="@settingPassword">
+            @if (settingPassword)
+            {
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Saving…</span>
+            }
+            else
+            {
+                <i class="bi bi-check2"></i><span>Set password</span>
+            }
+        </button>
+    </Footer>
+</Modal>
+
 <ConfirmDialog @ref="confirm" />
 
 @code {
@@ -222,6 +250,10 @@ else
     private bool creating;
     private bool newUserIsAdmin;
     private Guid? busyId;
+    private UserDto? passwordUser;
+    private string newPassword = string.Empty;
+    private IReadOnlyList<string> passwordErrors = [];
+    private bool settingPassword;
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
@@ -343,6 +375,42 @@ else
             Toasts.Success(admin ? "Administrator role granted" : "Administrator role removed", user.Email);
             await LoadAsync();
         });
+    }
+
+    private void OpenPassword(UserDto user)
+    {
+        passwordUser = user;
+        newPassword = string.Empty;
+        passwordErrors = [];
+    }
+
+    private async Task SetPasswordAsync()
+    {
+        if (passwordUser is not { } user)
+        {
+            return;
+        }
+
+        settingPassword = true;
+        try
+        {
+            await Users.SetPasswordAsync(user.Id, newPassword);
+            passwordUser = null;
+            Toasts.Success("Password updated", $"{user.Email} can sign in with the new password.");
+            await LoadAsync();
+        }
+        catch (AppValidationException ex)
+        {
+            passwordErrors = ex.Errors.SelectMany(e => e.Value).Distinct().ToList();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            passwordErrors = [UiErrors.Describe(ex)];
+        }
+        finally
+        {
+            settingPassword = false;
+        }
     }
 
     private async Task LockAsync(UserDto user)

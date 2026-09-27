@@ -234,6 +234,27 @@ public sealed class AdminPagesTests : UiTestBase
     }
 
     [Fact]
+    public void Users_page_sets_a_new_password()
+    {
+        AddUser("admin@test.local", admin: true, id: TestCurrentUser.AdminId);
+        var rita = AddUser("rita@test.local");
+        var cut = RenderComponent<UserList>();
+
+        cut.FindAll("tbody tr")[1].QuerySelectorAll(".dropdown-item").Single(i => i.TextContent.Contains("Set new password")).Click();
+        _users.PasswordError = new AppValidationException("Password", "Passwords must have at least one digit ('0'-'9').");
+        cut.Find("#pw-new").Input("weakpass");
+        Click(cut, "Set password");
+        Assert.Contains("at least one digit", cut.Markup);
+
+        _users.PasswordError = null;
+        cut.Find("#pw-new").Input("N3w-Secret!");
+        Click(cut, "Set password");
+
+        Assert.Equal($"password:{rita.Id}:N3w-Secret!", Assert.Single(_users.Calls));
+        Assert.Empty(cut.FindAll("#pw-new")); // dialog closed
+    }
+
+    [Fact]
     public void Audit_log_lists_entries_with_links_and_filters()
     {
         var surveyId = Guid.NewGuid();

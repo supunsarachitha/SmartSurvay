@@ -32,6 +32,7 @@ A full-stack, modular, well-commented **survey application**:
 | PDF | **QuestPDF 2026.9.x** (Community license) | Charts embedded as SVG. |
 | XLSX (extra) | **ClosedXML 0.105** | |
 | QR codes (extra) | **QRCoder 1.8** | Share page. |
+| E-mail | **MailKit 4.18** | SMTP delivery of account e-mails (`Email:*` settings). |
 | Charts | Home-grown **server-side SVG chart renderer** | Same SVG used in the browser and inside PDFs → consistent, zero JS, fully unit-testable. |
 | Tests | xUnit 2.9, bUnit 2.x, `WebApplicationFactory` + SQLite in-memory | |
 | DevOps | Dockerfile, docker-compose (app + postgres), GitHub Actions CI | |
@@ -203,7 +204,7 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 | `POST /api/v1/reports/preview` | admin | Execute unsaved definition |
 | `GET /api/v1/reports/{id}/export?format=pdf\|csv\|txt\|xlsx\|json` | admin | Export file |
 | `GET /api/v1/dashboard` | admin | Dashboard KPIs |
-| `GET /api/v1/users`, `POST /api/v1/users`, `PUT /api/v1/users/{id}/roles`, `POST /api/v1/users/{id}/lock\|unlock` | admin | User admin |
+| `GET /api/v1/users`, `POST /api/v1/users`, `PUT /api/v1/users/{id}/roles`, `POST /api/v1/users/{id}/password`, `POST /api/v1/users/{id}/lock\|unlock` | admin | User admin |
 | `GET /api/v1/audit` | admin | Audit log |
 | `GET /api/v1/public/branding`, `PUT /api/v1/branding`, `POST/DELETE /api/v1/branding/logo`, `POST /api/v1/branding/reset` | public / admin | Branding |
 | `GET /branding/logo`, `GET /branding/favicon` | public | Brand images (versioned caching) |
@@ -262,7 +263,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] 6E Admin: dashboard (KPIs, 30-day chart, top surveys, latest responses), responses browser (filters, raw export CSV/Excel/JSON incl. drafts, delete) and detail (answers by page, print, delete), users (create with inline validation, grant/revoke admin, lock/unlock, delete; self-protection), audit log (filters, readable actions, links), **branding page** (name, tagline, icon picker, logo upload/remove, reset, live preview, layout refresh after saving)
 
 ### Phase 7 — Verification
-- [ ] SMTP e-mail sender (`Email:Smtp` settings) replacing the template's no-op sender — until then password-reset and confirmation e-mails are not sent (admins can reset access via the Users page)
+- [x] SMTP e-mail sender (`Email:*` settings, MailKit 4.18) replacing the template's no-op sender: branded HTML + text account e-mails; without a host messages are only logged (bodies only in Development); plus admin "Set new password" (service, API `POST /api/v1/users/{id}/password`, Users page) for deployments without SMTP. Verified with a local SMTP catcher: forgot password → e-mail → link → new password → sign-in
 - [ ] Full build (0 warnings target), all tests green
 - [ ] Run against PostgreSQL: migrations apply, seed works, smoke-test UI + API flows
 - [ ] Code review + security review → fixes (note: submissions through the Blazor runner go through the circuit, so the API's per-IP `submissions` rate limiter does not cover them — decide whether the UI needs its own throttle)
@@ -355,3 +356,4 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Phase 6C done | Survey runner `/s/{slug}` (prerendered → interactive with persisted session + shuffle seed; live logic, per-page and final validation with live error clearing, progress by answered questions, question numbering along the path, pages whose questions are all hidden skipped, drafts auto-saved on page change/leave and via "Save & finish later", resume with "Welcome back"/start over, guest leave warning, server validation mapped to questions), thank-you page (`GetCompletionAsync`), admin preview (desktop/phone), embedding (`/embed/s/{slug}`, `EmbedLayout`, `FrameOptionsMiddleware`, `Embedding` options, share-page snippet). 58 new tests (695 green); smoke OK; verified in headless Chrome (guest submit, draft resume, preview, shuffle stability, third-party iframe allowed only for /embed). Next: 6D reports UI |
 | 2026-09-27 | Phase 6D done | Reports UI: list, builder with live preview (600 ms debounce, preview only once interactive, runs on a deep copy), viewer with exports and print. 27 new tests (722 green). Verified in headless Chrome: viewer charts, real PDF/XLSX downloads, overview start, live preview follows widget changes, create → edit address → view. Next: 6E |
 | 2026-09-27 | Phase 6E done | Admin pages above. Browser check found a real issue: create-user fields bound on `change` lost the password when the button was triggered without blurring the field → bound on input. 15 new tests (737 green); verified in headless Chrome (dashboard, response filters, CSV export, detail, create/lock user, audit entries, branding save refreshes sidebar/title, reset). **Phase 6 complete.** Next: Phase 7 |
+| 2026-09-27 | Phase 7: e-mail | `IEmailTransport` (Application) + `SmtpEmailTransport` (MailKit), branded `IdentityEmailSender`, dev-only confirmation link without SMTP, admin set-password. 16 new tests (753 green). Verified against a local SMTP catcher in Production mode (reset link works; no links in the log) |

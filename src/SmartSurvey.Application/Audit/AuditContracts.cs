@@ -113,6 +113,9 @@ public static class AuditActions
     /// <summary>User roles changed.</summary>
     public const string UserRolesChanged = "user.roles_changed";
 
+    /// <summary>User password set by an administrator.</summary>
+    public const string UserPasswordReset = "user.password_reset";
+
     /// <summary>User locked.</summary>
     public const string UserLocked = "user.locked";
 

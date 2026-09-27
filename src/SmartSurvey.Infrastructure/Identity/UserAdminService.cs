@@ -182,6 +182,36 @@ public sealed class UserAdminService(
     }
 
     /// <inheritdoc />
+    public async Task<UserDto> SetPasswordAsync(Guid id, string password, CancellationToken ct = default)
+    {
+        EnsureAdmin();
+        if (string.IsNullOrEmpty(password))
+        {
+            throw new AppValidationException(nameof(SetUserPasswordRequest.Password), "Please enter the new password.");
+        }
+
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var identity = IdentityServices.From(scope.ServiceProvider);
+        var user = await FindUserAsync(identity.Users, id);
+
+        // The reset-token path runs the password validators and rotates the security stamp (signs the user out).
+        var token = await identity.Users.GeneratePasswordResetTokenAsync(user);
+        ThrowIfFailed(await identity.Users.ResetPasswordAsync(user, token, password));
+
+        // A temporary lock-out from failed sign-ins ends with the new password; an admin lock (no end) stays.
+        if (await identity.Users.GetLockoutEndDateAsync(user) is { } lockoutEnd && lockoutEnd != DateTimeOffset.MaxValue)
+        {
+            ThrowIfFailed(await identity.Users.SetLockoutEndDateAsync(user, null));
+        }
+
+        ThrowIfFailed(await identity.Users.ResetAccessFailedCountAsync(user));
+
+        await audit.LogAsync(AuditActions.UserPasswordReset, AuditEntityType, id.ToString(), $"New password set for {user.Email}.", ct);
+
+        return await GetAsync(id, ct);
+    }
+
+    /// <inheritdoc />
     public async Task<UserDto> LockAsync(Guid id, CancellationToken ct = default)
     {
         EnsureAdmin();

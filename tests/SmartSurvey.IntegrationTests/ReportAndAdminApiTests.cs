@@ -122,6 +122,32 @@ public sealed class ReportAndAdminApiTests(ApiFactory factory)
     }
 
     [Fact]
+    public async Task Admin_sets_a_new_password_that_works_for_sign_in()
+    {
+        var created = await ReadAsync<UserDto>(await _admin.PostAsJsonAsync("/api/v1/users", new CreateUserRequest
+        {
+            Email = "reset@it.local",
+            Password = "Original123!",
+            Roles = [AppRoles.User],
+        }, ApiFactory.Json), HttpStatusCode.Created);
+
+        var weak = await ProblemAsync(
+            await _admin.PostAsJsonAsync($"/api/v1/users/{created.Id}/password", new SetUserPasswordRequest { Password = "weak" }, ApiFactory.Json),
+            HttpStatusCode.BadRequest);
+        Assert.True(weak.GetProperty("errors").TryGetProperty("Password", out _));
+
+        await ReadAsync<UserDto>(await _admin.PostAsJsonAsync(
+            $"/api/v1/users/{created.Id}/password", new SetUserPasswordRequest { Password = "Replaced123!" }, ApiFactory.Json));
+
+        var anonymous = factory.Anonymous();
+        await AssertStatusAsync(await anonymous.PostAsJsonAsync("/api/auth/login", new { email = "reset@it.local", password = "Replaced123!" }), HttpStatusCode.OK);
+        await AssertStatusAsync(await anonymous.PostAsJsonAsync("/api/auth/login", new { email = "reset@it.local", password = "Original123!" }), HttpStatusCode.Unauthorized);
+        await AssertStatusAsync(
+            await factory.Respondent().PostAsJsonAsync($"/api/v1/users/{created.Id}/password", new SetUserPasswordRequest { Password = "Hijack123!" }, ApiFactory.Json),
+            HttpStatusCode.Forbidden);
+    }
+
+    [Fact]
     public async Task Branding_is_public_to_read_and_admin_only_to_change()
     {
         try

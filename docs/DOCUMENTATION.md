@@ -515,6 +515,10 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
 * **Clickjacking:** every page sends `X-Frame-Options: SAMEORIGIN` and `Content-Security-Policy:
   frame-ancestors 'self'`, except the embeddable `/embed/*` survey pages (any site by default, or only
   `Embedding:AllowedOrigins`; `Embedding:Enabled=false` turns embedding off).
+* **Account e-mails:** reset and confirmation links are only sent by e-mail; without SMTP they are never logged outside
+  Development, and the "confirm here" shortcut after registering only appears in Development. Delivery errors are logged,
+  never shown, so the forms don't reveal whether an address has an account. Administrators can set a new password,
+  which signs the user out everywhere.
 * **Data protection:** keys can be persisted (`DataProtection:KeysPath`) so cookies/tokens survive restarts.
 * **Transport:** HTTPS redirection and HSTS outside Development; forwarded headers support behind proxies.
 * **Secrets:** no production credentials in configuration — set `Seed:AdminPassword` and connection strings
@@ -538,6 +542,12 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 | `Identity:RequireConfirmedAccount` | `false` | Require e-mail confirmation before login |
 | `Support:BuyMeACoffeeUsername` | `smartsurvey` | Target of the Buy Me a Coffee page |
 | `Support:GitHubUrl` / `Support:ContactEmail` | *(empty)* | Footer / FAQ links |
+| `Email:FromAddress` | `no-reply@smartsurvey.local` | Sender address of account e-mails (confirmation, password reset) |
+| `Email:FromName` | *(empty = product name)* | Sender display name |
+| `Email:Smtp:Host` | *(empty = e-mail disabled)* | SMTP server; without it e-mails are only logged (full text in Development) |
+| `Email:Smtp:Port` / `Email:Smtp:Security` | `587` / `Auto` | `Auto` = implicit TLS on 465, otherwise STARTTLS when offered; `StartTls`, `SslOnConnect`, `None` |
+| `Email:Smtp:UserName` / `Email:Smtp:Password` | *(empty)* | SMTP login (set the password via environment variable / secret store) |
+| `Email:Smtp:TimeoutSeconds` | `30` | Connection and command timeout |
 | `Embedding:Enabled` | `true` | Allow `/embed/s/{slug}` survey pages in iframes on other sites (share-page snippet) |
 | `Embedding:AllowedOrigins` | *(empty = any site)* | Origins allowed to embed surveys, e.g. `["https://www.example.com"]` |
 | `Swagger:Enabled` | `false` (`true` in Development) | Expose `/swagger` |

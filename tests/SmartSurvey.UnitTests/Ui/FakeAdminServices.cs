@@ -152,6 +152,11 @@ public sealed class FakeUserAdminService : Application.Users.IUserAdminService
     public Task<Application.Users.UserDto> SetRolesAsync(Guid id, IReadOnlyCollection<string> roles, CancellationToken ct = default) =>
         Record($"roles:{id}:{string.Join(",", roles)}", id);
 
+    public Exception? PasswordError { get; set; }
+
+    public Task<Application.Users.UserDto> SetPasswordAsync(Guid id, string password, CancellationToken ct = default) =>
+        PasswordError is { } error ? Task.FromException<Application.Users.UserDto>(error) : Record($"password:{id}:{password}", id);
+
     public Task<Application.Users.UserDto> LockAsync(Guid id, CancellationToken ct = default) => Record($"lock:{id}", id);
 
     public Task<Application.Users.UserDto> UnlockAsync(Guid id, CancellationToken ct = default) => Record($"unlock:{id}", id);

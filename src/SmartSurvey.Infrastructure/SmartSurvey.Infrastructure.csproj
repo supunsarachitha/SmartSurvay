@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <!-- Infrastructure layer: EF Core DbContext + migrations, Identity stores, exporters
-       (QuestPDF / CSV / TXT / XLSX / JSON), auditing, seeding and DI wiring. -->
+       (QuestPDF / CSV / TXT / XLSX / JSON), SMTP e-mail (MailKit), auditing, seeding and DI wiring. -->
   <ItemGroup>
     <ProjectReference Include="..\SmartSurvey.Application\SmartSurvey.Application.csproj" />
   </ItemGroup>
@@ -15,6 +15,7 @@
     <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
     <PackageReference Include="QuestPDF" />
     <PackageReference Include="ClosedXML" />
+    <PackageReference Include="MailKit" />
   </ItemGroup>
   <ItemGroup>
     <InternalsVisibleTo Include="SmartSurvey.UnitTests" />

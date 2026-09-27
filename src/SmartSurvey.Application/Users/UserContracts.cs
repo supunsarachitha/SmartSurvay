@@ -66,6 +66,13 @@ public sealed class SetUserRolesRequest
     public List<string> Roles { get; set; } = [];
 }
 
+/// <summary>Admin request to set a new password for a user (e.g. when e-mail delivery isn't configured).</summary>
+public sealed class SetUserPasswordRequest
+{
+    /// <summary>New password (must satisfy the Identity password policy).</summary>
+    public string Password { get; set; } = string.Empty;
+}
+
 /// <summary>User administration (admin only). Implemented with ASP.NET Core Identity.</summary>
 public interface IUserAdminService
 {
@@ -80,6 +87,12 @@ public interface IUserAdminService
 
     /// <summary>Replaces roles. An admin cannot remove their own Admin role (prevents lock-out).</summary>
     Task<UserDto> SetRolesAsync(Guid id, IReadOnlyCollection<string> roles, CancellationToken ct = default);
+
+    /// <summary>
+    /// Sets a new password (validated against the password policy; errors are keyed "Password") and signs the
+    /// user out everywhere. Also clears a temporary lock-out caused by failed sign-ins.
+    /// </summary>
+    Task<UserDto> SetPasswordAsync(Guid id, string password, CancellationToken ct = default);
 
     /// <summary>Locks the account indefinitely. Admins cannot lock themselves.</summary>
     Task<UserDto> LockAsync(Guid id, CancellationToken ct = default);

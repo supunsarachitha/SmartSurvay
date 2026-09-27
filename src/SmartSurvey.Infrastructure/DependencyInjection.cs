@@ -6,6 +6,7 @@ using SmartSurvey.Application.Branding;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Application.Exports;
 using SmartSurvey.Application.Users;
+using SmartSurvey.Infrastructure.Email;
 using SmartSurvey.Infrastructure.Exports;
 using SmartSurvey.Infrastructure.Identity;
 using SmartSurvey.Infrastructure.Persistence;
@@ -18,7 +19,7 @@ public static class DependencyInjection
 {
     /// <summary>
     /// Adds the EF Core context (PostgreSQL or SQLite, see <see cref="DatabaseOptions"/>), the
-    /// context factory, exporters, user administration, seeding and health checks.
+    /// context factory, exporters, e-mail delivery, user administration, seeding and health checks.
     /// Requires an <see cref="ICurrentUser"/> registration (provided by the Web host).
     /// </summary>
     public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
@@ -26,6 +27,7 @@ public static class DependencyInjection
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<BrandingOptions>(configuration.GetSection(BrandingOptions.SectionName));
+        services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
 
         services.AddScoped<AuditableEntityInterceptor>();
 
@@ -63,6 +65,7 @@ public static class DependencyInjection
         services.AddSingleton<IReportExporter, JsonReportExporter>();
         services.AddScoped<IResponseExportService, ResponseExportService>();
 
+        services.AddSingleton<IEmailTransport, SmtpEmailTransport>();
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<DbSeeder>();
 

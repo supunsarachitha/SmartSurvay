@@ -90,6 +90,55 @@ public sealed class UserAdminServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task SetPassword_replaces_the_password_signs_out_and_audits()
+    {
+        var stampBefore = await IdentityAsync(async users => (await users.FindByIdAsync(TestCurrentUser.RespondentId.ToString()))!.SecurityStamp);
+
+        await Users(s => s.SetPasswordAsync(TestCurrentUser.RespondentId, "N3w-Secret!"));
+
+        var (valid, stampAfter) = await IdentityAsync(async users =>
+        {
+            var user = (await users.FindByIdAsync(TestCurrentUser.RespondentId.ToString()))!;
+            return (await users.CheckPasswordAsync(user, "N3w-Secret!"), user.SecurityStamp);
+        });
+        Assert.True(valid);
+        Assert.NotEqual(stampBefore, stampAfter); // existing sessions end
+        Assert.True(await AuditedAsync(AuditActions.UserPasswordReset, TestCurrentUser.RespondentId));
+    }
+
+    [Fact]
+    public async Task SetPassword_rejects_weak_passwords_with_a_password_error()
+    {
+        var ex = await Assert.ThrowsAsync<AppValidationException>(() => Users(s => s.SetPasswordAsync(TestCurrentUser.RespondentId, "short")));
+        var empty = await Assert.ThrowsAsync<AppValidationException>(() => Users(s => s.SetPasswordAsync(TestCurrentUser.RespondentId, "")));
+
+        Assert.Equal(["Password"], ex.Errors.Keys);
+        Assert.Equal(["Password"], empty.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task SetPassword_ends_a_failed_sign_in_lockout_but_not_an_admin_lock()
+    {
+        await IdentityAsync(async users =>
+        {
+            var user = (await users.FindByIdAsync(TestCurrentUser.RespondentId.ToString()))!;
+            await users.SetLockoutEndDateAsync(user, DateTimeOffset.UtcNow.AddMinutes(15));
+            return true;
+        });
+
+        var afterReset = await Users(s => s.SetPasswordAsync(TestCurrentUser.RespondentId, "N3w-Secret!"));
+        Assert.False(afterReset.IsLockedOut);
+
+        await Users(s => s.LockAsync(TestCurrentUser.RespondentId));
+        var stillLocked = await Users(s => s.SetPasswordAsync(TestCurrentUser.RespondentId, "An0ther-Secret!"));
+        Assert.True(stillLocked.IsLockedOut);
+    }
+
+    [Fact]
+    public async Task SetPassword_of_an_unknown_user_throws_not_found() =>
+        await Assert.ThrowsAsync<NotFoundException>(() => Users(s => s.SetPasswordAsync(Guid.NewGuid(), "N3w-Secret!")));
+
+    [Fact]
     public async Task Admins_cannot_lock_or_delete_themselves()
     {
         await Assert.ThrowsAsync<BusinessRuleException>(() => Users(s => s.LockAsync(TestCurrentUser.AdminId)));
@@ -141,11 +190,14 @@ public sealed class UserAdminServiceTests : IAsyncLifetime
 
         await Assert.ThrowsAsync<ForbiddenException>(() => Users(s => s.ListAsync(new UserQuery())));
         await Assert.ThrowsAsync<ForbiddenException>(() => Users(s => s.LockAsync(TestCurrentUser.AdminId)));
+        await Assert.ThrowsAsync<ForbiddenException>(() => Users(s => s.SetPasswordAsync(TestCurrentUser.AdminId, "N3w-Secret!")));
     }
 
     private Task<T> Users<T>(Func<IUserAdminService, Task<T>> action) => _host.WithAsync(action);
 
     private Task Users(Func<IUserAdminService, Task> action) => _host.WithAsync(action);
+
+    private Task<T> IdentityAsync<T>(Func<Microsoft.AspNetCore.Identity.UserManager<ApplicationUser>, Task<T>> action) => _host.WithAsync(action);
 
     private async Task<bool> AuditedAsync(string action, Guid userId)
     {
