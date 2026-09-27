@@ -21,6 +21,13 @@ public static class AuthPolicies
     public const string ApiAdmin = "ApiAdmin";
 }
 
+/// <summary>Authentication scheme names defined by the Web host.</summary>
+public static class AuthSchemes
+{
+    /// <summary>Default policy scheme: bearer token when an Authorization header is present, otherwise the Identity cookie.</summary>
+    public const string CookieOrBearer = "CookieOrBearer";
+}
+
 /// <summary>Rate-limiter policy names.</summary>
 public static class RateLimitPolicies
 {

@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -34,11 +35,19 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddWebServices(builder.Configuration);
 
 // ----- Authentication & Identity --------------------------------------------------------------
+// The default scheme is a policy scheme: requests carrying "Authorization: Bearer …" are authenticated
+// with Identity bearer tokens (REST clients), everything else with the Identity cookie (browser/UI).
+// HttpContext.User — and therefore ICurrentUser — reflects whichever credential was presented.
 builder.Services.AddAuthentication(options =>
     {
-        options.DefaultScheme = IdentityConstants.ApplicationScheme;
+        options.DefaultScheme = AuthSchemes.CookieOrBearer;
         options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
     })
+    .AddPolicyScheme(AuthSchemes.CookieOrBearer, "Identity cookie or bearer token", options =>
+        options.ForwardDefaultSelector = context =>
+            context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? IdentityConstants.BearerScheme
+                : IdentityConstants.ApplicationScheme)
     .AddBearerToken(IdentityConstants.BearerScheme)
     .AddIdentityCookies();
 
@@ -83,6 +92,8 @@ if (behindProxy)
 // ----- API plumbing ---------------------------------------------------------------------------
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddApiDocumentation();
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
