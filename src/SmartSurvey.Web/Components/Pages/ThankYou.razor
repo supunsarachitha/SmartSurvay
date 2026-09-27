@@ -1,0 +1,28 @@
+@page "/s/{Slug}/thank-you"
+@inject IResponseService Responses
+@inject ICurrentUser CurrentUser
+@* Completion page after submitting a survey (static SSR). Also safe to open directly: without a known
+   survey it shows a generic thank-you. *@
+
+<PageTitle>Thank you</PageTitle>
+
+<ThankYouCard SurveyTitle="@completion?.Title" Message="@completion?.ThankYouMessage">
+    @if (completion?.CanRespondAgain == true)
+    {
+        <a class="btn btn-primary" href="s/@Uri.EscapeDataString(completion.Slug)"><i class="bi bi-arrow-repeat"></i>Submit another response</a>
+    }
+    @if (CurrentUser.IsAuthenticated)
+    {
+        <a class="btn btn-light" href="my/responses"><i class="bi bi-inboxes"></i>My responses</a>
+    }
+    <a class="btn btn-light" href="surveys"><i class="bi bi-grid"></i>More surveys</a>
+</ThankYouCard>
+
+@code {
+    private SurveyCompletionDto? completion;
+
+    /// <summary>Survey slug.</summary>
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync() => completion = await Responses.GetCompletionAsync(Slug);
+}

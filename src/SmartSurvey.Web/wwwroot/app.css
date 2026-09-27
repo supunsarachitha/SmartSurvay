@@ -406,6 +406,28 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
     width: 4.5rem; height: 4.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;
     background: rgba(16, 185, 129, .12); color: #10b981; font-size: 2.2rem; animation: ss-pop .3s ease-out;
 }
+.status-icon {
+    width: 4.5rem; height: 4.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem;
+    background: var(--ss-primary-soft); color: var(--ss-primary); font-size: 2rem;
+}
+.survey-welcome { background: var(--ss-surface); border: 1px solid var(--ss-border); border-radius: var(--ss-radius-sm); padding: .85rem 1rem; }
+.choice-item.disabled { opacity: .55; cursor: not-allowed; }
+.choice-item.disabled:hover { border-color: var(--ss-border); background: var(--ss-surface); }
+.thank-you-message { max-width: 36rem; background: var(--ss-surface-2); border-radius: var(--ss-radius-sm); padding: 1rem 1.25rem; }
+.text-pre-line { white-space: pre-line; }
+/* Embedded runner (iframe on another site) */
+.embed-main { min-height: 100vh; display: flex; flex-direction: column; }
+.embed-main .survey-shell { padding-top: 1rem; padding-bottom: 1.5rem; width: 100%; }
+.embed-main .survey-progress { top: 0; }
+.embed-footer { margin-top: auto; text-align: center; padding: .75rem 1rem 1rem; font-size: .8rem; }
+.embed-footer a { color: var(--ss-muted); text-decoration: none; display: inline-flex; align-items: center; gap: .4rem; }
+.embed-footer a:hover { color: var(--ss-primary); }
+/* Admin preview width toggle */
+.preview-stage { transition: max-width .2s ease; }
+.preview-phone { max-width: 400px; margin: 0 auto; border: 1px solid var(--ss-border); border-radius: 1.5rem; background: var(--ss-page-bg); box-shadow: var(--ss-shadow-sm); overflow: hidden; }
+.preview-phone .survey-shell { padding: 1rem .75rem 2rem; }
+.preview-phone .survey-hero { padding: 1.25rem; }
+.preview-phone .survey-progress { position: static; }
 
 /* ----- Survey builder ------------------------------------------------------------------------ */
 .builder-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 1.5rem; align-items: start; }

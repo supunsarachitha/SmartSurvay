@@ -1,0 +1,23 @@
+@inherits LayoutComponentBase
+@inject Application.Branding.IBrandingService Branding
+@* Minimal layout for pages shown inside iframes on other sites: no navigation, a small "powered by"
+   line that opens the site in a new tab. *@
+
+<main class="embed-main">
+    @Body
+    <div class="embed-footer">
+        <a href="" target="_blank" rel="noopener"><BrandMark Size="sm" ShowName="false" /> Powered by @productName</a>
+    </div>
+</main>
+
+<div id="blazor-error-ui" role="alert">
+    <i class="bi bi-exclamation-octagon me-1"></i> An unexpected error has occurred.
+    <a href="" class="reload fw-semibold ms-2">Reload</a>
+    <a class="dismiss" aria-label="Dismiss"><i class="bi bi-x-lg"></i></a>
+</div>
+
+@code {
+    private string productName = Application.Branding.BrandingDefaults.ProductName;
+
+    protected override async Task OnInitializedAsync() => productName = (await Branding.GetAsync()).ProductName;
+}

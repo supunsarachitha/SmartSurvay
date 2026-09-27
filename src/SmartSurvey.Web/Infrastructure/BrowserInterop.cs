@@ -66,6 +66,19 @@ public sealed class BrowserInterop(IJSRuntime js)
         }
     }
 
+    /// <summary>The browser's user agent (stored with survey responses); null when unavailable.</summary>
+    public async ValueTask<string?> GetUserAgentAsync()
+    {
+        try
+        {
+            return await js.InvokeAsync<string?>("SmartSurvey.getUserAgent");
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Smoothly scrolls to the top of the page.</summary>
     public ValueTask ScrollToTopAsync() => js.InvokeVoidAsync("SmartSurvey.scrollToTop");
 

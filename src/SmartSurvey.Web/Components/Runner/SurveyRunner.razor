@@ -1,0 +1,576 @@
+@implements IDisposable
+@inject IResponseService Responses
+@inject ICurrentUser CurrentUser
+@inject NavigationManager Navigation
+@inject BrowserInterop Browser
+@inject PersistentComponentState ApplicationState
+@inject Application.Branding.IBrandingService Branding
+@inject ILogger<SurveyRunner> Logger
+@* The respondent experience: multi-page survey with live conditional logic, per-page validation,
+   progress bar, draft auto-save for signed-in users (on every page change, when leaving and on demand)
+   and submission. All rules live in SurveyRunState / the Application layer; this component renders the
+   state and calls IResponseService.
+   Modes: live (Slug), embedded in an iframe (Slug + Embedded) and admin preview (PreviewSurvey: nothing
+   is saved, the thank-you message is shown in place). *@
+
+<PageTitle>@($"{Survey?.Title ?? "Survey"} · {productName}")</PageTitle>
+
+@if (!IsPreview)
+{
+    <NavigationLock ConfirmExternalNavigation="HasUnsavedWork" OnBeforeInternalNavigation="OnLeavingAsync" />
+}
+<ConfirmDialog @ref="confirm" />
+
+@if (loadFailed)
+{
+    <div class="survey-shell">
+        <EmptyState Icon="bi-cloud-slash" Title="We couldn't load this survey" Message="Please refresh the page to try again." />
+    </div>
+}
+else if (run is null && session is null)
+{
+    <div class="survey-shell"><LoadingSpinner Text="Loading survey…" /></div>
+}
+else if (run is null)
+{
+    <div class="survey-shell">
+        <div class="card text-center">
+            <div class="card-body p-4 p-md-5">
+                <div class="status-icon" aria-hidden="true"><i class="bi @UnavailableIcon"></i></div>
+                <h1 class="h4 fw-bold mb-2">@UnavailableTitle</h1>
+                <p class="text-muted mb-4">@session!.Message</p>
+                <div class="d-flex flex-wrap justify-content-center gap-2">
+                    @if (session.Eligibility == SurveyEligibility.LoginRequired)
+                    {
+                        @if (Embedded)
+                        {
+                            @* Sign-in cookies don't reach third-party iframes: continue in a full browser tab. *@
+                            <a class="btn btn-primary" href="@LiveUrl" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>Open the survey to sign in</a>
+                        }
+                        else
+                        {
+                            <a class="btn btn-primary" href="@LoginUrl"><i class="bi bi-box-arrow-in-right"></i>Sign in</a>
+                            <a class="btn btn-light" href="@RegisterUrl"><i class="bi bi-person-plus"></i>Create account</a>
+                        }
+                    }
+                    else if (session.Eligibility == SurveyEligibility.AlreadyResponded && !Embedded)
+                    {
+                        <a class="btn btn-primary" href="my/responses"><i class="bi bi-inboxes"></i>My responses</a>
+                    }
+                    @if (!Embedded)
+                    {
+                        <a class="btn btn-light" href="surveys"><i class="bi bi-grid"></i>Browse open surveys</a>
+                    }
+                </div>
+            </div>
+        </div>
+    </div>
+}
+else if (previewCompleted)
+{
+    <ThankYouCard SurveyTitle="@run.Survey.Title" Message="@run.Survey.ThankYouMessage">
+        <button class="btn btn-primary" @onclick="RestartPreview"><i class="bi bi-arrow-counterclockwise"></i>Restart preview</button>
+    </ThankYouCard>
+}
+else
+{
+    var survey = run.Survey;
+    <div class="survey-shell">
+        @if (IsPreview)
+        {
+            <div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2 small">
+                <span><i class="bi bi-eye me-2"></i>Preview: logic and validation work as for respondents, but nothing is saved.</span>
+                <button class="btn btn-sm btn-light" @onclick="RestartPreview"><i class="bi bi-arrow-counterclockwise"></i>Restart</button>
+            </div>
+        }
+
+        @if (run.IsFirstPage)
+        {
+            <header class="survey-hero">
+                <h1 class="fw-bold mb-2">@survey.Title</h1>
+                @if (!string.IsNullOrWhiteSpace(survey.Description))
+                {
+                    <p class="text-muted text-pre-line mb-0">@survey.Description</p>
+                }
+                @if (!string.IsNullOrWhiteSpace(survey.WelcomeMessage))
+                {
+                    <div class="survey-welcome text-pre-line mt-3">@survey.WelcomeMessage</div>
+                }
+                <div class="d-flex flex-wrap gap-3 small text-muted mt-3">
+                    <span><i class="bi bi-list-ol me-1"></i>@questionCount question@(questionCount == 1 ? "" : "s")</span>
+                    <span><i class="bi bi-clock me-1"></i>~@EstimatedMinutes min</span>
+                    @if (hasRequired)
+                    {
+                        <span><span class="text-danger fw-bold">*</span> Required</span>
+                    }
+                </div>
+            </header>
+        }
+        else
+        {
+            <h1 class="h6 text-muted fw-semibold mb-3">@survey.Title</h1>
+        }
+
+        @if (resumed)
+        {
+            <div class="alert alert-light border d-flex flex-wrap align-items-center justify-content-between gap-2">
+                <span><i class="bi bi-arrow-repeat text-primary me-2"></i>Welcome back! We restored the answers you saved.</span>
+                <button class="btn btn-sm btn-light" @onclick="StartOverAsync" disabled="@busy"><i class="bi bi-eraser"></i>Start over</button>
+            </div>
+        }
+
+        @if (savedForLater)
+        {
+            <div class="alert alert-success d-flex gap-2" role="status">
+                <i class="bi bi-bookmark-check"></i>
+                <span>Your progress is saved. You can close this page and continue any time from <a href="my/responses" class="alert-link">My responses</a>.</span>
+            </div>
+        }
+
+        @if (survey.ShowProgressBar && run.Pages.Count > 0)
+        {
+            <div class="survey-progress">
+                <div class="d-flex justify-content-between small text-muted mb-1">
+                    <span>@(run.Pages.Count > 1 ? $"Page {run.PageIndex + 1} of {run.Pages.Count}" : null)</span>
+                    <span>@run.ProgressPercent% complete</span>
+                </div>
+                <div class="progress" role="progressbar" aria-label="Survey progress" aria-valuenow="@run.ProgressPercent"
+                     aria-valuemin="0" aria-valuemax="100" style="height:.5rem">
+                    <div class="progress-bar" style="width:@(run.ProgressPercent)%"></div>
+                </div>
+            </div>
+        }
+
+        @if (run.CurrentPage is { } currentPage)
+        {
+            @if (run.Pages.Count > 1 || !string.IsNullOrWhiteSpace(currentPage.Description))
+            {
+                <div class="mb-3 mt-2">
+                    @if (!string.IsNullOrWhiteSpace(currentPage.Title))
+                    {
+                        <h2 class="h5 fw-semibold mb-1">@currentPage.Title</h2>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(currentPage.Description))
+                    {
+                        <p class="text-muted text-pre-line mb-0">@currentPage.Description</p>
+                    }
+                </div>
+            }
+
+            @foreach (var question in run.CurrentQuestions)
+            {
+                <QuestionField @key="question.Id" Question="question" Answer="run.Answer(question.Id)" Options="run.OptionsFor(question)"
+                               Number="run.NumberOf(question.Id)" Errors="run.ErrorsFor(question.Id)" OnChanged="() => OnAnswerChanged(question.Id)" />
+            }
+        }
+        else
+        {
+            <EmptyState Icon="bi-ui-checks" Title="No questions yet" Message="This survey doesn't contain any questions." />
+        }
+
+        @if (notice is not null && run.Errors.Count > 0)
+        {
+            <div class="alert alert-warning small d-flex gap-2 mt-3" role="alert"><i class="bi bi-exclamation-triangle"></i><span>@notice</span></div>
+        }
+        <ErrorAlert Message="@submitError" OnDismiss="() => submitError = null" Class="mt-3" />
+
+        <div class="survey-nav">
+            <div>
+                @if (!run.IsFirstPage)
+                {
+                    <button class="btn btn-light" @onclick="BackAsync" disabled="@busy"><i class="bi bi-arrow-left"></i>Back</button>
+                }
+            </div>
+            <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+                @if (CanSaveDraft)
+                {
+                    @if (saved && !run.IsDirty)
+                    {
+                        <span class="small text-muted d-none d-sm-inline" role="status"><i class="bi bi-cloud-check me-1"></i>Progress saved</span>
+                    }
+                    <button class="btn btn-soft-primary" @onclick="SaveForLaterAsync" disabled="@busy"><i class="bi bi-bookmark"></i>Save &amp; finish later</button>
+                }
+                @if (run.IsLastPage)
+                {
+                    <button class="btn btn-primary" @onclick="SubmitAsync" disabled="@busy">
+                        @if (busy)
+                        {
+                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Submitting…</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-send"></i><span>Submit</span>
+                        }
+                    </button>
+                }
+                else
+                {
+                    <button class="btn btn-primary" @onclick="NextAsync" disabled="@busy"><span>Next</span><i class="bi bi-arrow-right ms-2 me-0"></i></button>
+                }
+            </div>
+        </div>
+
+        @if (!IsPreview && !Embedded && !CurrentUser.IsAuthenticated && run.IsFirstPage && run.Pages.Count > 1)
+        {
+            <p class="small text-muted text-center mt-4 mb-0">
+                <i class="bi bi-info-circle me-1"></i>Want to finish later? <a href="@LoginUrl">Sign in</a> before you start and your progress is saved.
+            </p>
+        }
+    </div>
+}
+
+@code {
+    private const string StateKey = nameof(SurveyRunner);
+
+    private SurveySessionDto? session;
+    private SurveyRunState? run;
+    private ConfirmDialog? confirm;
+    private PersistingComponentStateSubscription? persisting;
+    private string productName = Application.Branding.BrandingDefaults.ProductName;
+    private string? loadedSlug;
+    private int seed;
+    private int questionCount;
+    private bool hasRequired;
+    private Guid? responseId;
+    private string? userAgent;
+    private string? notice;
+    private string? submitError;
+    private string? pendingScroll;
+    private bool loadFailed;
+    private bool busy;
+    private bool saved;
+    private bool savedForLater;
+    private bool submitted;
+    private bool resumed;
+    private bool previewCompleted;
+
+    /// <summary>Slug of the survey to answer (live and embedded mode).</summary>
+    [Parameter] public string? Slug { get; set; }
+
+    /// <summary>Survey design to preview (admin preview mode: nothing is loaded or saved).</summary>
+    [Parameter] public SurveyDefinitionDto? PreviewSurvey { get; set; }
+
+    /// <summary>Rendered inside an iframe on another site (links open new tabs, no account features).</summary>
+    [Parameter] public bool Embedded { get; set; }
+
+    private bool IsPreview => PreviewSurvey is not null;
+
+    private SurveyDefinitionDto? Survey => run?.Survey ?? session?.Survey;
+
+    private bool CanSaveDraft => !IsPreview && !Embedded && CurrentUser.IsAuthenticated && run is not null;
+
+    // Guests never have anything saved; signed-in users have unsaved work only since the last save.
+    private bool HasUnsavedWork => !submitted && run is not null && (CanSaveDraft ? run.IsDirty : run.HasAnswers);
+
+    private int EstimatedMinutes => Math.Max(1, (int)Math.Ceiling(questionCount * ResponseService.SecondsPerQuestion / 60.0));
+
+    private string CanonicalSlug => Survey?.Slug ?? Slug ?? string.Empty;
+
+    private string LiveUrl => $"s/{Uri.EscapeDataString(CanonicalSlug)}";
+
+    private string LoginUrl => $"Account/Login?ReturnUrl={Uri.EscapeDataString("/" + LiveUrl)}";
+
+    private string RegisterUrl => $"Account/Register?ReturnUrl={Uri.EscapeDataString("/" + LiveUrl)}";
+
+    private string ThankYouUrl => Embedded ? $"embed/{LiveUrl}/thank-you" : $"{LiveUrl}/thank-you";
+
+    private string UnavailableIcon => session?.Eligibility switch
+    {
+        SurveyEligibility.LoginRequired => "bi-person-lock",
+        SurveyEligibility.AlreadyResponded => "bi-check2-circle",
+        SurveyEligibility.NotOpenYet => "bi-calendar-event",
+        SurveyEligibility.Closed => "bi-lock",
+        SurveyEligibility.QuotaReached => "bi-people",
+        SurveyEligibility.NotPublished => "bi-hourglass-split",
+        _ => "bi-question-circle",
+    };
+
+    private string UnavailableTitle => session?.Eligibility switch
+    {
+        SurveyEligibility.LoginRequired => "Sign in to take part",
+        SurveyEligibility.AlreadyResponded => "You've already taken part",
+        SurveyEligibility.NotOpenYet => "This survey isn't open yet",
+        SurveyEligibility.Closed => "This survey is closed",
+        SurveyEligibility.QuotaReached => "This survey is full",
+        SurveyEligibility.NotPublished => "This survey isn't available",
+        _ => "Survey not found",
+    };
+
+    protected override async Task OnInitializedAsync() => productName = (await Branding.GetAsync()).ProductName;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (PreviewSurvey is not null)
+        {
+            if (!ReferenceEquals(run?.Survey, PreviewSurvey))
+            {
+                RestartPreview();
+            }
+
+            return;
+        }
+
+        if (loadedSlug == Slug && (session is not null || loadFailed))
+        {
+            return;
+        }
+
+        loadedSlug = Slug;
+        persisting ??= ApplicationState.RegisterOnPersisting(PersistStateAsync);
+        try
+        {
+            // The prerendered pass hands its session (and shuffle seed) to the interactive pass, so the
+            // survey is loaded once and the option order doesn't change when the page becomes interactive.
+            if (!ApplicationState.TryTakeFromJson<RunnerSnapshot>(StateKey, out var snapshot) || snapshot is null || snapshot.Slug != Slug)
+            {
+                snapshot = new RunnerSnapshot(Slug ?? string.Empty, await Responses.StartOrResumeAsync(Slug ?? string.Empty), Random.Shared.Next());
+            }
+
+            Start(snapshot);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Loading survey {Slug} failed.", Slug);
+            loadFailed = true;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (pendingScroll is not { } target)
+        {
+            return;
+        }
+
+        pendingScroll = null;
+        try
+        {
+            await (target == "top" ? Browser.ScrollToTopAsync() : Browser.ScrollIntoViewAsync(target));
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit gone; nothing to scroll.
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose() => persisting?.Dispose();
+
+    private Task PersistStateAsync()
+    {
+        if (session is not null)
+        {
+            ApplicationState.PersistAsJson(StateKey, new RunnerSnapshot(loadedSlug ?? string.Empty, session, seed));
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void Start(RunnerSnapshot snapshot)
+    {
+        session = snapshot.Session;
+        seed = snapshot.Seed;
+        responseId = session.DraftResponseId;
+        resumed = responseId is not null && session.Answers.Count > 0;
+        run = session is { CanRespond: true, Survey: { } survey }
+            ? new SurveyRunState(survey, session.Answers, session.CurrentSectionIndex, seed)
+            : null;
+        CountQuestions();
+    }
+
+    private void RestartPreview()
+    {
+        run = new SurveyRunState(PreviewSurvey!, seed: Random.Shared.Next());
+        previewCompleted = false;
+        notice = null;
+        submitError = null;
+        pendingScroll = "top";
+        CountQuestions();
+    }
+
+    private void CountQuestions()
+    {
+        var questions = run?.Survey.AllQuestions().ToList() ?? [];
+        questionCount = questions.Count;
+        hasRequired = questions.Any(q => q.IsRequired);
+    }
+
+    private void OnAnswerChanged(Guid questionId)
+    {
+        run!.AnswerChanged(questionId);
+        savedForLater = false;
+        if (run.Errors.Count == 0)
+        {
+            notice = null;
+        }
+    }
+
+    private async Task NextAsync()
+    {
+        if (run is null || busy)
+        {
+            return;
+        }
+
+        submitError = null;
+        if (!run.TryGoNext())
+        {
+            ShowErrors();
+            return;
+        }
+
+        notice = null;
+        resumed = false;
+        pendingScroll = "top";
+        await AutoSaveAsync();
+    }
+
+    private async Task BackAsync()
+    {
+        if (run is null || busy || !run.GoBack())
+        {
+            return;
+        }
+
+        notice = null;
+        submitError = null;
+        pendingScroll = "top";
+        await AutoSaveAsync();
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (run is null || busy)
+        {
+            return;
+        }
+
+        submitError = null;
+        if (!run.ValidateAll())
+        {
+            ShowErrors();
+            return;
+        }
+
+        if (IsPreview)
+        {
+            previewCompleted = true;
+            pendingScroll = "top";
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            userAgent ??= await Browser.GetUserAgentAsync();
+            await Responses.SubmitAsync(session!.Survey!.Id, run.ToRequest(responseId, userAgent));
+            submitted = true;
+            Navigation.NavigateTo(ThankYouUrl);
+        }
+        catch (AppValidationException ex)
+        {
+            // The server re-validates with the stored design (it may have changed since the page loaded).
+            var general = run.ApplyServerErrors(ex.Errors);
+            if (run.Errors.Count > 0)
+            {
+                ShowErrors();
+            }
+
+            submitError = general.Count > 0 ? string.Join(" ", general) : null;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            submitError = UiErrors.Describe(ex);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task SaveForLaterAsync()
+    {
+        if (await SaveDraftAsync(automatic: false))
+        {
+            savedForLater = true;
+            pendingScroll = "top";
+        }
+    }
+
+    private Task AutoSaveAsync() => CanSaveDraft ? SaveDraftAsync(automatic: true) : Task.CompletedTask;
+
+    private async Task<bool> SaveDraftAsync(bool automatic)
+    {
+        busy = true;
+        try
+        {
+            userAgent ??= await Browser.GetUserAgentAsync();
+            responseId = await Responses.SaveDraftAsync(session!.Survey!.Id, run!.ToRequest(responseId, userAgent));
+            run.MarkSaved();
+            saved = true;
+            return true;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            submitError = automatic
+                ? $"We couldn't save your progress automatically. {UiErrors.Describe(ex)}"
+                : $"Your progress could not be saved. {UiErrors.Describe(ex)}";
+            return false;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task StartOverAsync()
+    {
+        if (run is null || !await confirm!.ShowAsync("Start over?", "All the answers you saved for this survey will be cleared.", "Start over", danger: true))
+        {
+            return;
+        }
+
+        run.Reset();
+        resumed = false;
+        savedForLater = false;
+        notice = null;
+        submitError = null;
+        pendingScroll = "top";
+        await AutoSaveAsync();
+    }
+
+    private async Task OnLeavingAsync(LocationChangingContext context)
+    {
+        if (!HasUnsavedWork)
+        {
+            return;
+        }
+
+        // Signed-in respondents keep their answers: save quietly on the way out.
+        if (CanSaveDraft && await SaveDraftAsync(automatic: true))
+        {
+            return;
+        }
+
+        var message = CanSaveDraft
+            ? "Your latest answers couldn't be saved and will be lost."
+            : "Your answers haven't been submitted yet and will be lost.";
+        if (!await confirm!.ShowAsync("Leave this survey?", message, "Leave", danger: true, cancelText: "Keep answering"))
+        {
+            context.PreventNavigation();
+        }
+    }
+
+    private void ShowErrors()
+    {
+        var count = run!.Errors.Count;
+        notice = count == 1 ? "Please check the highlighted question." : $"Please check the {count} highlighted questions.";
+        pendingScroll = run.FirstErrorQuestionId is { } id ? $"#q-{id}" : "top";
+    }
+
+    /// <summary>State handed from the prerendered to the interactive render.</summary>
+    /// <param name="Slug">Requested slug.</param>
+    /// <param name="Session">Loaded session.</param>
+    /// <param name="Seed">Option shuffle seed.</param>
+    internal sealed record RunnerSnapshot(string Slug, SurveySessionDto Session, int Seed);
+}

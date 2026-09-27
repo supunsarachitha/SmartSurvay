@@ -52,7 +52,7 @@ public sealed class SvgChartRendererTests
         var svg = _renderer.Render(data);
 
         var doc = XDocument.Parse(svg);
-        Assert.Empty(doc.Descendants().Where(e => e.Name.LocalName == "script"));
+        Assert.DoesNotContain(doc.Descendants(), e => e.Name.LocalName == "script");
         Assert.DoesNotContain(doc.Descendants().Attributes(), a => a.Name.LocalName.StartsWith("on", StringComparison.OrdinalIgnoreCase));
     }
 

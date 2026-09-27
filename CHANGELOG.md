@@ -56,6 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   10 question types, answer options (incl. "Other" with text box and pasting a list), per-type answer settings,
   question and page display logic, outline, inline server validation and unsaved-changes protection; share page with
   link, QR code (SVG/PNG) and invitation text.
+- **Survey runner**: multi-page answering at `/s/{slug}` with live conditional logic, per-page and final validation
+  (messages clear as answers are fixed), progress bar, question numbers that follow the respondent's path, shuffled
+  options for "randomise" questions ("Other" stays last), automatic draft saving for signed-in respondents (page
+  changes, leaving, "Save & finish later") with resume and start-over, a leave warning for guests and a thank-you page
+  with the survey's message (and "answer again" where allowed). Administrators get a preview with desktop/phone width.
+- **Embedding**: surveys can be embedded in other websites via `/embed/s/{slug}` (snippet on the share page);
+  `Embedding:Enabled` / `Embedding:AllowedOrigins` settings. All other pages refuse to be framed by other sites
+  (`X-Frame-Options` + CSP `frame-ancestors`).
 - Hosting: persistent data-protection keys, optional forwarded headers, configurable HTTPS redirect;
   cookie-or-bearer default authentication scheme; string enums in API JSON.
 - DevOps: Dockerfile, docker-compose (app + PostgreSQL), GitHub Actions CI, `scripts/smoke.sh`.

@@ -196,6 +196,29 @@ public sealed class ResponseService(
     }
 
     /// <inheritdoc />
+    public async Task<SurveyCompletionDto?> GetCompletionAsync(string slug, CancellationToken ct = default)
+    {
+        if (string.IsNullOrWhiteSpace(slug))
+        {
+            return null;
+        }
+
+        var normalizedSlug = slug.Trim().ToLowerInvariant();
+        await using var db = await dbFactory.CreateAsync(ct);
+        var survey = await db.Surveys.AsNoTracking().FirstOrDefaultAsync(s => s.Slug.ToLower() == normalizedSlug, ct);
+        if (survey is null || survey.IsTemplate || survey.Status == SurveyStatus.Draft || (!survey.AllowAnonymous && UserId is null))
+        {
+            return null;
+        }
+
+        // "Answer again" is only offered where repeat answers are intended; guests cannot be told apart,
+        // so without AllowMultipleResponses the button would just invite duplicates.
+        var verdict = await CheckEligibilityAsync(db, survey, ct);
+        return new SurveyCompletionDto(
+            survey.Id, survey.Title, survey.Slug, survey.ThankYouMessage, verdict.IsEligible && survey.AllowMultipleResponses);
+    }
+
+    /// <inheritdoc />
     public async Task<IReadOnlyList<MyResponseDto>> ListMineAsync(CancellationToken ct = default)
     {
         if (UserId is not { } userId)

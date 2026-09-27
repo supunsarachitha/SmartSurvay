@@ -156,6 +156,7 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 | `/surveys` | public/users | Available surveys |
 | `/s/{slug}` | per survey | Take survey (multi-page runner) |
 | `/s/{slug}/thank-you` | per survey | Completion page |
+| `/embed/s/{slug}`, `/embed/s/{slug}/thank-you` | per survey | Runner / completion page for iframes on other sites (minimal layout; see `Embedding:*`) |
 | `/my/responses` | user | My submissions & drafts |
 | `/Account/*` | public | Identity (login, register, manage, 2FA …) |
 | `/admin` | admin | Dashboard |
@@ -256,7 +257,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 ### Phase 6 — Blazor UI
 - [x] 6A Layout, nav, dark mode, shared components, Home, FAQ, Buy Me a Coffee, surveys list, my responses, account pages restyle
 - [x] 6B Admin: survey list/create/import/templates, builder (sections, questions, options, settings, logic), share page
-- [ ] 6C Respondent: survey runner (multi-page, logic, validation, drafts), preview, thank-you (my responses done in 6A). Must honour `RandomizeOptions` (free-text options stay last — promised in the builder); decide on iframe embedding (antiforgery sends X-Frame-Options: SAMEORIGIN)
+- [x] 6C Respondent: survey runner (multi-page, logic, validation, drafts), preview, thank-you (my responses done in 6A). `RandomizeOptions` honoured (per-respondent shuffle, free-text options last). Embedding decided: `/embed/s/{slug}` pages only, frame headers set by `FrameOptionsMiddleware` (antiforgery's X-Frame-Options suppressed), `Embedding:*` config, snippet on the share page
 - [ ] 6D Admin reports: report list/builder (live preview)/viewer/exports
 - [ ] 6E Admin: dashboard, responses browser/detail, users, audit log, **branding page**
 
@@ -264,7 +265,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [ ] SMTP e-mail sender (`Email:Smtp` settings) replacing the template's no-op sender — until then password-reset and confirmation e-mails are not sent (admins can reset access via the Users page)
 - [ ] Full build (0 warnings target), all tests green
 - [ ] Run against PostgreSQL: migrations apply, seed works, smoke-test UI + API flows
-- [ ] Multi-agent code review + security review → fixes
+- [ ] Code review + security review → fixes (note: submissions through the Blazor runner go through the circuit, so the API's per-IP `submissions` rate limiter does not cover them — decide whether the UI needs its own throttle)
 
 ### Phase 8 — DevOps & docs
 - [ ] Dockerfile + docker-compose (app + postgres)
@@ -303,7 +304,11 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   `.hero`, `.feature-icon`, `.eyebrow`, `.gradient-text`, `.section`, `.survey-shell`, `.survey-hero`,
   `.question-card`, `.choice-item(.selected)`, `.rating-stars`, `.scale-options`, `.builder-layout`,
   `.section-block`, `.question-editor(.active)`, `.type-picker`, `.option-row`, `.logic-rule`, `.chart-container`,
-  `.code-box`, `.qr-box`, `.coffee-card`, `.btn-coffee`, `.auth-card`, `.btn-soft-*`, `.btn-icon`.
+  `.code-box`, `.qr-box`, `.coffee-card`, `.btn-coffee`, `.auth-card`, `.btn-soft-*`, `.btn-icon`, `.status-icon`,
+  `.survey-welcome`, `.thank-you-message`, `.text-pre-line`, `.embed-main`, `.preview-stage/.preview-phone`.
+* Survey runner: `Components/Runner` — `SurveyRunState` (pure state machine: pages, logic, validation, option order,
+  requests; unit-tested), `QuestionField` (one question per type), `SurveyRunner` (live / embedded / preview modes),
+  `ThankYouCard`.
 
 ## 8c. Quality gates
 
@@ -344,3 +349,4 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Phase 5 done | REST API: 8 groups + branding under `/api/v1` (Api/*Endpoints.cs), optional query records for list endpoints (`ApiQueries.cs`), logo upload as base64 JSON (CSRF-safe without antiforgery), `docs/examples` (.http walkthrough + survey/response/report JSON). 35 integration tests (auth 401/403, ProblemDetails, lifecycle, public flow, exports, reports, admin, branding, OpenAPI, examples). Next: Phase 6A |
 | 2026-09-27 | Phase 6A done | Home (branded hero, features, how it works), FAQ (grouped accordion + GET search), Buy Me a Coffee (Support options), /surveys (cards, guest prompt, search), /my/responses, account pages restyled (AuthCard, AccountLayout container, settings layout). Fixes: login now counts failures toward lockout, password minimum 8 on all forms, self-registered users get the User role, last sign-in recorded, display name claim in the user menu, BrowserInterop null time zone, dead scoped-CSS link. 14 bUnit tests; 613 tests green; smoke OK. Next: 6B builder |
 | 2026-09-27 | Phase 6B done | Admin survey list (filters, paging, lifecycle actions, duplicate/template/export/import/delete), builder (`/admin/surveys/new` creates on first save; pages, questions, options incl. "Other" + paste list, per-type settings, question/page display logic, outline, server-error mapping to questions, unsaved-changes guard, optimistic-concurrency reload), share page (link, QR SVG/PNG, invitation text). `SurveyDesign` operations + 24 new tests; 637 tests green. Next: 6C runner |
+| 2026-09-27 | Phase 6C done | Survey runner `/s/{slug}` (prerendered → interactive with persisted session + shuffle seed; live logic, per-page and final validation with live error clearing, progress by answered questions, question numbering along the path, pages whose questions are all hidden skipped, drafts auto-saved on page change/leave and via "Save & finish later", resume with "Welcome back"/start over, guest leave warning, server validation mapped to questions), thank-you page (`GetCompletionAsync`), admin preview (desktop/phone), embedding (`/embed/s/{slug}`, `EmbedLayout`, `FrameOptionsMiddleware`, `Embedding` options, share-page snippet). 58 new tests (695 green); smoke OK; verified in headless Chrome (guest submit, draft resume, preview, shuffle stability, third-party iframe allowed only for /embed). Next: 6D reports UI |

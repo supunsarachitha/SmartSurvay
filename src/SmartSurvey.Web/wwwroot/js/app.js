@@ -70,6 +70,8 @@ window.SmartSurvey = (function () {
         try { return Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"; } catch { return "UTC"; }
     }
 
+    function getUserAgent() { return navigator.userAgent || null; }
+
     function scrollToTop() { window.scrollTo({ top: 0, behavior: "smooth" }); }
 
     function scrollIntoView(selector) {
@@ -106,5 +108,5 @@ window.SmartSurvey = (function () {
         if (document.documentElement.getAttribute("data-bs-theme") !== wanted) applyTheme(wanted);
     }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-bs-theme"] });
 
-    return { applyTheme, toggleTheme, toggleSidebar, downloadFile, copyText, getTimeZone, scrollToTop, scrollIntoView, focus };
+    return { applyTheme, toggleTheme, toggleSidebar, downloadFile, copyText, getTimeZone, getUserAgent, scrollToTop, scrollIntoView, focus };
 })();

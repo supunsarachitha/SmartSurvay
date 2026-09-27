@@ -1,0 +1,10 @@
+@page "/s/{Slug}"
+@rendermode InteractiveServer
+@* Answer a survey (share link). Prerendered, then interactive; see SurveyRunner. *@
+
+<SurveyRunner Slug="@Slug" />
+
+@code {
+    /// <summary>Survey slug from the share link.</summary>
+    [Parameter] public string Slug { get; set; } = string.Empty;
+}

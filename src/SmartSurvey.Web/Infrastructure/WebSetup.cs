@@ -1,4 +1,5 @@
 using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -67,6 +68,10 @@ public static class WebSetup
     public static IServiceCollection AddWebServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<SupportOptions>(configuration.GetSection(SupportOptions.SectionName));
+        services.Configure<EmbeddingOptions>(configuration.GetSection(EmbeddingOptions.SectionName));
+
+        // Frame headers are set by FrameOptionsMiddleware so /embed pages can be allowed in iframes.
+        services.Configure<AntiforgeryOptions>(options => options.SuppressXFrameOptionsHeader = true);
 
         services.AddScoped<CurrentUser>();
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());

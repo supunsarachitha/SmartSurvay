@@ -1,0 +1,22 @@
+@page "/embed/s/{Slug}/thank-you"
+@layout EmbedLayout
+@inject IResponseService Responses
+@* Completion page inside the embedding iframe. *@
+
+<PageTitle>Thank you</PageTitle>
+
+<ThankYouCard SurveyTitle="@completion?.Title" Message="@completion?.ThankYouMessage">
+    @if (completion?.CanRespondAgain == true)
+    {
+        <a class="btn btn-primary" href="embed/s/@Uri.EscapeDataString(completion.Slug)"><i class="bi bi-arrow-repeat"></i>Submit another response</a>
+    }
+</ThankYouCard>
+
+@code {
+    private SurveyCompletionDto? completion;
+
+    /// <summary>Survey slug.</summary>
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    protected override async Task OnInitializedAsync() => completion = await Responses.GetCompletionAsync(Slug);
+}

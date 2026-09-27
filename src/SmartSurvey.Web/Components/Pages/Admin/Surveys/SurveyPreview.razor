@@ -1,0 +1,66 @@
+@page "/admin/surveys/{Id:guid}/preview"
+@rendermode InteractiveServer
+@inject ISurveyService SurveyService
+@* Admin preview: the real survey runner on the saved design (any status) with live logic and validation;
+   nothing is stored. A width toggle shows how the survey looks on a phone. *@
+
+@if (loadError is not null)
+{
+    <PageHeader Title="Preview" />
+    <EmptyState Icon="bi-exclamation-circle" Title="This survey can't be opened" Message="@loadError">
+        <a class="btn btn-primary" href="admin/surveys"><i class="bi bi-arrow-left"></i>Back to surveys</a>
+    </EmptyState>
+}
+else if (survey is null)
+{
+    <LoadingSpinner Text="Loading survey…" />
+}
+else
+{
+    <PageHeader Title="@($"Preview “{survey.Title}”")" Subtitle="This is what respondents see. Answers are not saved.">
+        <Breadcrumb>
+            <li class="breadcrumb-item"><a href="admin">Admin</a></li>
+            <li class="breadcrumb-item"><a href="admin/surveys">Surveys</a></li>
+            <li class="breadcrumb-item"><a href="admin/surveys/@survey.Id/edit">@survey.Title</a></li>
+            <li class="breadcrumb-item active" aria-current="page">Preview</li>
+        </Breadcrumb>
+        <TitleSuffix><StatusBadge SurveyStatus="survey.Status" Class="ms-2 align-middle fs-6" /></TitleSuffix>
+        <Actions>
+            <div class="btn-group" role="group" aria-label="Preview width">
+                <button class="btn @(phone ? "btn-light" : "btn-soft-primary")" aria-pressed="@(phone ? "false" : "true")" @onclick="() => phone = false">
+                    <i class="bi bi-display"></i><span class="d-none d-md-inline">Desktop</span>
+                </button>
+                <button class="btn @(phone ? "btn-soft-primary" : "btn-light")" aria-pressed="@(phone ? "true" : "false")" @onclick="() => phone = true">
+                    <i class="bi bi-phone"></i><span class="d-none d-md-inline">Phone</span>
+                </button>
+            </div>
+            <a class="btn btn-light" href="admin/surveys/@survey.Id/edit"><i class="bi bi-pencil"></i>Edit</a>
+            <a class="btn btn-light" href="admin/surveys/@survey.Id/share"><i class="bi bi-share"></i>Share</a>
+        </Actions>
+    </PageHeader>
+
+    <div class="preview-stage @(phone ? "preview-phone" : null)">
+        <SurveyRunner PreviewSurvey="survey" />
+    </div>
+}
+
+@code {
+    private SurveyDefinitionDto? survey;
+    private string? loadError;
+    private bool phone;
+
+    /// <summary>Survey id.</summary>
+    [Parameter] public Guid Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            survey = await SurveyService.GetAsync(Id);
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            loadError = UiErrors.Describe(ex);
+        }
+    }
+}

@@ -126,6 +126,7 @@ if (app.Configuration.GetValue("Https:Redirect", true))
     app.UseHttpsRedirection();
 }
 
+app.UseMiddleware<FrameOptionsMiddleware>();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseRateLimiter();

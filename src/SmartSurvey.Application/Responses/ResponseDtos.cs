@@ -125,6 +125,16 @@ public sealed class SaveResponseRequest
 /// <param name="ThankYouMessage">Survey thank-you message.</param>
 public sealed record SubmitResponseResult(Guid ResponseId, string? ThankYouMessage);
 
+/// <summary>What the completion ("thank you") page shows after a response was submitted.</summary>
+/// <param name="SurveyId">Survey id.</param>
+/// <param name="Title">Survey title.</param>
+/// <param name="Slug">Survey slug (link to answer again).</param>
+/// <param name="ThankYouMessage">The survey's thank-you message (null = default text).</param>
+/// <param name="CanRespondAgain">
+/// True when the survey allows multiple responses and the current user may submit another one now.
+/// </param>
+public sealed record SurveyCompletionDto(Guid SurveyId, string Title, string Slug, string? ThankYouMessage, bool CanRespondAgain);
+
 /// <summary>Why a respondent can or cannot answer a survey.</summary>
 public enum SurveyEligibility
 {

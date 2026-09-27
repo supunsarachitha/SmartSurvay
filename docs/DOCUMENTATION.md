@@ -382,8 +382,17 @@ operators or unparsable values.
 its schedule → quota not reached → login present when required → not already responded (unless multiple
 responses are allowed).
 
-**Drafts:** logged-in respondents' answers are saved when they move between pages or click
-*Save & continue later*; opening the survey again restores the answers and page.
+**Drafts:** logged-in respondents' answers are saved when they move between pages, when they leave the
+survey and when they click *Save & finish later*; opening the survey again restores the answers and page
+("Welcome back", with an option to start over). Guests are warned before leaving a survey with unsent answers.
+
+**Option order:** choice questions with *Randomise options* are shuffled once per respondent (the order stays
+the same while they answer); "Other → free text" options always stay last.
+
+**Embedding:** `/embed/s/{slug}` shows the runner without site navigation so it can be placed in an
+`<iframe>` on another website (snippet on the share page). Browsers don't send sign-in cookies to
+third-party frames, so embedded respondents answer as guests — members-only surveys show a button that
+opens the full page in a new tab. See `Embedding:*` in the [configuration reference](#17-configuration-reference).
 
 **Submission:** answers are sanitised (unknown questions/options dropped, text trimmed and length-capped),
 logic is re-evaluated, answers to hidden questions are discarded, all visible questions are validated
@@ -452,11 +461,14 @@ in Swagger (`/swagger`). Ready-to-run examples: [`docs/examples`](examples/).
 
 ### 15.1 Respondents
 
-1. Browse **Surveys** (`/surveys`) or open a shared link `/s/{slug}`.
+1. Browse **Surveys** (`/surveys`) or open a shared link `/s/{slug}` (or an embedded survey on another site).
 2. Answer page by page; questions appear or disappear based on earlier answers; required questions are
-   marked with `*`.
-3. Logged-in users can *Save & continue later*; drafts appear in **My responses**.
-4. After submitting, the thank-you page confirms the response.
+   marked with `*`; the progress bar shows how much is answered. Problems are shown next to the question
+   when moving on, and disappear as soon as the answer is fixed.
+3. Logged-in users' progress is saved automatically on every page change, or with *Save & finish later*;
+   drafts appear in **My responses** (*Continue*).
+4. After submitting, the thank-you page (`/s/{slug}/thank-you`) shows the survey's thank-you message and,
+   when the survey allows it, a button to answer again.
 
 ### 15.2 Administrators
 
@@ -466,7 +478,8 @@ in Swagger (`/swagger`). Ready-to-run examples: [`docs/examples`](examples/).
 3. **Builder** (`/admin/surveys/{id}/edit`) — *Questions* (sections, question editors, options, settings),
    *Logic* (rule wizard with plain-language preview), *Settings* (slug, messages, access, schedule,
    quota). Unsaved changes are protected.
-4. **Preview** and **Share** (link, QR code, embed snippet).
+4. **Preview** (`/admin/surveys/{id}/preview`: the real runner with logic and validation, nothing saved,
+   desktop/phone width) and **Share** (link, QR code, invitation text, embed snippet).
 5. **Responses** — filter, inspect, delete, export raw data.
 6. **Reports** — create from the recommended template or blank, add widgets, set filters, watch the live
    preview, save, then view and export (PDF/CSV/TXT/Excel/JSON).
@@ -491,6 +504,9 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
 * **Input handling:** server-side validation of every survey design and answer; logic re-evaluated on the
   server; Blazor HTML-encodes all output; chart SVG text is XML-escaped; CSV exports neutralise formula
   injection.
+* **Clickjacking:** every page sends `X-Frame-Options: SAMEORIGIN` and `Content-Security-Policy:
+  frame-ancestors 'self'`, except the embeddable `/embed/*` survey pages (any site by default, or only
+  `Embedding:AllowedOrigins`; `Embedding:Enabled=false` turns embedding off).
 * **Data protection:** keys can be persisted (`DataProtection:KeysPath`) so cookies/tokens survive restarts.
 * **Transport:** HTTPS redirection and HSTS outside Development; forwarded headers support behind proxies.
 * **Secrets:** no production credentials in configuration — set `Seed:AdminPassword` and connection strings
@@ -514,6 +530,8 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 | `Identity:RequireConfirmedAccount` | `false` | Require e-mail confirmation before login |
 | `Support:BuyMeACoffeeUsername` | `smartsurvey` | Target of the Buy Me a Coffee page |
 | `Support:GitHubUrl` / `Support:ContactEmail` | *(empty)* | Footer / FAQ links |
+| `Embedding:Enabled` | `true` | Allow `/embed/s/{slug}` survey pages in iframes on other sites (share-page snippet) |
+| `Embedding:AllowedOrigins` | *(empty = any site)* | Origins allowed to embed surveys, e.g. `["https://www.example.com"]` |
 | `Swagger:Enabled` | `false` (`true` in Development) | Expose `/swagger` |
 | `DataProtection:KeysPath` | *(empty)* | Directory for persisted data-protection keys |
 | `ReverseProxy:Enabled` | `false` | Honour `X-Forwarded-For/Proto` |

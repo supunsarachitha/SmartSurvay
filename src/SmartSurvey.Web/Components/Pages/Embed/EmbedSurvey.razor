@@ -1,0 +1,12 @@
+@page "/embed/s/{Slug}"
+@layout EmbedLayout
+@rendermode InteractiveServer
+@* Survey runner for iframes on other sites (see EmbeddingOptions and the share page). Cookies don't reach
+   third-party frames, so respondents answer as guests: members-only surveys link to the full page. *@
+
+<SurveyRunner Slug="@Slug" Embedded="true" />
+
+@code {
+    /// <summary>Survey slug.</summary>
+    [Parameter] public string Slug { get; set; } = string.Empty;
+}

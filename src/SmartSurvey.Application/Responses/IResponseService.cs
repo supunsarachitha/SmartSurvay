@@ -34,6 +34,13 @@ public interface IResponseService
     /// </summary>
     Task<SubmitResponseResult> SubmitAsync(Guid surveyId, SaveResponseRequest request, CancellationToken ct = default);
 
+    /// <summary>
+    /// Title and thank-you message for the completion page of <paramref name="slug"/>. Returns null
+    /// for unknown surveys, templates and drafts, and for members-only surveys when the user is a guest
+    /// (the design is not disclosed to people who could not answer it).
+    /// </summary>
+    Task<SurveyCompletionDto?> GetCompletionAsync(string slug, CancellationToken ct = default);
+
     /// <summary>The current user's responses and drafts, newest first.</summary>
     Task<IReadOnlyList<MyResponseDto>> ListMineAsync(CancellationToken ct = default);
 
