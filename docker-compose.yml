@@ -1,0 +1,47 @@
+# SmartSurvey — local container stack: PostgreSQL 16 + the web app.
+#   docker compose up --build            → http://localhost:8080
+# Override with environment variables or a .env file, e.g.:
+#   WEB_PORT=8081 POSTGRES_PORT=5433 ADMIN_PASSWORD='S3cure!Pass' docker compose up --build
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smartsurvey
+      POSTGRES_USER: smartsurvey
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-smartsurvey}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smartsurvey -d smartsurvey"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  web:
+    build: .
+    image: smartsurvey:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=smartsurvey;Username=smartsurvey;Password=${POSTGRES_PASSWORD:-smartsurvey}"
+      Database__Provider: PostgreSQL
+      Database__ApplyMigrationsOnStartup: "true"
+      Seed__AdminEmail: ${ADMIN_EMAIL:-admin@smartsurvey.local}
+      Seed__AdminPassword: ${ADMIN_PASSWORD:-ChangeMe123!}
+      Seed__DemoData: ${DEMO_DATA:-true}
+      Swagger__Enabled: ${SWAGGER_ENABLED:-true}
+      Support__BuyMeACoffeeUsername: ${BMC_USERNAME:-smartsurvey}
+    ports:
+      - "${WEB_PORT:-8080}:8080"
+    volumes:
+      - keys:/app/keys
+
+volumes:
+  pgdata:
+  keys:

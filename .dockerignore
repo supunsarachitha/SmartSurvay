@@ -1,0 +1,17 @@
+**/bin/
+**/obj/
+**/.vs/
+**/.vscode/
+**/*.user
+**/*.db
+**/*.db-shm
+**/*.db-wal
+.git/
+.github/
+.claude/
+.config/
+tests/
+docs/
+*.md
+Dockerfile
+docker-compose*.yml
