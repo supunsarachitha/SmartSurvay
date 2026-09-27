@@ -1,4 +1,5 @@
 using SmartSurvey.Application.Audit;
+using SmartSurvey.Application.Branding;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Domain.Identity;
 
@@ -91,4 +92,26 @@ public sealed class RecordingAuditService : IAuditService
     /// <inheritdoc />
     public Task<PagedResult<AuditLogDto>> ListAsync(AuditQuery query, CancellationToken ct = default) =>
         Task.FromResult(PagedResult<AuditLogDto>.Empty(query.Page, query.PageSize));
+}
+
+/// <summary>Read-only <see cref="IBrandingService"/> returning a fixed product name.</summary>
+public sealed class StubBrandingService(string productName = "Acme Surveys") : IBrandingService
+{
+    /// <inheritdoc />
+    public Task<BrandingDto> GetAsync(CancellationToken ct = default) => Task.FromResult(new BrandingDto { ProductName = productName });
+
+    /// <inheritdoc />
+    public Task<BrandingDto> UpdateAsync(UpdateBrandingRequest request, CancellationToken ct = default) => throw new NotSupportedException();
+
+    /// <inheritdoc />
+    public Task<BrandingDto> SetLogoAsync(byte[] content, string? fileName, CancellationToken ct = default) => throw new NotSupportedException();
+
+    /// <inheritdoc />
+    public Task<BrandingDto> RemoveLogoAsync(CancellationToken ct = default) => throw new NotSupportedException();
+
+    /// <inheritdoc />
+    public Task<BrandingDto> ResetAsync(CancellationToken ct = default) => throw new NotSupportedException();
+
+    /// <inheritdoc />
+    public Task<BrandingLogo?> GetLogoAsync(CancellationToken ct = default) => Task.FromResult<BrandingLogo?>(null);
 }

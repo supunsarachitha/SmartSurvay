@@ -54,8 +54,8 @@ public static class DependencyInjection
 
         services.AddScoped<IAppDbContextFactory, AppDbContextFactory>();
 
-        // Exporters are stateless; the report service picks one by ExportFormat.
-        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+        // Exporters are stateless; the report service picks one by ExportFormat (PdfReportExporter
+        // configures QuestPDF itself).
         services.AddSingleton<IReportExporter, PdfReportExporter>();
         services.AddSingleton<IReportExporter, CsvReportExporter>();
         services.AddSingleton<IReportExporter, TxtReportExporter>();
