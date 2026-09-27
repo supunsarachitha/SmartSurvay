@@ -1,8 +1,9 @@
-﻿@page "/Account/Lockout"
+@page "/Account/Lockout"
 
-<PageTitle>Locked out</PageTitle>
+<PageTitle>Account locked</PageTitle>
 
-<header>
-    <h1 class="text-danger">Locked out</h1>
-    <p class="text-danger">This account has been locked out, please try again later.</p>
-</header>
+<AuthCard Title="Account temporarily locked" Icon="bi-lock" IconClass="text-danger"
+          Subtitle="Too many unsuccessful sign-in attempts. For your security the account is locked for 15 minutes.">
+    <a class="btn btn-primary w-100 mb-2" href="Account/ForgotPassword"><i class="bi bi-key"></i>Reset your password</a>
+    <a class="btn btn-light w-100" href="">Back to the home page</a>
+</AuthCard>

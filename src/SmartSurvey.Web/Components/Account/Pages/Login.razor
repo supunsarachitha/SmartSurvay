@@ -1,4 +1,4 @@
-﻿@page "/Account/Login"
+@page "/Account/Login"
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authentication
@@ -6,66 +6,64 @@
 @using SmartSurvey.Domain.Identity
 
 @inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject TimeProvider Time
 @inject ILogger<Login> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Log in</PageTitle>
+<PageTitle>Sign in</PageTitle>
 
-<h1>Log in</h1>
-<div class="row">
-    <div class="col-md-4">
-        <section>
+<div class="card auth-card">
+        <div class="card-body">
+            <div class="text-center mb-4">
+                <BrandMark ShowName="false" Size="lg" />
+                <h1 class="h4 fw-bold mt-3 mb-1">Welcome back</h1>
+                <p class="text-muted small mb-0">Sign in to continue to your surveys.</p>
+            </div>
+
             <StatusMessage Message="@errorMessage" />
             <EditForm Model="Input" method="post" OnValidSubmit="LoginUser" FormName="login">
                 <DataAnnotationsValidator />
-                <h2>Use a local account to log in.</h2>
-                <hr />
-                <ValidationSummary class="text-danger" role="alert" />
-                <div class="form-floating mb-3">
-                    <InputText @bind-Value="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
-                    <label for="email" class="form-label">Email</label>
-                    <ValidationMessage For="() => Input.Email" class="text-danger" />
+                <div class="mb-3">
+                    <label for="login-email" class="form-label">E-mail</label>
+                    <InputText id="login-email" @bind-Value="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                    <ValidationMessage For="() => Input.Email" class="validation-message" />
                 </div>
-                <div class="form-floating mb-3">
-                    <InputText type="password" @bind-Value="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="password" />
-                    <label for="password" class="form-label">Password</label>
-                    <ValidationMessage For="() => Input.Password" class="text-danger" />
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between align-items-baseline">
+                        <label for="login-password" class="form-label">Password</label>
+                        <a class="small" href="Account/ForgotPassword">Forgot password?</a>
+                    </div>
+                    <InputText id="login-password" type="password" @bind-Value="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" />
+                    <ValidationMessage For="() => Input.Password" class="validation-message" />
                 </div>
-                <div class="checkbox mb-3">
-                    <label class="form-label">
-                        <InputCheckbox @bind-Value="Input.RememberMe" class="darker-border-checkbox form-check-input" />
-                        Remember me
-                    </label>
+                <div class="form-check mb-4">
+                    <InputCheckbox id="login-remember" @bind-Value="Input.RememberMe" class="form-check-input" />
+                    <label class="form-check-label" for="login-remember">Keep me signed in</label>
                 </div>
-                <div>
-                    <button type="submit" class="w-100 btn btn-lg btn-primary">Log in</button>
-                </div>
-                <div>
-                    <p>
-                        <a href="Account/ForgotPassword">Forgot your password?</a>
-                    </p>
-                    <p>
-                        <a href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">Register as a new user</a>
-                    </p>
-                    <p>
-                        <a href="Account/ResendEmailConfirmation">Resend email confirmation</a>
-                    </p>
-                </div>
+                <button type="submit" class="w-100 btn btn-lg btn-primary"><i class="bi bi-box-arrow-in-right"></i>Sign in</button>
             </EditForm>
-        </section>
-    </div>
-    <div class="col-md-6 col-md-offset-2">
-        <section>
-            <h3>Use another service to log in.</h3>
-            <hr />
-            <ExternalLoginPicker />
-        </section>
-    </div>
+
+            @if (hasExternalLogins)
+            {
+                <div class="divider-text my-4">or</div>
+                <ExternalLoginPicker />
+            }
+
+            <div class="divider-text my-4">New here?</div>
+            <a class="btn btn-light w-100" href="@(NavigationManager.GetUriWithQueryParameters("Account/Register", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">
+                <i class="bi bi-person-plus"></i>Create a free account
+            </a>
+            <p class="text-center small mt-3 mb-0">
+                <a class="text-muted" href="Account/ResendEmailConfirmation">Didn't get the confirmation e-mail?</a>
+            </p>
+        </div>
 </div>
 
 @code {
     private string? errorMessage;
+    private bool hasExternalLogins;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -83,16 +81,18 @@
             // Clear the existing external cookie to ensure a clean login process
             await HttpContext.SignOutAsync(IdentityConstants.ExternalScheme);
         }
+
+        hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
     }
 
     public async Task LoginUser()
     {
-        // This doesn't count login failures towards account lockout
-        // To enable password failures to trigger account lockout, set lockoutOnFailure: true
-        var result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: false);
+        // Failed attempts count towards the lockout configured in Program.cs (5 attempts → 15 minutes).
+        var result = await SignInManager.PasswordSignInAsync(Input.Email, Input.Password, Input.RememberMe, lockoutOnFailure: true);
         if (result.Succeeded)
         {
             Logger.LogInformation("User logged in.");
+            await RecordLoginAsync();
             RedirectManager.RedirectTo(ReturnUrl);
         }
         else if (result.RequiresTwoFactor)
@@ -108,21 +108,38 @@
         }
         else
         {
-            errorMessage = "Error: Invalid login attempt.";
+            errorMessage = "Error: The e-mail address or password is not correct.";
+        }
+    }
+
+    /// <summary>Stores the sign-in time shown on the admin Users page (best effort).</summary>
+    private async Task RecordLoginAsync()
+    {
+        var user = await UserManager.FindByEmailAsync(Input.Email) ?? await UserManager.FindByNameAsync(Input.Email);
+        if (user is null)
+        {
+            return;
+        }
+
+        user.LastLoginAt = Time.GetUtcNow().UtcDateTime;
+        var update = await UserManager.UpdateAsync(user);
+        if (!update.Succeeded)
+        {
+            Logger.LogWarning("Could not record the sign-in time of user {UserId}", user.Id);
         }
     }
 
     private sealed class InputModel
     {
-        [Required]
-        [EmailAddress]
+        [Required(ErrorMessage = "Please enter your e-mail address.")]
+        [EmailAddress(ErrorMessage = "Please enter a valid e-mail address.")]
         public string Email { get; set; } = "";
 
-        [Required]
+        [Required(ErrorMessage = "Please enter your password.")]
         [DataType(DataType.Password)]
         public string Password { get; set; } = "";
 
-        [Display(Name = "Remember me?")]
+        [Display(Name = "Keep me signed in")]
         public bool RememberMe { get; set; }
     }
 }

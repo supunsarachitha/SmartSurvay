@@ -1,4 +1,4 @@
-﻿@inherits LayoutComponentBase
+@inherits LayoutComponentBase
 @layout SmartSurvey.Web.Components.Layout.MainLayout
 @inject NavigationManager NavigationManager
 
@@ -8,7 +8,10 @@
 }
 else
 {
-    @Body
+    @* Every account page (sign-in, registration, settings) renders inside the site container. *@
+    <div class="container py-4">
+        @Body
+    </div>
 }
 
 @code {

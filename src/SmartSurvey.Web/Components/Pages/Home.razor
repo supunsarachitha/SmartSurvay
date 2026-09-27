@@ -1,7 +1,168 @@
-﻿@page "/"
+@page "/"
+@using SmartSurvey.Application.Branding
+@inject IBrandingService BrandingService
+@* Landing page (static SSR): hero, feature grid, how-it-works and call to action. Product name and
+   tagline come from the admin-configurable branding. *@
 
-<PageTitle>Home</PageTitle>
+<PageTitle>@brand.ProductName · @(brand.Tagline ?? "Surveys and reports")</PageTitle>
 
-<h1>Hello, world!</h1>
+<section class="hero">
+    <div class="container">
+        <div class="row align-items-center g-5">
+            <div class="col-lg-6">
+                <span class="eyebrow mb-3"><i class="bi bi-stars"></i>Surveys, logic and reports in one place</span>
+                <h1 class="mb-3 text-balance">
+                    Ask better questions.<br /><span class="gradient-text">Get answers you can use.</span>
+                </h1>
+                <p class="lead mb-4">
+                    @brand.ProductName helps you build surveys with conditional logic, collect responses on any device and turn
+                    them into clear reports with charts — ready to export as PDF, Excel or CSV.
+                </p>
+                <div class="d-flex flex-wrap gap-2">
+                    <AuthorizeView Roles="@AppRoles.Admin">
+                        <Authorized>
+                            <a class="btn btn-primary btn-lg" href="admin/surveys"><i class="bi bi-plus-lg"></i>Create a survey</a>
+                            <a class="btn btn-light btn-lg" href="admin"><i class="bi bi-speedometer2"></i>Open dashboard</a>
+                        </Authorized>
+                        <NotAuthorized>
+                            <a class="btn btn-primary btn-lg" href="surveys"><i class="bi bi-ui-checks"></i>Browse surveys</a>
+                            @if (context.User.Identity?.IsAuthenticated != true)
+                            {
+                                <a class="btn btn-light btn-lg" href="Account/Register"><i class="bi bi-person-plus"></i>Create free account</a>
+                            }
+                            else
+                            {
+                                <a class="btn btn-light btn-lg" href="my/responses"><i class="bi bi-journal-check"></i>My responses</a>
+                            }
+                        </NotAuthorized>
+                    </AuthorizeView>
+                </div>
+                <div class="d-flex flex-wrap gap-4 mt-4 small text-muted">
+                    <span><i class="bi bi-check-circle-fill text-success me-1"></i>10 question types</span>
+                    <span><i class="bi bi-check-circle-fill text-success me-1"></i>Conditional logic</span>
+                    <span><i class="bi bi-check-circle-fill text-success me-1"></i>PDF · Excel · CSV · TXT exports</span>
+                </div>
+            </div>
+            <div class="col-lg-6">
+                @* Illustrative product preview built from real components. *@
+                <div class="surface p-4 shadow-lg" aria-hidden="true">
+                    <div class="d-flex align-items-center justify-content-between mb-3">
+                        <div>
+                            <div class="small text-muted">Report preview</div>
+                            <div class="fw-semibold">Customer satisfaction</div>
+                        </div>
+                        <span class="badge-status badge-published">Published</span>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-4"><div class="kpi h-100"><div class="kpi-label">Responses</div><div class="kpi-value">1,284</div></div></div>
+                        <div class="col-4"><div class="kpi h-100"><div class="kpi-label">Completion</div><div class="kpi-value">87%</div></div></div>
+                        <div class="col-4"><div class="kpi h-100"><div class="kpi-label">Avg. time</div><div class="kpi-value">2:14</div></div></div>
+                    </div>
+                    <ChartView Data="previewChart" Height="220" />
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
 
-Welcome to your new app.
+<section class="section">
+    <div class="container">
+        <div class="text-center mb-5">
+            <span class="eyebrow mb-2"><i class="bi bi-grid"></i>Features</span>
+            <h2 class="section-title">Everything you need, nothing you don't</h2>
+            <p class="text-muted mx-auto" style="max-width:40rem">From the first question to the final report — designed to be quick for you and pleasant for your respondents.</p>
+        </div>
+        <div class="row g-4">
+            @foreach (var feature in features)
+            {
+                <div class="col-sm-6 col-lg-3">
+                    <div class="card h-100 card-hover">
+                        <div class="card-body">
+                            <div class="feature-icon"><i class="bi @feature.Icon"></i></div>
+                            <h3 class="h6 fw-semibold">@feature.Title</h3>
+                            <p class="text-muted small mb-0">@feature.Text</p>
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+<section class="section pt-0">
+    <div class="container">
+        <div class="surface p-4 p-lg-5">
+            <div class="row g-4 align-items-center">
+                <div class="col-lg-4">
+                    <span class="eyebrow mb-2"><i class="bi bi-signpost-2"></i>How it works</span>
+                    <h2 class="section-title mb-2">From idea to insight in three steps</h2>
+                    <p class="text-muted mb-0">No spreadsheets, no copy and paste — your data stays in one place.</p>
+                </div>
+                <div class="col-lg-8">
+                    <div class="row g-3">
+                        @for (var i = 0; i < steps.Length; i++)
+                        {
+                            var step = steps[i];
+                            <div class="col-md-4">
+                                <div class="h-100 p-3 rounded-3 border bg-body">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge rounded-pill text-bg-primary">@(i + 1)</span>
+                                        <span class="fw-semibold">@step.Title</span>
+                                    </div>
+                                    <p class="small text-muted mb-0">@step.Text</p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="section pt-0">
+    <div class="container">
+        <div class="coffee-card rounded-4 p-4 p-lg-5 d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
+            <div>
+                <h2 class="h4 fw-bold mb-1">Ready to hear from your audience?</h2>
+                <p class="mb-0 text-muted">Browse the open surveys, or read the FAQ to see what @brand.ProductName can do.</p>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                <a class="btn btn-primary" href="surveys"><i class="bi bi-ui-checks"></i>Open surveys</a>
+                <a class="btn btn-light" href="faq"><i class="bi bi-question-circle"></i>Read the FAQ</a>
+            </div>
+        </div>
+    </div>
+</section>
+
+@code {
+    private BrandingDto brand = new();
+
+    private static readonly ChartData previewChart = new()
+    {
+        Kind = ChartKind.Bar,
+        Labels = ["Very poor", "Poor", "Okay", "Good", "Excellent"],
+        Series = [new ChartSeries { Name = "Responses", Values = [18, 42, 160, 512, 552] }],
+    };
+
+    private static readonly (string Icon, string Title, string Text)[] features =
+    [
+        ("bi-ui-radios-grid", "10 question types", "Short and long text, single and multiple choice, dropdowns, numbers, e-mail, dates, star ratings and scales."),
+        ("bi-diagram-3", "Conditional logic", "Show or hide questions based on earlier answers, with any/all conditions — enforced on the server too."),
+        ("bi-input-cursor-text", "“Other” with free text", "Let people pick “Other” and tell you what they mean, then see those answers in your reports."),
+        ("bi-layers", "Multi-page surveys", "Split long surveys into pages with a progress bar. Signed-in users can save and continue later."),
+        ("bi-bar-chart-line", "Report builder", "Combine KPIs, bar, pie and line charts, cross-tabs and answer lists — with live preview and filters."),
+        ("bi-file-earmark-arrow-down", "Exports", "Download reports as PDF, Excel, CSV, plain text or JSON, and raw responses as CSV, Excel or JSON."),
+        ("bi-shield-lock", "Secure by design", "Accounts with roles, lockout, audit log, rate limiting and validated input everywhere."),
+        ("bi-plug", "REST API", "Every feature is available over a documented REST API with bearer tokens."),
+    ];
+
+    private static readonly (string Title, string Text)[] steps =
+    [
+        ("Build", "Add pages and questions, set rules and preview the survey exactly as respondents will see it."),
+        ("Share", "Publish, copy the link or QR code and collect answers on any device — anonymously or signed in."),
+        ("Analyse", "Generate an instant overview report, customise it and export the results for your team."),
+    ];
+
+    protected override async Task OnInitializedAsync() => brand = await BrandingService.GetAsync();
+}

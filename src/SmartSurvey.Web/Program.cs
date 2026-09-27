@@ -60,6 +60,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
         options.Lockout.DefaultLockoutTimeSpan = TimeSpan.FromMinutes(15);
     })
     .AddRoles<IdentityRole<Guid>>()
+    .AddClaimsPrincipalFactory<AppClaimsPrincipalFactory>()
     .AddEntityFrameworkStores<AppDbContext>()
     .AddSignInManager()
     .AddDefaultTokenProviders()

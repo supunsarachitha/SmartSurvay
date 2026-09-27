@@ -1,0 +1,96 @@
+@page "/buy-me-a-coffee"
+@using SmartSurvey.Application.Branding
+@inject IBrandingService BrandingService
+@inject IOptions<SupportOptions> Support
+@* Support page (static SSR). The Buy Me a Coffee account comes from Support:BuyMeACoffeeUsername;
+   the GitHub link and contact address are shown only when configured. *@
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <PageTitle>Support @productName · Buy me a coffee</PageTitle>
+
+            <div class="coffee-card rounded-4 p-4 p-lg-5 text-center mb-4">
+                <div class="display-4 mb-2" aria-hidden="true">☕</div>
+                <h1 class="h2 fw-bold mb-2">Enjoying @productName?</h1>
+                <p class="lead text-muted mx-auto mb-4" style="max-width:36rem">
+                    @productName is free to use. If it saves you time, a coffee helps keep development going — new features,
+                    fixes and friendly support.
+                </p>
+                @if (HasCoffeeAccount)
+                {
+                    <a class="btn btn-coffee btn-lg px-4" href="@Support.Value.BuyMeACoffeeUrl" target="_blank" rel="noopener noreferrer">
+                        <i class="bi bi-cup-hot-fill"></i>Buy me a coffee
+                    </a>
+                    <div class="small text-muted mt-3">
+                        Opens buymeacoffee.com/@Support.Value.BuyMeACoffeeUsername in a new tab. Payments are handled by Buy Me a Coffee;
+                        we never see your card details.
+                    </div>
+                }
+                else
+                {
+                    <div class="alert alert-light d-inline-block mb-0">Donations are not set up on this site yet.</div>
+                }
+            </div>
+
+            <h2 class="h5 fw-semibold mb-3">What your support pays for</h2>
+            <div class="row g-3 mb-5">
+                @foreach (var reason in reasons)
+                {
+                    <div class="col-md-4">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <div class="feature-icon"><i class="bi @reason.Icon"></i></div>
+                                <h3 class="h6 fw-semibold">@reason.Title</h3>
+                                <p class="small text-muted mb-0">@reason.Text</p>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <h2 class="h5 fw-semibold mb-3">Other ways to help</h2>
+            <div class="list-group mb-4">
+                @if (!string.IsNullOrWhiteSpace(Support.Value.GitHubUrl))
+                {
+                    <a class="list-group-item list-group-item-action d-flex gap-3 align-items-center py-3" href="@Support.Value.GitHubUrl" target="_blank" rel="noopener noreferrer">
+                        <i class="bi bi-github fs-4"></i>
+                        <span><span class="fw-semibold d-block">Star the project on GitHub</span><span class="small text-muted">Report bugs, suggest features or contribute code.</span></span>
+                    </a>
+                }
+                <a class="list-group-item list-group-item-action d-flex gap-3 align-items-center py-3" href="surveys">
+                    <i class="bi bi-ui-checks fs-4 text-primary"></i>
+                    <span><span class="fw-semibold d-block">Answer a survey</span><span class="small text-muted">Every response helps someone make a better decision.</span></span>
+                </a>
+                @if (!string.IsNullOrWhiteSpace(Support.Value.ContactEmail))
+                {
+                    <a class="list-group-item list-group-item-action d-flex gap-3 align-items-center py-3" href="mailto:@Support.Value.ContactEmail">
+                        <i class="bi bi-envelope-heart fs-4 text-primary"></i>
+                        <span><span class="fw-semibold d-block">Send feedback</span><span class="small text-muted">Tell us what works and what doesn't: @Support.Value.ContactEmail</span></span>
+                    </a>
+                }
+                <a class="list-group-item list-group-item-action d-flex gap-3 align-items-center py-3" href="faq">
+                    <i class="bi bi-share fs-4 text-primary"></i>
+                    <span><span class="fw-semibold d-block">Tell a friend</span><span class="small text-muted">Share @productName with someone who runs surveys.</span></span>
+                </a>
+            </div>
+
+            <p class="text-center small text-muted mb-0">Thank you — it really makes a difference. 💛</p>
+        </div>
+    </div>
+</div>
+
+@code {
+    private string productName = BrandingDefaults.ProductName;
+
+    private bool HasCoffeeAccount => !string.IsNullOrWhiteSpace(Support.Value.BuyMeACoffeeUsername);
+
+    private static readonly (string Icon, string Title, string Text)[] reasons =
+    [
+        ("bi-lightning-charge", "New features", "More question types, report widgets and integrations requested by users."),
+        ("bi-bug", "Fixes and security", "Keeping dependencies current and fixing issues quickly."),
+        ("bi-journal-text", "Docs and support", "Clear documentation, examples and answers to your questions."),
+    ];
+
+    protected override async Task OnInitializedAsync() => productName = (await BrandingService.GetAsync()).ProductName;
+}

@@ -25,8 +25,9 @@ public sealed class BrowserInterop(IJSRuntime js)
 
         try
         {
-            var id = await js.InvokeAsync<string>("SmartSurvey.getTimeZone");
-            _timeZone = TimeZoneInfo.TryFindSystemTimeZoneById(id, out var tz) ? tz : TimeZoneInfo.Utc;
+            // Browsers without Intl time zone support return nothing: use UTC.
+            var id = await js.InvokeAsync<string?>("SmartSurvey.getTimeZone");
+            _timeZone = !string.IsNullOrWhiteSpace(id) && TimeZoneInfo.TryFindSystemTimeZoneById(id, out var tz) ? tz : TimeZoneInfo.Utc;
         }
         catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException)
         {

@@ -1,8 +1,9 @@
-﻿@page "/Account/AccessDenied"
+@page "/Account/AccessDenied"
 
 <PageTitle>Access denied</PageTitle>
 
-<header>
-    <h1 class="text-danger">Access denied</h1>
-    <p class="text-danger">You do not have access to this resource.</p>
-</header>
+<AuthCard Title="Access denied" Icon="bi-shield-lock" IconClass="text-danger"
+          Subtitle="Your account doesn't have permission to open this page. Ask an administrator if you think this is a mistake.">
+    <a class="btn btn-primary w-100 mb-2" href=""><i class="bi bi-house"></i>Back to the home page</a>
+    <a class="btn btn-light w-100" href="Account/Login"><i class="bi bi-arrow-repeat"></i>Sign in with another account</a>
+</AuthCard>

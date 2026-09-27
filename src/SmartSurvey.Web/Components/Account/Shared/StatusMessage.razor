@@ -1,8 +1,12 @@
-﻿@if (!string.IsNullOrEmpty(DisplayMessage))
+@* Success/error message passed as a parameter or through the status cookie set by
+   IdentityRedirectManager. Messages starting with "Error" are shown as errors (prefix removed). *@
+@if (!string.IsNullOrEmpty(DisplayMessage))
 {
-    var statusMessageClass = DisplayMessage.StartsWith("Error") ? "danger" : "success";
-    <div class="alert alert-@statusMessageClass" role="alert">
-        @DisplayMessage
+    var isError = DisplayMessage.StartsWith("Error", StringComparison.Ordinal);
+    var text = isError ? DisplayMessage["Error".Length..].TrimStart(':', ' ') : DisplayMessage;
+    <div class="alert alert-@(isError ? "danger" : "success") d-flex gap-2 align-items-start" role="alert">
+        <i class="bi @(isError ? "bi-exclamation-triangle" : "bi-check-circle")"></i>
+        <span>@text</span>
     </div>
 }
 

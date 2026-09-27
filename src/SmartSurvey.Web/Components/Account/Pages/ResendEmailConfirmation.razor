@@ -1,4 +1,4 @@
-﻿@page "/Account/ResendEmailConfirmation"
+@page "/Account/ResendEmailConfirmation"
 
 @using System.ComponentModel.DataAnnotations
 @using System.Text
@@ -12,26 +12,21 @@
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Resend email confirmation</PageTitle>
+<PageTitle>Resend confirmation e-mail</PageTitle>
 
-<h1>Resend email confirmation</h1>
-<h2>Enter your email.</h2>
-<hr />
-<StatusMessage Message="@message" />
-<div class="row">
-    <div class="col-md-4">
-        <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.Email" class="form-control" aria-required="true" placeholder="name@example.com" />
-                <label for="email" class="form-label">Email</label>
-                <ValidationMessage For="() => Input.Email" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Resend</button>
-        </EditForm>
-    </div>
-</div>
+<AuthCard Title="Resend confirmation e-mail" Icon="bi-envelope-arrow-up" Subtitle="Enter the address you registered with and we'll send the confirmation link again.">
+    <StatusMessage Message="@message" />
+    <EditForm Model="Input" FormName="resend-email-confirmation" OnValidSubmit="OnValidSubmitAsync" method="post">
+        <DataAnnotationsValidator />
+        <div class="mb-3">
+            <label for="resend-email" class="form-label">E-mail</label>
+            <InputText id="resend-email" @bind-Value="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+            <ValidationMessage For="() => Input.Email" class="validation-message" />
+        </div>
+        <button type="submit" class="w-100 btn btn-lg btn-primary"><i class="bi bi-send"></i>Resend</button>
+    </EditForm>
+    <p class="text-center small mt-3 mb-0"><a href="Account/Login">Back to sign in</a></p>
+</AuthCard>
 
 @code {
     private string? message;

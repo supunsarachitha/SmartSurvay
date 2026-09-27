@@ -1,0 +1,38 @@
+@* Centered card used by the account pages: brand mark or status icon, title, subtitle, content. *@
+<div class="card auth-card">
+        <div class="card-body">
+            <div class="text-center mb-4">
+                @if (string.IsNullOrEmpty(Icon))
+                {
+                    <BrandMark ShowName="false" Size="lg" />
+                }
+                else
+                {
+                    <div class="feature-icon mb-0 @IconClass" style="width:3.25rem;height:3.25rem;font-size:1.5rem"><i class="bi @Icon"></i></div>
+                }
+                <h1 class="h4 fw-bold mt-3 mb-1">@Title</h1>
+                @if (!string.IsNullOrWhiteSpace(Subtitle))
+                {
+                    <p class="text-muted small mb-0">@Subtitle</p>
+                }
+            </div>
+            @ChildContent
+        </div>
+</div>
+
+@code {
+    /// <summary>Heading.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>Text under the heading.</summary>
+    [Parameter] public string? Subtitle { get; set; }
+
+    /// <summary>Bootstrap icon shown instead of the brand mark (e.g. "bi-shield-lock").</summary>
+    [Parameter] public string? Icon { get; set; }
+
+    /// <summary>Extra classes for the icon badge (e.g. "text-danger").</summary>
+    [Parameter] public string? IconClass { get; set; }
+
+    /// <summary>Card content.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

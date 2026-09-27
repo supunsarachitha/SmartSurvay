@@ -3,10 +3,11 @@
 
 <AuthorizeView>
     <Authorized>
+        @{ var displayName = context.User.FindFirst(AppClaimsPrincipalFactory.DisplayNameClaim)?.Value ?? context.User.Identity?.Name; }
         <div class="dropdown">
             <button class="btn btn-light d-flex align-items-center gap-2 px-2 py-1" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <span class="avatar avatar-sm">@Initials(context.User.Identity?.Name)</span>
-                <span class="d-none d-xl-inline small fw-semibold text-truncate" style="max-width:160px">@context.User.Identity?.Name</span>
+                <span class="avatar avatar-sm">@Initials(displayName)</span>
+                <span class="d-none d-xl-inline small fw-semibold text-truncate" style="max-width:160px">@displayName</span>
                 <i class="bi bi-chevron-down small text-muted"></i>
             </button>
             <ul class="dropdown-menu dropdown-menu-end">

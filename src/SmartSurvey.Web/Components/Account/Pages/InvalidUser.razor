@@ -1,7 +1,8 @@
-﻿@page "/Account/InvalidUser"
+@page "/Account/InvalidUser"
 
-<PageTitle>Invalid user</PageTitle>
+<PageTitle>Account not found</PageTitle>
 
-<h3>Invalid user</h3>
-
-<StatusMessage />
+<AuthCard Title="We couldn't find that account" Icon="bi-person-x" IconClass="text-danger">
+    <StatusMessage />
+    <a class="btn btn-primary w-100" href="Account/Login"><i class="bi bi-box-arrow-in-right"></i>Back to sign in</a>
+</AuthCard>

@@ -48,9 +48,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   drafts, branding), my responses, response detail/delete, reports (CRUD, duplicate, default report, run, preview,
   export), dashboard, users, audit log and branding administration; OpenAPI descriptions for every endpoint.
   `docs/examples`: an .http walkthrough plus survey, response and report JSON examples. 35 integration tests.
+- **Public pages**: landing page with branded hero and feature overview, searchable FAQ, Buy Me a Coffee support page,
+  open-surveys page (start/continue/completed states, member-only hint for guests) and "My responses"; restyled sign-in,
+  registration, password-reset and account-settings pages; the user menu shows the account's display name.
 - Hosting: persistent data-protection keys, optional forwarded headers, configurable HTTPS redirect;
   cookie-or-bearer default authentication scheme; string enums in API JSON.
 - DevOps: Dockerfile, docker-compose (app + PostgreSQL), GitHub Actions CI, `scripts/smoke.sh`.
 
 ### Fixed
+- Failed sign-ins on the login page now count towards the account lockout (5 attempts → 15 minutes).
+- Password forms require at least 8 characters, matching the Identity policy; self-registered accounts get the User role.
+- Local time display falls back to UTC when the browser reports no time zone.
 - Login page no longer lists the internal cookie-or-bearer authentication scheme as an external login provider.

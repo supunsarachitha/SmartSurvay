@@ -1,0 +1,123 @@
+@page "/surveys"
+@inject IResponseService Responses
+@inject ICurrentUser CurrentUser
+@* Surveys the visitor can take now (static SSR). Guests see surveys that accept anonymous answers;
+   signed-in users also see member-only surveys plus their progress (draft / completed). *@
+
+<div class="container py-5">
+    <PageHeader Title="Open surveys" Subtitle="Pick a survey and share your thoughts — most take just a few minutes." />
+
+    @if (!CurrentUser.IsAuthenticated)
+    {
+        <div class="alert alert-light border d-flex flex-column flex-md-row align-items-md-center gap-2 justify-content-between mb-4">
+            <span><i class="bi bi-person-lock text-primary me-2"></i>Some surveys are for members only. Sign in to see them and to save your progress.</span>
+            <span class="d-flex gap-2">
+                <a class="btn btn-sm btn-primary" href="Account/Login?ReturnUrl=%2Fsurveys">Sign in</a>
+                <a class="btn btn-sm btn-light" href="Account/Register?ReturnUrl=%2Fsurveys">Create account</a>
+            </span>
+        </div>
+    }
+
+    @if (surveys.Count > 0)
+    {
+        <form method="get" action="surveys" class="mb-4" role="search" style="max-width:28rem">
+            <div class="input-group">
+                <span class="input-group-text bg-body"><i class="bi bi-search"></i></span>
+                <input class="form-control" type="search" name="q" value="@Q" placeholder="Search surveys" aria-label="Search surveys" />
+            </div>
+        </form>
+    }
+
+    @if (surveys.Count == 0)
+    {
+        <EmptyState Icon="bi-clipboard-check" Title="No open surveys right now"
+                    Message="@(CurrentUser.IsAuthenticated ? "Check back soon — new surveys appear here as soon as they are published." : "There are no public surveys at the moment. Sign in to see surveys for members.")">
+            @if (!CurrentUser.IsAuthenticated)
+            {
+                <a class="btn btn-primary" href="Account/Login?ReturnUrl=%2Fsurveys"><i class="bi bi-box-arrow-in-right"></i>Sign in</a>
+            }
+        </EmptyState>
+    }
+    else if (visible.Count == 0)
+    {
+        <EmptyState Icon="bi-search" Title="No surveys match your search" Message="Try another word.">
+            <a class="btn btn-soft-primary" href="surveys">Show all surveys</a>
+        </EmptyState>
+    }
+    else
+    {
+        <div class="row g-4">
+            @foreach (var survey in visible)
+            {
+                <div class="col-md-6 col-xl-4">
+                    <div class="card h-100 card-hover">
+                        <div class="card-body d-flex flex-column">
+                            <div class="d-flex flex-wrap gap-2 mb-2">
+                                @if (survey.HasCompleted)
+                                {
+                                    <span class="badge-status badge-completed"><i class="bi bi-check2-circle me-1"></i>Completed</span>
+                                }
+                                @if (survey.HasDraft)
+                                {
+                                    <span class="badge-status badge-inprogress"><i class="bi bi-pencil me-1"></i>In progress</span>
+                                }
+                                @if (!survey.AllowAnonymous)
+                                {
+                                    <span class="badge-status badge-template"><i class="bi bi-person-check me-1"></i>Members</span>
+                                }
+                            </div>
+                            <h2 class="h5 fw-semibold mb-2">@survey.Title</h2>
+                            @if (!string.IsNullOrWhiteSpace(survey.Description))
+                            {
+                                <p class="text-muted small mb-3" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">@survey.Description</p>
+                            }
+                            <div class="d-flex flex-wrap gap-3 small text-muted mt-auto mb-3">
+                                <span><i class="bi bi-list-ol me-1"></i>@survey.QuestionCount question@(survey.QuestionCount == 1 ? "" : "s")</span>
+                                <span><i class="bi bi-clock me-1"></i>~@Math.Max(1, survey.EstimatedMinutes) min</span>
+                                @if (survey.ClosesAt is { } closes)
+                                {
+                                    <span><i class="bi bi-calendar-event me-1"></i>Closes <LocalDateTime Value="closes" Format="d MMM yyyy" /></span>
+                                }
+                            </div>
+                            @if (survey.CanRespond)
+                            {
+                                <a class="btn @(survey.HasDraft ? "btn-soft-primary" : "btn-primary") w-100" href="s/@survey.Slug">
+                                    @if (survey.HasDraft)
+                                    {
+                                        <i class="bi bi-play-circle"></i><span>Continue</span>
+                                    }
+                                    else
+                                    {
+                                        <i class="bi bi-arrow-right-circle"></i><span>Start survey</span>
+                                    }
+                                </a>
+                            }
+                            else
+                            {
+                                <button class="btn btn-light w-100" disabled><i class="bi bi-check2-all"></i>Thanks for taking part</button>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private IReadOnlyList<AvailableSurveyDto> surveys = [];
+    private List<AvailableSurveyDto> visible = [];
+
+    /// <summary>Search term.</summary>
+    [SupplyParameterFromQuery(Name = "q")] public string? Q { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        surveys = await Responses.ListAvailableAsync();
+        var term = Q?.Trim();
+        visible = string.IsNullOrEmpty(term)
+            ? surveys.ToList()
+            : surveys.Where(s => s.Title.Contains(term, StringComparison.OrdinalIgnoreCase)
+                                 || (s.Description?.Contains(term, StringComparison.OrdinalIgnoreCase) ?? false)).ToList();
+    }
+}
