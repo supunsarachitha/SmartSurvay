@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <!-- Web host: Blazor Web App (Interactive Server) UI + Minimal API endpoints. -->
+  <PropertyGroup>
+    <UserSecretsId>aspnet-SmartSurvey.Web-c92c54bc-3209-498f-9a48-a2c8dd7a6571</UserSecretsId>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\SmartSurvey.Infrastructure\SmartSurvey.Infrastructure.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Diagnostics.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="Swashbuckle.AspNetCore" />
+    <PackageReference Include="QRCoder" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SmartSurvey.IntegrationTests" />
+    <InternalsVisibleTo Include="SmartSurvey.UnitTests" />
+  </ItemGroup>
+</Project>

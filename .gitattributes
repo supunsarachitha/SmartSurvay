@@ -1,0 +1,16 @@
+# Normalise line endings (LF in the repository and working tree) for cross-platform builds (Docker/Linux CI).
+* text=auto eol=lf
+
+# Windows-only scripts keep CRLF
+*.cmd text eol=crlf
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary
+*.pdf binary
+*.xlsx binary

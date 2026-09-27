@@ -1,0 +1,30 @@
+@page "/Error"
+@using System.Diagnostics
+
+<PageTitle>Something went wrong · SmartSurvey</PageTitle>
+
+<div class="container py-5">
+    <EmptyState Icon="bi-exclamation-octagon" Title="Something went wrong"
+                Message="An unexpected error occurred while processing your request. Please try again in a moment.">
+        <div class="d-flex justify-content-center gap-2">
+            <a class="btn btn-primary" href=""><i class="bi bi-house"></i>Go home</a>
+            <a class="btn btn-light" href="faq"><i class="bi bi-question-circle"></i>Help</a>
+        </div>
+        @if (ShowRequestId)
+        {
+            <p class="small text-muted mt-4 mb-0">Request ID: <code>@RequestId</code></p>
+        }
+    </EmptyState>
+</div>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+
+    private bool ShowRequestId => !string.IsNullOrEmpty(RequestId);
+
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

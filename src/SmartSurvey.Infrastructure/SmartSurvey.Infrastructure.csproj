@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Infrastructure layer: EF Core DbContext + migrations, Identity stores, exporters
+       (QuestPDF / CSV / TXT / XLSX / JSON), auditing, seeding and DI wiring. -->
+  <ItemGroup>
+    <ProjectReference Include="..\SmartSurvey.Application\SmartSurvey.Application.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics.HealthChecks.EntityFrameworkCore" />
+    <PackageReference Include="QuestPDF" />
+    <PackageReference Include="ClosedXML" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="SmartSurvey.UnitTests" />
+    <InternalsVisibleTo Include="SmartSurvey.IntegrationTests" />
+  </ItemGroup>
+</Project>

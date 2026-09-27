@@ -1,0 +1,27 @@
+@* Friendly placeholder for empty lists / not-found states, with optional call-to-action content. *@
+<div class="empty-state @Class">
+    <div class="empty-icon"><i class="bi @Icon"></i></div>
+    <h3>@Title</h3>
+    @if (!string.IsNullOrWhiteSpace(Message))
+    {
+        <p class="mb-3 mx-auto" style="max-width:32rem">@Message</p>
+    }
+    @ChildContent
+</div>
+
+@code {
+    /// <summary>Bootstrap icon class, e.g. "bi-inbox".</summary>
+    [Parameter] public string Icon { get; set; } = "bi-inbox";
+
+    /// <summary>Heading.</summary>
+    [Parameter] public string Title { get; set; } = "Nothing here yet";
+
+    /// <summary>Explanation.</summary>
+    [Parameter] public string? Message { get; set; }
+
+    /// <summary>Actions (buttons/links).</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Extra CSS classes.</summary>
+    [Parameter] public string? Class { get; set; }
+}

@@ -1,0 +1,13 @@
+@* Centered loading indicator. *@
+<div class="loading-block @Class" role="status">
+    <div class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></div>
+    <span>@Text</span>
+</div>
+
+@code {
+    /// <summary>Text next to the spinner.</summary>
+    [Parameter] public string Text { get; set; } = "Loading…";
+
+    /// <summary>Extra CSS classes.</summary>
+    [Parameter] public string? Class { get; set; }
+}

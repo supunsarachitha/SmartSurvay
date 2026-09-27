@@ -1,0 +1,56 @@
+@implements IDisposable
+@inject ToastService Toasts
+@* Renders toasts raised through ToastService; each toast auto-dismisses after a few seconds. *@
+
+<div class="toast-stack" aria-live="polite" aria-atomic="false">
+    @foreach (var toast in Toasts.Toasts)
+    {
+        <div class="toast-item @CssClass(toast.Level)" role="status" @key="toast.Id">
+            <i class="bi @Icon(toast.Level)"></i>
+            <div class="flex-grow-1">
+                <div class="toast-title">@toast.Title</div>
+                @if (!string.IsNullOrWhiteSpace(toast.Message))
+                {
+                    <div class="toast-text">@toast.Message</div>
+                }
+            </div>
+            <button type="button" class="btn-close btn-sm" aria-label="Dismiss" @onclick="() => Toasts.Dismiss(toast.Id)"></button>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly HashSet<Guid> _scheduled = [];
+
+    protected override void OnInitialized() => Toasts.Changed += OnChanged;
+
+    private void OnChanged()
+    {
+        foreach (var toast in Toasts.Toasts.Where(t => _scheduled.Add(t.Id)))
+        {
+            var delay = toast.Level == ToastLevel.Error ? 8000 : 4500;
+            _ = DismissLaterAsync(toast.Id, delay);
+        }
+
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    private async Task DismissLaterAsync(Guid id, int delayMs)
+    {
+        await Task.Delay(delayMs);
+        Toasts.Dismiss(id);
+        _scheduled.Remove(id);
+    }
+
+    private static string CssClass(ToastLevel level) => level.ToString().ToLowerInvariant();
+
+    private static string Icon(ToastLevel level) => level switch
+    {
+        ToastLevel.Success => "bi-check-circle-fill",
+        ToastLevel.Error => "bi-x-octagon-fill",
+        ToastLevel.Warning => "bi-exclamation-triangle-fill",
+        _ => "bi-info-circle-fill",
+    };
+
+    public void Dispose() => Toasts.Changed -= OnChanged;
+}

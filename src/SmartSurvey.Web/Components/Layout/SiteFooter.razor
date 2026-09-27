@@ -1,0 +1,49 @@
+@inject IOptions<SupportOptions> Support
+
+<footer class="site-footer mt-5">
+    <div class="container py-5">
+        <div class="row g-4">
+            <div class="col-lg-4">
+                <a class="d-flex align-items-center gap-2 fw-bold text-body mb-2" href="">
+                    <span class="brand-mark"><i class="bi bi-ui-checks"></i></span> SmartSurvey
+                </a>
+                <p class="mb-0">Design smart surveys with conditional logic, collect responses anywhere and turn them into
+                    beautiful, exportable reports.</p>
+            </div>
+            <div class="col-6 col-lg-2 offset-lg-2">
+                <div class="small-caps mb-2">Product</div>
+                <ul class="list-unstyled d-grid gap-1 mb-0">
+                    <li><a href="surveys">Surveys</a></li>
+                    <li><a href="my/responses">My responses</a></li>
+                    <li><a href="swagger">REST API</a></li>
+                </ul>
+            </div>
+            <div class="col-6 col-lg-2">
+                <div class="small-caps mb-2">Help</div>
+                <ul class="list-unstyled d-grid gap-1 mb-0">
+                    <li><a href="faq">FAQ</a></li>
+                    <li><a href="buy-me-a-coffee">Buy me a coffee</a></li>
+                    @if (!string.IsNullOrWhiteSpace(Support.Value.ContactEmail))
+                    {
+                        <li><a href="mailto:@Support.Value.ContactEmail">Contact</a></li>
+                    }
+                </ul>
+            </div>
+            <div class="col-lg-2">
+                <div class="small-caps mb-2">Open source</div>
+                <ul class="list-unstyled d-grid gap-1 mb-0">
+                    @if (!string.IsNullOrWhiteSpace(Support.Value.GitHubUrl))
+                    {
+                        <li><a href="@Support.Value.GitHubUrl" target="_blank" rel="noopener"><i class="bi bi-github me-1"></i>GitHub</a></li>
+                    }
+                    <li><a href="health" target="_blank" rel="noopener"><i class="bi bi-heart-pulse me-1"></i>Status</a></li>
+                </ul>
+            </div>
+        </div>
+        <hr class="my-4" />
+        <div class="d-flex flex-wrap justify-content-between gap-2 small">
+            <span>&copy; @DateTime.UtcNow.Year SmartSurvey. Built with ASP.NET Core &amp; Blazor.</span>
+            <span>Made with <i class="bi bi-heart-fill text-danger"></i> and plenty of <a href="buy-me-a-coffee">coffee</a>.</span>
+        </div>
+    </div>
+</footer>

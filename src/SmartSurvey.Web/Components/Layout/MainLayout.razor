@@ -1,0 +1,50 @@
+@inherits LayoutComponentBase
+@* Public / respondent layout: sticky top navigation, content, footer. Rendered statically (SSR);
+   interactive pages render inside @Body. *@
+
+<nav class="navbar navbar-expand-lg site-navbar" aria-label="Main navigation">
+    <div class="container">
+        <a class="navbar-brand" href="">
+            <span class="brand-mark"><i class="bi bi-ui-checks"></i></span>
+            SmartSurvey
+        </a>
+        <button class="navbar-toggler border-0" type="button" data-bs-toggle="collapse" data-bs-target="#siteNav"
+                aria-controls="siteNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="siteNav">
+            <ul class="navbar-nav me-auto ms-lg-4 gap-lg-1">
+                <li class="nav-item"><NavLink class="nav-link" href="" Match="NavLinkMatch.All">Home</NavLink></li>
+                <li class="nav-item"><NavLink class="nav-link" href="surveys">Surveys</NavLink></li>
+                <AuthorizeView>
+                    <Authorized>
+                        <li class="nav-item"><NavLink class="nav-link" href="my/responses">My responses</NavLink></li>
+                    </Authorized>
+                </AuthorizeView>
+                <li class="nav-item"><NavLink class="nav-link" href="faq">FAQ</NavLink></li>
+                <li class="nav-item"><NavLink class="nav-link" href="buy-me-a-coffee"><i class="bi bi-cup-hot me-1"></i>Support us</NavLink></li>
+            </ul>
+            <div class="d-flex align-items-center gap-2 py-2 py-lg-0">
+                <ThemeToggle />
+                <AuthorizeView Roles="@AppRoles.Admin">
+                    <Authorized>
+                        <a class="btn btn-soft-primary btn-sm" href="admin"><i class="bi bi-speedometer2"></i>Admin</a>
+                    </Authorized>
+                </AuthorizeView>
+                <UserMenu />
+            </div>
+        </div>
+    </div>
+</nav>
+
+<main class="site-main">
+    @Body
+</main>
+
+<SiteFooter />
+
+<div id="blazor-error-ui" role="alert">
+    <i class="bi bi-exclamation-octagon me-1"></i> An unexpected error has occurred.
+    <a href="" class="reload fw-semibold ms-2">Reload</a>
+    <a class="dismiss" aria-label="Dismiss"><i class="bi bi-x-lg"></i></a>
+</div>

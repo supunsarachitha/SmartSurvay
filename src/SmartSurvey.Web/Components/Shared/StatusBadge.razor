@@ -1,0 +1,30 @@
+@* Coloured status pill for surveys and responses. Set exactly one of SurveyStatus / ResponseStatus. *@
+
+@if (IsTemplate)
+{
+    <span class="badge badge-status badge-template @Class">Template</span>
+}
+else if (SurveyStatus is { } s)
+{
+    <span class="badge badge-status badge-@s.ToString().ToLowerInvariant() @Class">@s</span>
+}
+else if (ResponseStatus is { } r)
+{
+    <span class="badge badge-status @(r == Domain.Enums.ResponseStatus.Completed ? "badge-completed" : "badge-inprogress") @Class">
+        @(r == Domain.Enums.ResponseStatus.Completed ? "Completed" : "In progress")
+    </span>
+}
+
+@code {
+    /// <summary>Survey status.</summary>
+    [Parameter] public SurveyStatus? SurveyStatus { get; set; }
+
+    /// <summary>Response status.</summary>
+    [Parameter] public ResponseStatus? ResponseStatus { get; set; }
+
+    /// <summary>Show the "Template" badge instead of the status.</summary>
+    [Parameter] public bool IsTemplate { get; set; }
+
+    /// <summary>Extra CSS classes.</summary>
+    [Parameter] public string? Class { get; set; }
+}

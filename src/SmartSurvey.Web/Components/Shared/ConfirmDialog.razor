@@ -1,0 +1,45 @@
+@* Promise-style confirmation dialog. Usage:
+   <ConfirmDialog @ref="confirm" />
+   if (await confirm.ShowAsync("Delete survey?", "All responses will be removed.", "Delete", danger: true)) { … } *@
+
+<Modal Visible="visible" Title="@title" Icon="@(danger ? "bi-exclamation-triangle" : "bi-question-circle")" OnClose="() => Complete(false)">
+    <ChildContent>
+        <p class="mb-0 text-muted">@message</p>
+    </ChildContent>
+    <Footer>
+        <button type="button" class="btn btn-light" @onclick="() => Complete(false)">@cancelText</button>
+        <button type="button" class="btn @(danger ? "btn-danger" : "btn-primary")" @onclick="() => Complete(true)">@confirmText</button>
+    </Footer>
+</Modal>
+
+@code {
+    private bool visible;
+    private bool danger;
+    private string title = string.Empty;
+    private string? message;
+    private string confirmText = "Confirm";
+    private string cancelText = "Cancel";
+    private TaskCompletionSource<bool>? tcs;
+
+    /// <summary>Shows the dialog and resolves to true when confirmed.</summary>
+    public Task<bool> ShowAsync(string title, string? message = null, string confirmText = "Confirm", bool danger = false, string cancelText = "Cancel")
+    {
+        tcs?.TrySetResult(false);
+        this.title = title;
+        this.message = message;
+        this.confirmText = confirmText;
+        this.cancelText = cancelText;
+        this.danger = danger;
+        visible = true;
+        tcs = new TaskCompletionSource<bool>();
+        StateHasChanged();
+        return tcs.Task;
+    }
+
+    private void Complete(bool result)
+    {
+        visible = false;
+        tcs?.TrySetResult(result);
+        tcs = null;
+    }
+}

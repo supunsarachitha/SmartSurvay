@@ -1,0 +1,58 @@
+@inject NavigationManager NavigationManager
+@* Account dropdown (static; Bootstrap JS dropdown). Logout is a POST with antiforgery token. *@
+
+<AuthorizeView>
+    <Authorized>
+        <div class="dropdown">
+            <button class="btn btn-light d-flex align-items-center gap-2 px-2 py-1" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="avatar avatar-sm">@Initials(context.User.Identity?.Name)</span>
+                <span class="d-none d-xl-inline small fw-semibold text-truncate" style="max-width:160px">@context.User.Identity?.Name</span>
+                <i class="bi bi-chevron-down small text-muted"></i>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li class="px-3 py-2 small text-muted text-truncate" style="max-width:260px">
+                    Signed in as<br /><span class="fw-semibold text-body">@context.User.Identity?.Name</span>
+                </li>
+                <li><hr class="dropdown-divider" /></li>
+                @if (context.User.IsInRole(AppRoles.Admin))
+                {
+                    <li><a class="dropdown-item" href="admin"><i class="bi bi-speedometer2"></i>Admin dashboard</a></li>
+                }
+                <li><a class="dropdown-item" href="surveys"><i class="bi bi-ui-checks"></i>Available surveys</a></li>
+                <li><a class="dropdown-item" href="my/responses"><i class="bi bi-inboxes"></i>My responses</a></li>
+                <li><a class="dropdown-item" href="Account/Manage"><i class="bi bi-person-gear"></i>Account settings</a></li>
+                <li><hr class="dropdown-divider" /></li>
+                <li>
+                    <form action="Account/Logout" method="post">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="ReturnUrl" value="@currentUrl" />
+                        <button type="submit" class="dropdown-item text-danger"><i class="bi bi-box-arrow-right text-danger"></i>Log out</button>
+                    </form>
+                </li>
+            </ul>
+        </div>
+    </Authorized>
+    <NotAuthorized>
+        <a class="btn btn-light btn-sm" href="Account/Login">Log in</a>
+        <a class="btn btn-primary btn-sm" href="Account/Register">Sign up free</a>
+    </NotAuthorized>
+</AuthorizeView>
+
+@code {
+    private string? currentUrl;
+
+    protected override void OnParametersSet() =>
+        currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
+
+    private static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "?";
+        }
+
+        var local = name.Split('@')[0];
+        var parts = local.Split(['.', '_', '-', ' '], StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length >= 2 ? $"{parts[0][0]}{parts[1][0]}" : local[..Math.Min(2, local.Length)];
+    }
+}

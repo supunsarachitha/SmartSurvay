@@ -1,0 +1,51 @@
+@using SmartSurvey.Application.Reports
+@using SmartSurvey.Application.Reports.Charts
+@inject ISvgChartRenderer Renderer
+@* Renders ChartData as inline SVG (same renderer as PDF exports). Text uses currentColor so the
+   chart follows the light/dark theme. The SVG is generated server-side with escaped text. *@
+
+@if (Data is null || Data.Labels.Count == 0 || Data.Series.Count == 0)
+{
+    <div class="text-center text-muted small py-4"><i class="bi bi-bar-chart me-1"></i>No data to chart yet.</div>
+}
+else
+{
+    <div class="chart-container @Class" role="img" aria-label="@AriaLabel">@((MarkupString)svg)</div>
+}
+
+@code {
+    private string svg = string.Empty;
+
+    /// <summary>Chart data.</summary>
+    [Parameter] public ChartData? Data { get; set; }
+
+    /// <summary>Viewbox height (width is 640 and scales responsively).</summary>
+    [Parameter] public int Height { get; set; } = 340;
+
+    /// <summary>Show percentages on pie/doughnut slices.</summary>
+    [Parameter] public bool ShowPercentages { get; set; } = true;
+
+    /// <summary>Accessible description.</summary>
+    [Parameter] public string? AriaLabel { get; set; }
+
+    /// <summary>Extra CSS classes.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    protected override void OnParametersSet()
+    {
+        if (Data is null || Data.Labels.Count == 0 || Data.Series.Count == 0)
+        {
+            svg = string.Empty;
+            return;
+        }
+
+        svg = Renderer.Render(Data, new SvgChartOptions
+        {
+            Height = Height,
+            ShowPercentages = ShowPercentages,
+            TextColor = "currentColor",
+            GridColor = "rgba(148,163,184,.35)",
+            FontFamily = "Inter, Segoe UI, Helvetica, Arial, sans-serif",
+        });
+    }
+}

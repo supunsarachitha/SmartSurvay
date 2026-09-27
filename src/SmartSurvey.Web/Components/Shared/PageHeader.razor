@@ -1,0 +1,45 @@
+@* Standard page heading: optional breadcrumb, title, subtitle and right-aligned actions.
+   Also sets the browser tab title. Usage:
+   <PageHeader Title="Surveys" Subtitle="Design and publish surveys">
+       <Breadcrumb><li class="breadcrumb-item"><a href="admin">Admin</a></li></Breadcrumb>
+       <Actions><a class="btn btn-primary" href="admin/surveys/new"><i class="bi bi-plus-lg"></i>New</a></Actions>
+   </PageHeader> *@
+
+<PageTitle>@(string.IsNullOrWhiteSpace(Title) ? "SmartSurvey" : $"{Title} · SmartSurvey")</PageTitle>
+
+<div class="page-header">
+    <div class="min-w-0">
+        @if (Breadcrumb is not null)
+        {
+            <nav aria-label="breadcrumb">
+                <ol class="breadcrumb">@Breadcrumb</ol>
+            </nav>
+        }
+        <h1 class="text-truncate">@Title @TitleSuffix</h1>
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p class="page-subtitle">@Subtitle</p>
+        }
+    </div>
+    @if (Actions is not null)
+    {
+        <div class="page-actions">@Actions</div>
+    }
+</div>
+
+@code {
+    /// <summary>Page title (also used for the browser tab).</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>Optional subtitle.</summary>
+    [Parameter] public string? Subtitle { get; set; }
+
+    /// <summary>Content rendered right after the title (e.g. a status badge).</summary>
+    [Parameter] public RenderFragment? TitleSuffix { get; set; }
+
+    /// <summary>Breadcrumb items (<c>li.breadcrumb-item</c> elements).</summary>
+    [Parameter] public RenderFragment? Breadcrumb { get; set; }
+
+    /// <summary>Action buttons.</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+}

@@ -1,0 +1,71 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using SmartSurvey.Application.Common;
+using SmartSurvey.Application.Exports;
+using SmartSurvey.Application.Users;
+using SmartSurvey.Infrastructure.Exports;
+using SmartSurvey.Infrastructure.Identity;
+using SmartSurvey.Infrastructure.Persistence;
+using SmartSurvey.Infrastructure.Persistence.Seed;
+
+namespace SmartSurvey.Infrastructure;
+
+/// <summary>Registers Infrastructure-layer services.</summary>
+public static class DependencyInjection
+{
+    /// <summary>
+    /// Adds the EF Core context (PostgreSQL or SQLite, see <see cref="DatabaseOptions"/>), the
+    /// context factory, exporters, user administration, seeding and health checks.
+    /// Requires an <see cref="ICurrentUser"/> registration (provided by the Web host).
+    /// </summary>
+    public static IServiceCollection AddInfrastructure(this IServiceCollection services, IConfiguration configuration)
+    {
+        services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
+        services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
+
+        services.AddScoped<AuditableEntityInterceptor>();
+
+        // Scoped factory lifetime lets the options action resolve the scoped interceptor/current user.
+        // Provider and connection string are read lazily so test hosts can override configuration.
+        services.AddDbContextFactory<AppDbContext>((sp, options) =>
+        {
+            var dbOptions = sp.GetRequiredService<IOptions<DatabaseOptions>>().Value;
+            var connectionString = sp.GetRequiredService<IConfiguration>().GetConnectionString("DefaultConnection")
+                ?? throw new InvalidOperationException("Connection string 'DefaultConnection' is not configured.");
+
+            if (dbOptions.Provider == DatabaseProvider.Sqlite)
+            {
+                options.UseSqlite(connectionString);
+            }
+            else
+            {
+                // No retrying execution strategy: it forbids user-initiated transactions, which the
+                // services use for atomic operations (e.g. quota-checked submissions).
+                options.UseNpgsql(connectionString, npgsql =>
+                    npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
+            }
+
+            options.AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
+        }, ServiceLifetime.Scoped);
+
+        services.AddScoped<IAppDbContextFactory, AppDbContextFactory>();
+
+        // Exporters are stateless; the report service picks one by ExportFormat.
+        QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
+        services.AddSingleton<IReportExporter, PdfReportExporter>();
+        services.AddSingleton<IReportExporter, CsvReportExporter>();
+        services.AddSingleton<IReportExporter, TxtReportExporter>();
+        services.AddSingleton<IReportExporter, XlsxReportExporter>();
+        services.AddSingleton<IReportExporter, JsonReportExporter>();
+        services.AddScoped<IResponseExportService, ResponseExportService>();
+
+        services.AddScoped<IUserAdminService, UserAdminService>();
+        services.AddScoped<DbSeeder>();
+
+        services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");
+
+        return services;
+    }
+}

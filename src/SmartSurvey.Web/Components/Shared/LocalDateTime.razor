@@ -1,0 +1,50 @@
+@inject BrowserInterop Browser
+@* Shows a UTC timestamp in the viewer's local time zone (interactive pages). During prerendering or
+   on static pages it shows UTC with a "UTC" suffix. Hover shows the exact UTC value. *@
+
+@if (Value is null)
+{
+    <span class="text-muted">@Placeholder</span>
+}
+else
+{
+    <time datetime="@Value.Value.ToString("o")" title="@($"{Value.Value:yyyy-MM-dd HH:mm:ss} UTC")">@Display</time>
+}
+
+@code {
+    private DateTime? local;
+
+    /// <summary>UTC timestamp.</summary>
+    [Parameter] public DateTime? Value { get; set; }
+
+    /// <summary>.NET format string for the local time (default "d MMM yyyy, HH:mm").</summary>
+    [Parameter] public string Format { get; set; } = "d MMM yyyy, HH:mm";
+
+    /// <summary>Show "5 minutes ago" instead of an absolute time.</summary>
+    [Parameter] public bool Relative { get; set; }
+
+    /// <summary>Text shown when Value is null.</summary>
+    [Parameter] public string Placeholder { get; set; } = "—";
+
+    private string Display => Relative
+        ? UiFormat.Relative(Value)
+        : local is { } l
+            ? l.ToString(Format, System.Globalization.CultureInfo.InvariantCulture)
+            : Value!.Value.ToString(Format, System.Globalization.CultureInfo.InvariantCulture) + " UTC";
+
+    protected override void OnParametersSet()
+    {
+        local = Value is { } v && Browser.CachedTimeZone is { } tz
+            ? TimeZoneInfo.ConvertTimeFromUtc(DateTime.SpecifyKind(v, DateTimeKind.Utc), tz)
+            : null;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Value is not null && local is null && !Relative)
+        {
+            local = await Browser.ToLocalAsync(Value.Value);
+            StateHasChanged();
+        }
+    }
+}

@@ -1,0 +1,50 @@
+@* Lightweight Blazor-driven modal (no Bootstrap JS). Usage:
+   <Modal Title="Import survey" Visible="showImport" OnClose="() => showImport = false">
+       <ChildContent>…</ChildContent>
+       <Footer><button class="btn btn-primary">Import</button></Footer>
+   </Modal> *@
+
+@if (Visible)
+{
+    <div class="ss-modal-backdrop" @onclick="CloseAsync"></div>
+    <div class="ss-modal" role="dialog" aria-modal="true" aria-label="@Title" @onkeydown="OnKeyDown">
+        <div class="ss-modal-dialog @(Size is null ? "" : $"modal-{Size}")" @onclick:stopPropagation="true">
+            <div class="ss-modal-header">
+                <h5>@if (!string.IsNullOrWhiteSpace(Icon)) { <i class="bi @Icon me-2 text-primary"></i> }@Title</h5>
+                <button type="button" class="btn-close" aria-label="Close" @onclick="CloseAsync"></button>
+            </div>
+            <div class="ss-modal-body">@ChildContent</div>
+            @if (Footer is not null)
+            {
+                <div class="ss-modal-footer">@Footer</div>
+            }
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Whether the modal is shown.</summary>
+    [Parameter] public bool Visible { get; set; }
+
+    /// <summary>Header title.</summary>
+    [Parameter] public string Title { get; set; } = string.Empty;
+
+    /// <summary>Optional Bootstrap icon class for the header (e.g. "bi-upload").</summary>
+    [Parameter] public string? Icon { get; set; }
+
+    /// <summary>"lg" for a wider dialog.</summary>
+    [Parameter] public string? Size { get; set; }
+
+    /// <summary>Body.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Footer (buttons).</summary>
+    [Parameter] public RenderFragment? Footer { get; set; }
+
+    /// <summary>Raised when the user closes the dialog (backdrop, ×, Escape).</summary>
+    [Parameter] public EventCallback OnClose { get; set; }
+
+    private Task CloseAsync() => OnClose.InvokeAsync();
+
+    private Task OnKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? CloseAsync() : Task.CompletedTask;
+}

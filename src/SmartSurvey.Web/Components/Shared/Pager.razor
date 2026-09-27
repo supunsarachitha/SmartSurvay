@@ -1,0 +1,88 @@
+@* Pagination bar with "Showing x–y of z". Usage:
+   <Pager Page="result.Page" PageSize="result.PageSize" TotalCount="result.TotalCount" OnPageChanged="GoToPage" /> *@
+
+@if (TotalCount > 0)
+{
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-2 @Class">
+        <div class="small text-muted">
+            Showing <span class="fw-semibold text-body">@From</span>–<span class="fw-semibold text-body">@To</span>
+            of <span class="fw-semibold text-body">@TotalCount</span>
+        </div>
+        @if (TotalPages > 1)
+        {
+            <nav aria-label="Pagination">
+                <ul class="pagination pagination-sm mb-0">
+                    <li class="page-item @(Page <= 1 ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => GoAsync(Page - 1)" aria-label="Previous"><i class="bi bi-chevron-left"></i></button>
+                    </li>
+                    @foreach (var p in VisiblePages())
+                    {
+                        if (p == 0)
+                        {
+                            <li class="page-item disabled"><span class="page-link">…</span></li>
+                        }
+                        else
+                        {
+                            var pageNumber = p;
+                            <li class="page-item @(pageNumber == Page ? "active" : "")">
+                                <button class="page-link" @onclick="() => GoAsync(pageNumber)">@pageNumber</button>
+                            </li>
+                        }
+                    }
+                    <li class="page-item @(Page >= TotalPages ? "disabled" : "")">
+                        <button class="page-link" @onclick="() => GoAsync(Page + 1)" aria-label="Next"><i class="bi bi-chevron-right"></i></button>
+                    </li>
+                </ul>
+            </nav>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Current 1-based page.</summary>
+    [Parameter] public int Page { get; set; } = 1;
+
+    /// <summary>Page size.</summary>
+    [Parameter] public int PageSize { get; set; } = 20;
+
+    /// <summary>Total items.</summary>
+    [Parameter] public int TotalCount { get; set; }
+
+    /// <summary>Raised with the requested page.</summary>
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+
+    /// <summary>Extra CSS classes.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private int TotalPages => Math.Max(1, (int)Math.Ceiling(TotalCount / (double)Math.Max(1, PageSize)));
+    private int From => TotalCount == 0 ? 0 : ((Page - 1) * PageSize) + 1;
+    private int To => Math.Min(Page * PageSize, TotalCount);
+
+    private Task GoAsync(int page) =>
+        page < 1 || page > TotalPages || page == Page ? Task.CompletedTask : OnPageChanged.InvokeAsync(page);
+
+    // 1 … 4 5 [6] 7 8 … 20  (0 = ellipsis)
+    private IEnumerable<int> VisiblePages()
+    {
+        var pages = new SortedSet<int> { 1, TotalPages };
+        for (var p = Page - 2; p <= Page + 2; p++)
+        {
+            if (p >= 1 && p <= TotalPages)
+            {
+                pages.Add(p);
+            }
+        }
+
+        var previous = 0;
+        foreach (var p in pages)
+        {
+            if (previous != 0 && p - previous > 1)
+            {
+                yield return 0;
+            }
+
+            yield return p;
+            previous = p;
+        }
+    }
+}

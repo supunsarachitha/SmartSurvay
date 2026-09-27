@@ -1,0 +1,60 @@
+@inherits LayoutComponentBase
+@* Admin layout: dark sidebar + top bar. Used by every page under Pages/Admin (see _Imports.razor there).
+   The layout is static; the ToastHost is an interactive island that shares the page's circuit, so
+   interactive admin pages can raise toasts through the scoped ToastService. *@
+
+<div class="app-shell">
+    <aside class="app-sidebar" aria-label="Admin navigation">
+        <a class="sidebar-brand" href="admin">
+            <span class="brand-mark"><i class="bi bi-ui-checks"></i></span>
+            SmartSurvey
+            <span class="badge badge-soft-primary ms-auto" style="font-size:.65rem">ADMIN</span>
+        </a>
+        <nav class="sidebar-nav">
+            <div class="sidebar-heading">Overview</div>
+            <NavLink class="nav-link" href="admin" Match="NavLinkMatch.All"><i class="bi bi-grid-1x2"></i> Dashboard</NavLink>
+
+            <div class="sidebar-heading">Design</div>
+            <NavLink class="nav-link" href="admin/surveys"><i class="bi bi-ui-checks-grid"></i> Surveys</NavLink>
+
+            <div class="sidebar-heading">Analytics</div>
+            <NavLink class="nav-link" href="admin/reports"><i class="bi bi-bar-chart-line"></i> Reports</NavLink>
+
+            <div class="sidebar-heading">Administration</div>
+            <NavLink class="nav-link" href="admin/users"><i class="bi bi-people"></i> Users</NavLink>
+            <NavLink class="nav-link" href="admin/audit"><i class="bi bi-journal-text"></i> Audit log</NavLink>
+            <a class="nav-link" href="swagger" target="_blank" rel="noopener"><i class="bi bi-braces"></i> API docs</a>
+        </nav>
+        <div class="sidebar-footer d-flex justify-content-between">
+            <a href=""><i class="bi bi-arrow-left me-1"></i> Back to site</a>
+            <a href="faq" title="Help"><i class="bi bi-question-circle"></i></a>
+        </div>
+    </aside>
+    <div class="sidebar-backdrop"></div>
+
+    <div class="app-main">
+        <header class="app-topbar">
+            <button type="button" class="btn btn-icon btn-light d-lg-none" data-action="toggle-sidebar" aria-label="Open navigation">
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="flex-grow-1"></div>
+            <a class="btn btn-sm btn-primary d-none d-md-inline-flex align-items-center" href="admin/surveys/new">
+                <i class="bi bi-plus-lg"></i>New survey
+            </a>
+            <ThemeToggle />
+            <UserMenu />
+        </header>
+
+        <main class="app-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+<ToastHost @rendermode="InteractiveServer" />
+
+<div id="blazor-error-ui" role="alert">
+    <i class="bi bi-exclamation-octagon me-1"></i> An unexpected error has occurred.
+    <a href="" class="reload fw-semibold ms-2">Reload</a>
+    <a class="dismiss" aria-label="Dismiss"><i class="bi bi-x-lg"></i></a>
+</div>

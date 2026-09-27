@@ -1,0 +1,35 @@
+@* Dismissible error/info alert. Renders nothing when Message is empty. *@
+@if (!string.IsNullOrWhiteSpace(Message))
+{
+    <div class="alert alert-@Kind @Class" role="alert">
+        <i class="bi @(Kind switch { "success" => "bi-check-circle", "warning" => "bi-exclamation-triangle", "info" => "bi-info-circle", _ => "bi-x-octagon" })"></i>
+        <div class="flex-grow-1">
+            @if (!string.IsNullOrWhiteSpace(Title))
+            {
+                <div class="fw-semibold">@Title</div>
+            }
+            @Message
+        </div>
+        @if (OnDismiss.HasDelegate)
+        {
+            <button type="button" class="btn-close" aria-label="Dismiss" @onclick="OnDismiss"></button>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Message to show.</summary>
+    [Parameter] public string? Message { get; set; }
+
+    /// <summary>Optional bold title.</summary>
+    [Parameter] public string? Title { get; set; }
+
+    /// <summary>Bootstrap alert kind: danger (default), warning, info, success.</summary>
+    [Parameter] public string Kind { get; set; } = "danger";
+
+    /// <summary>When set, a close button is shown.</summary>
+    [Parameter] public EventCallback OnDismiss { get; set; }
+
+    /// <summary>Extra CSS classes.</summary>
+    [Parameter] public string? Class { get; set; }
+}
