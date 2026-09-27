@@ -35,6 +35,8 @@ RUN mkdir -p /app/keys && chown app:app /app/keys
 ENV ASPNETCORE_URLS=http://+:8080 \
     ASPNETCORE_ENVIRONMENT=Production \
     DataProtection__KeysPath=/app/keys \
+    Https__Redirect=false \
+    ReverseProxy__Enabled=true \
     DOTNET_RUNNING_IN_CONTAINER=true
 
 EXPOSE 8080

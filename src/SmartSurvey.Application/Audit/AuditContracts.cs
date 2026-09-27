@@ -121,4 +121,7 @@ public static class AuditActions
 
     /// <summary>User deleted.</summary>
     public const string UserDeleted = "user.deleted";
+
+    /// <summary>Product branding (name, tagline, icon, logo) changed.</summary>
+    public const string BrandingUpdated = "branding.updated";
 }

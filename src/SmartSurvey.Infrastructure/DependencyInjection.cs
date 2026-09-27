@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using SmartSurvey.Application.Branding;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Application.Exports;
 using SmartSurvey.Application.Users;
@@ -24,6 +25,7 @@ public static class DependencyInjection
     {
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
+        services.Configure<BrandingOptions>(configuration.GetSection(BrandingOptions.SectionName));
 
         services.AddScoped<AuditableEntityInterceptor>();
 

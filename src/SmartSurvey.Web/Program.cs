@@ -1,4 +1,7 @@
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.DataProtection;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.Identity;
 using SmartSurvey.Application;
 using SmartSurvey.Domain.Identity;
@@ -32,11 +35,19 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddWebServices(builder.Configuration);
 
 // ----- Authentication & Identity --------------------------------------------------------------
+// The default scheme is a policy scheme: requests carrying "Authorization: Bearer …" are authenticated
+// with Identity bearer tokens (REST clients), everything else with the Identity cookie (browser/UI).
+// HttpContext.User — and therefore ICurrentUser — reflects whichever credential was presented.
 builder.Services.AddAuthentication(options =>
     {
-        options.DefaultScheme = IdentityConstants.ApplicationScheme;
+        options.DefaultScheme = AuthSchemes.CookieOrBearer;
         options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
     })
+    .AddPolicyScheme(AuthSchemes.CookieOrBearer, "Identity cookie or bearer token", options =>
+        options.ForwardDefaultSelector = context =>
+            context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
+                ? IdentityConstants.BearerScheme
+                : IdentityConstants.ApplicationScheme)
     .AddBearerToken(IdentityConstants.BearerScheme)
     .AddIdentityCookies();
 
@@ -57,15 +68,43 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
 builder.Services.ConfigureApiFriendlyCookies();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
+// ----- Hosting concerns -----------------------------------------------------------------------
+// Persist data-protection keys (auth cookies, bearer tokens, antiforgery) when a path is configured,
+// e.g. a Docker volume, so logins survive restarts and scale-out instances share keys.
+var dataProtection = builder.Services.AddDataProtection().SetApplicationName("SmartSurvey");
+if (builder.Configuration["DataProtection:KeysPath"] is { Length: > 0 } keysPath)
+{
+    dataProtection.PersistKeysToFileSystem(new DirectoryInfo(keysPath));
+}
+
+// Behind a reverse proxy (nginx, Traefik, Azure App Service…) honour X-Forwarded-For/Proto.
+var behindProxy = builder.Configuration.GetValue("ReverseProxy:Enabled", false);
+if (behindProxy)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.KnownNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+}
+
 // ----- API plumbing ---------------------------------------------------------------------------
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ApiExceptionHandler>();
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 builder.Services.AddApiDocumentation();
 builder.Services.AddDatabaseDeveloperPageExceptionFilter();
 
 var app = builder.Build();
 
 // ----- HTTP pipeline --------------------------------------------------------------------------
+if (behindProxy)
+{
+    app.UseForwardedHeaders();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.UseMigrationsEndPoint();
@@ -80,7 +119,12 @@ else
 app.UseWhen(ctx => WebSetup.IsApiRequest(ctx.Request), api => api.UseExceptionHandler());
 app.UseWhen(ctx => !WebSetup.IsApiRequest(ctx.Request), ui => ui.UseStatusCodePagesWithReExecute("/not-found"));
 
-app.UseHttpsRedirection();
+// Containers usually terminate TLS at the proxy; set Https:Redirect=false there.
+if (app.Configuration.GetValue("Https:Redirect", true))
+{
+    app.UseHttpsRedirection();
+}
+
 app.UseStaticFiles();
 app.UseRouting();
 app.UseRateLimiter();
@@ -111,6 +155,7 @@ app.MapGroup("/api/auth")
     .MapIdentityApi<ApplicationUser>();
 
 app.MapApiEndpoints();
+app.MapBrandingAssets();
 app.MapHealthChecks("/health");
 
 // ----- Database -------------------------------------------------------------------------------

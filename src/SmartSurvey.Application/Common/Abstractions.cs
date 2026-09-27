@@ -47,6 +47,9 @@ public interface IAppDbContext : IDisposable, IAsyncDisposable
     /// <summary>Audit log entries.</summary>
     DbSet<AuditLogEntry> AuditLogs { get; }
 
+    /// <summary>Product branding (single row).</summary>
+    DbSet<BrandingSettings> BrandingSettings { get; }
+
     /// <summary>Identity users (read access for display names / respondent info).</summary>
     DbSet<ApplicationUser> Users { get; }
 

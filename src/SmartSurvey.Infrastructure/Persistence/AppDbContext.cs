@@ -54,6 +54,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     public DbSet<AuditLogEntry> AuditLogs => Set<AuditLogEntry>();
 
     /// <inheritdoc />
+    public DbSet<BrandingSettings> BrandingSettings => Set<BrandingSettings>();
+
+    /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
