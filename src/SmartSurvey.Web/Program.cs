@@ -43,7 +43,7 @@ builder.Services.AddAuthentication(options =>
         options.DefaultScheme = AuthSchemes.CookieOrBearer;
         options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
     })
-    .AddPolicyScheme(AuthSchemes.CookieOrBearer, "Identity cookie or bearer token", options =>
+    .AddPolicyScheme(AuthSchemes.CookieOrBearer, displayName: null, options => // no display name: keeps it off the external-login list
         options.ForwardDefaultSelector = context =>
             context.Request.Headers.Authorization.ToString().StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase)
                 ? IdentityConstants.BearerScheme
