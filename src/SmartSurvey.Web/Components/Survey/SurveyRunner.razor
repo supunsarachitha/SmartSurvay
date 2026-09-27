@@ -1,0 +1,461 @@
+@inject IResponseService Responses
+@inject BrowserInterop Browser
+@inject ILogger<SurveyRunner> Logger
+@inject TimeProvider Time
+@* The survey runner: welcome screen, one page (section) at a time with conditional logic, progress,
+   per-page validation, drafts for signed-in respondents, submission and the thank-you screen. In
+   preview mode nothing is saved. *@
+
+<NavigationLock ConfirmExternalNavigation="@(started && !submitted && answeredCount > 0 && !Preview)" />
+
+@if (Preview)
+{
+    <div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-2">
+        <span><i class="bi bi-eye me-2"></i><strong>Preview.</strong> This is what respondents see. Answers are not saved.</span>
+        <button class="btn btn-sm btn-light" @onclick="Restart"><i class="bi bi-arrow-counterclockwise"></i>Restart</button>
+    </div>
+}
+
+@if (submitted)
+{
+    <div class="survey-hero text-center py-5">
+        <div class="success-check mx-auto mb-3"><i class="bi bi-check-lg"></i></div>
+        <h1 class="mb-2">Thank you!</h1>
+        <p class="lead text-muted mx-auto mb-4" style="max-width:34rem;white-space:pre-line">@(thankYouMessage ?? "Your response has been recorded.")</p>
+        @if (Preview)
+        {
+            <p class="small text-muted">In preview mode the response was not stored.</p>
+            <button class="btn btn-primary" @onclick="Restart"><i class="bi bi-arrow-counterclockwise"></i>Preview again</button>
+        }
+        else
+        {
+            <div class="d-flex flex-wrap justify-content-center gap-2">
+                <a class="btn btn-primary" href="surveys"><i class="bi bi-ui-checks"></i>More surveys</a>
+                @if (IsAuthenticated)
+                {
+                    <a class="btn btn-light" href="my/responses"><i class="bi bi-journal-check"></i>My responses</a>
+                }
+                else
+                {
+                    <a class="btn btn-light" href="">Home</a>
+                }
+            </div>
+        }
+    </div>
+}
+else if (!started)
+{
+    <div class="survey-hero">
+        <h1 class="mb-2">@Survey.Title</h1>
+        @if (!string.IsNullOrWhiteSpace(Survey.Description))
+        {
+            <p class="text-muted mb-3" style="white-space:pre-line">@Survey.Description</p>
+        }
+        @if (!string.IsNullOrWhiteSpace(Survey.WelcomeMessage))
+        {
+            <div class="mb-3" style="white-space:pre-line">@Survey.WelcomeMessage</div>
+        }
+        <div class="d-flex flex-wrap gap-3 small text-muted mb-4">
+            <span><i class="bi bi-list-ol me-1"></i>@UiFormat.Plural(totalQuestions, "question")</span>
+            <span><i class="bi bi-file-earmark me-1"></i>@UiFormat.Plural(pages.Count, "page")</span>
+            <span><i class="bi bi-clock me-1"></i>about @Math.Max(1, (int)Math.Ceiling(totalQuestions * 0.4)) min</span>
+            @if (!IsAuthenticated && !Preview)
+            {
+                <span><i class="bi bi-incognito me-1"></i>Anonymous</span>
+            }
+        </div>
+        <button class="btn btn-primary btn-lg" @onclick="Start"><i class="bi bi-play-fill"></i>Start survey</button>
+    </div>
+}
+else if (current is not null)
+{
+    <div class="survey-hero py-3 mb-3">
+        <h1 class="h4 mb-0">@Survey.Title</h1>
+    </div>
+
+    @if (Survey.ShowProgressBar && pages.Count > 1)
+    {
+        <div class="survey-progress">
+            <div class="d-flex justify-content-between small text-muted mb-1">
+                <span>Page @(pageIndex + 1) of @pages.Count</span>
+                <span>@((int)Math.Round(100.0 * pageIndex / pages.Count))% complete</span>
+            </div>
+            <div class="progress" role="progressbar" aria-label="Survey progress" aria-valuenow="@(pageIndex + 1)" aria-valuemin="1" aria-valuemax="@pages.Count" style="height:.5rem">
+                <div class="progress-bar" style="width:@(100.0 * (pageIndex + 1) / pages.Count)%"></div>
+            </div>
+        </div>
+    }
+
+    @if (pages.Count > 1 || !string.IsNullOrWhiteSpace(current.Description))
+    {
+        <div class="mb-3">
+            @if (pages.Count > 1 && !string.IsNullOrWhiteSpace(current.Title))
+            {
+                <h2 class="h5 fw-semibold mb-1">@current.Title</h2>
+            }
+            @if (!string.IsNullOrWhiteSpace(current.Description))
+            {
+                <p class="text-muted mb-0" style="white-space:pre-line">@current.Description</p>
+            }
+        </div>
+    }
+
+    @if (errorSummary is not null)
+    {
+        <div class="alert alert-danger" role="alert"><i class="bi bi-exclamation-triangle me-2"></i>@errorSummary</div>
+    }
+
+    @foreach (var question in visibility!.VisibleQuestions(current))
+    {
+        <QuestionInput @key="question.Id" Question="question" Answer="AnswerFor(question)" OptionOrder="OptionsFor(question)"
+                       Number="@(Survey.ShowQuestionNumbers ? numbers[question.Id] : null)"
+                       Errors="@(errors.TryGetValue(question.Id, out var messages) ? messages : [])"
+                       ReadOnly="busy" OnChanged="() => OnAnswerChanged(question)" />
+    }
+
+    <div class="survey-nav">
+        <div>
+            @if (pageIndex > 0)
+            {
+                <button class="btn btn-light" disabled="@busy" @onclick="BackAsync"><i class="bi bi-arrow-left"></i>Back</button>
+            }
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            @if (CanSaveDraft)
+            {
+                <span class="small text-muted d-none d-sm-inline">@draftStatus</span>
+                <button class="btn btn-link text-decoration-none" disabled="@busy" @onclick="SaveForLaterAsync">Save and finish later</button>
+            }
+            @if (pageIndex < pages.Count - 1)
+            {
+                <button class="btn btn-primary" disabled="@busy" @onclick="NextAsync">Next<i class="bi bi-arrow-right ms-1 me-0"></i></button>
+            }
+            else
+            {
+                <button class="btn btn-primary" disabled="@busy" @onclick="SubmitAsync">
+                    @if (busy)
+                    {
+                        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Sending…</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-send"></i><span>Submit</span>
+                    }
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (savedForLater)
+    {
+        <div class="alert alert-success mt-3 d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <span><i class="bi bi-check-circle me-2"></i>Your answers are saved. Continue any time from “My responses”.</span>
+            <a class="btn btn-sm btn-success" href="my/responses">Go to My responses</a>
+        </div>
+    }
+    else if (!IsAuthenticated && !Preview && pages.Count > 1)
+    {
+        <p class="small text-muted text-center mt-4 mb-0"><i class="bi bi-info-circle me-1"></i>Answering anonymously — your answers are kept until you close this page.</p>
+    }
+}
+
+@code {
+    private readonly Dictionary<Guid, AnswerInputDto> answers = [];
+    private readonly Dictionary<Guid, IReadOnlyList<OptionDto>> optionOrders = [];
+    private Dictionary<Guid, List<string>> errors = [];
+    private Dictionary<Guid, int> numbers = [];
+    private SurveyVisibility? visibility;
+    private List<SectionDto> pages = [];
+    private SectionDto? current;
+    private Guid? responseId;
+    private DateTime? startedAt;
+    private int pageIndex;
+    private int totalQuestions;
+    private int answeredCount;
+    private bool started;
+    private bool submitted;
+    private bool busy;
+    private bool savedForLater;
+    private string? errorSummary;
+    private string? draftStatus;
+    private string? thankYouMessage;
+
+    /// <summary>The survey to run.</summary>
+    [Parameter, EditorRequired] public SurveyDefinitionDto Survey { get; set; } = default!;
+
+    /// <summary>Answers of a resumed draft.</summary>
+    [Parameter] public IReadOnlyList<AnswerInputDto> InitialAnswers { get; set; } = [];
+
+    /// <summary>Index (into <see cref="SurveyDefinitionDto.Sections"/>) of the page a resumed draft continues on.</summary>
+    [Parameter] public int InitialSectionIndex { get; set; }
+
+    /// <summary>Id of a resumed draft.</summary>
+    [Parameter] public Guid? DraftResponseId { get; set; }
+
+    /// <summary>The respondent is signed in (drafts are available).</summary>
+    [Parameter] public bool IsAuthenticated { get; set; }
+
+    /// <summary>Preview mode: nothing is saved.</summary>
+    [Parameter] public bool Preview { get; set; }
+
+    private bool CanSaveDraft => IsAuthenticated && !Preview;
+
+    protected override void OnInitialized()
+    {
+        responseId = DraftResponseId;
+        foreach (var answer in InitialAnswers)
+        {
+            answers[answer.QuestionId] = answer.Clone();
+        }
+
+        BuildOptionOrders();
+        Evaluate();
+
+        // Resumed drafts (and surveys without anything to read first) start right away.
+        started = DraftResponseId is not null;
+        if (started)
+        {
+            var resumeSection = InitialSectionIndex >= 0 && InitialSectionIndex < Survey.Sections.Count ? Survey.Sections[InitialSectionIndex] : null;
+            GoTo(resumeSection is not null && pages.Contains(resumeSection) ? pages.IndexOf(resumeSection) : 0);
+        }
+    }
+
+    private void Start()
+    {
+        started = true;
+        startedAt = Time.GetUtcNow().UtcDateTime;
+        GoTo(0);
+    }
+
+    private void Restart()
+    {
+        answers.Clear();
+        errors = [];
+        errorSummary = null;
+        submitted = false;
+        started = false;
+        savedForLater = false;
+        Evaluate();
+    }
+
+    /// <summary>Recomputes visibility, the visible pages (pages without visible questions are skipped) and question numbers.</summary>
+    private void Evaluate()
+    {
+        visibility = LogicEvaluator.Evaluate(Survey, answers);
+        pages = visibility.VisibleSections(Survey).Where(s => visibility.VisibleQuestions(s).Count > 0).ToList();
+        numbers = [];
+        foreach (var question in pages.SelectMany(p => visibility.VisibleQuestions(p)))
+        {
+            numbers[question.Id] = numbers.Count + 1;
+        }
+
+        totalQuestions = Survey.AllQuestions().Count();
+        answeredCount = answers.Count(a => Survey.FindQuestion(a.Key) is { } q && a.Value.HasValue(q.Type));
+        if (current is not null)
+        {
+            pageIndex = Math.Max(0, pages.IndexOf(current));
+        }
+    }
+
+    private void GoTo(int index)
+    {
+        pageIndex = Math.Clamp(index, 0, Math.Max(0, pages.Count - 1));
+        current = pages.Count == 0 ? null : pages[pageIndex];
+        errorSummary = null;
+    }
+
+    private AnswerInputDto AnswerFor(QuestionDto question)
+    {
+        if (!answers.TryGetValue(question.Id, out var answer))
+        {
+            answers[question.Id] = answer = new AnswerInputDto { QuestionId = question.Id };
+        }
+
+        return answer;
+    }
+
+    private IReadOnlyList<OptionDto>? OptionsFor(QuestionDto question) => optionOrders.GetValueOrDefault(question.Id);
+
+    /// <summary>Shuffles options of questions with RandomizeOptions once per session; free-text options stay last.</summary>
+    private void BuildOptionOrders()
+    {
+        var random = new Random();
+        foreach (var question in Survey.AllQuestions().Where(q => q.Type.IsChoice() && q.Settings.RandomizeOptions))
+        {
+            var shuffled = question.Options.Where(o => !o.AllowsFreeText).OrderBy(_ => random.Next()).ToList();
+            shuffled.AddRange(question.Options.Where(o => o.AllowsFreeText));
+            optionOrders[question.Id] = shuffled;
+        }
+    }
+
+    private void OnAnswerChanged(QuestionDto question)
+    {
+        errors.Remove(question.Id);
+        if (errors.Count == 0)
+        {
+            errorSummary = null;
+        }
+
+        savedForLater = false;
+        draftStatus = null;
+        Evaluate();
+    }
+
+    private async Task NextAsync()
+    {
+        if (!ValidateCurrentPage())
+        {
+            await ScrollToFirstErrorAsync();
+            return;
+        }
+
+        GoTo(pageIndex + 1);
+        await SaveDraftQuietlyAsync();
+        await Browser.ScrollToTopAsync();
+    }
+
+    private async Task BackAsync()
+    {
+        GoTo(pageIndex - 1);
+        await Browser.ScrollToTopAsync();
+    }
+
+    private bool ValidateCurrentPage()
+    {
+        errors = ResponseValidator.Validate(Survey, answers, visibility!, [current!.Id]);
+        errorSummary = errors.Count == 0 ? null : $"Please check {UiFormat.Plural(errors.Count, "answer")} on this page.";
+        return errors.Count == 0;
+    }
+
+    private async Task SubmitAsync()
+    {
+        errors = ResponseValidator.Validate(Survey, answers, visibility!);
+        if (errors.Count > 0)
+        {
+            ShowFirstPageWithErrors();
+            await ScrollToFirstErrorAsync();
+            return;
+        }
+
+        if (Preview)
+        {
+            thankYouMessage = Survey.ThankYouMessage;
+            submitted = true;
+            await Browser.ScrollToTopAsync();
+            return;
+        }
+
+        busy = true;
+        try
+        {
+            var result = await Responses.SubmitAsync(Survey.Id, BuildRequest());
+            thankYouMessage = result.ThankYouMessage ?? Survey.ThankYouMessage;
+            submitted = true;
+            await Browser.ScrollToTopAsync();
+        }
+        catch (AppValidationException ex)
+        {
+            errors = ex.Errors
+                .Where(e => Guid.TryParse(e.Key, out _))
+                .ToDictionary(e => Guid.Parse(e.Key), e => e.Value.ToList());
+            if (errors.Count > 0)
+            {
+                ShowFirstPageWithErrors();
+                await ScrollToFirstErrorAsync();
+            }
+            else
+            {
+                errorSummary = UiErrors.Describe(ex);
+            }
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            errorSummary = UiErrors.Describe(ex);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Submitting a response to survey {SurveyId} failed", Survey.Id);
+            errorSummary = "Your response could not be sent. Please try again in a moment.";
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private void ShowFirstPageWithErrors()
+    {
+        var firstPage = pages.FindIndex(p => visibility!.VisibleQuestions(p).Any(q => errors.ContainsKey(q.Id)));
+        GoTo(firstPage < 0 ? pageIndex : firstPage);
+        errorSummary = $"Please check {UiFormat.Plural(errors.Count, "answer")} before submitting.";
+    }
+
+    private async Task SaveForLaterAsync()
+    {
+        if (await SaveDraftAsync())
+        {
+            savedForLater = true;
+        }
+    }
+
+    /// <summary>Saves the draft after a page change (signed-in respondents only); failures are shown but don't block.</summary>
+    private async Task SaveDraftQuietlyAsync()
+    {
+        if (CanSaveDraft)
+        {
+            await SaveDraftAsync();
+        }
+    }
+
+    private async Task<bool> SaveDraftAsync()
+    {
+        if (!CanSaveDraft)
+        {
+            return false;
+        }
+
+        busy = true;
+        try
+        {
+            responseId = await Responses.SaveDraftAsync(Survey.Id, BuildRequest());
+            draftStatus = "Draft saved";
+            return true;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            draftStatus = null;
+            errorSummary = $"Your draft could not be saved: {UiErrors.Describe(ex)}";
+            return false;
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private SaveResponseRequest BuildRequest() => new()
+    {
+        ResponseId = responseId,
+        StartedAt = startedAt,
+        CurrentSectionIndex = current is null ? 0 : Math.Max(0, Survey.Sections.IndexOf(current)),
+        Answers = answers.Values
+            .Where(a => Survey.FindQuestion(a.QuestionId) is { } q && visibility!.IsQuestionVisible(q.Id) && a.HasValue(q.Type))
+            .Select(a => a.Clone())
+            .ToList(),
+    };
+
+    private async Task ScrollToFirstErrorAsync()
+    {
+        var first = visibility!.VisibleQuestions(current!).FirstOrDefault(q => errors.ContainsKey(q.Id));
+        StateHasChanged();
+        await Task.Yield();
+        if (first is not null)
+        {
+            await Browser.ScrollIntoViewAsync($"#question-{first.Id}");
+        }
+        else
+        {
+            await Browser.ScrollToTopAsync();
+        }
+    }
+}

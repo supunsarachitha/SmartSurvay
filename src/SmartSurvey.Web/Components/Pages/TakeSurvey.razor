@@ -1,0 +1,79 @@
+@page "/s/{Slug}"
+@rendermode @(new InteractiveServerRenderMode(prerender: false))
+@using SmartSurvey.Web.Components.Survey
+@inject IResponseService Responses
+@inject ICurrentUser CurrentUser
+@* Public survey page. Not prerendered: the session (draft, shuffled options) is created once, on the
+   live circuit. Respondents who can't answer get a clear explanation and the next step. *@
+
+<PageTitle>@(session?.Survey?.Title ?? "Survey")</PageTitle>
+
+<div class="survey-shell">
+    @if (session is null)
+    {
+        <LoadingSpinner Text="Loading survey…" />
+    }
+    else if (session.CanRespond && session.Survey is not null)
+    {
+        <SurveyRunner Survey="session.Survey" InitialAnswers="session.Answers" InitialSectionIndex="session.CurrentSectionIndex"
+                      DraftResponseId="session.DraftResponseId" IsAuthenticated="CurrentUser.IsAuthenticated" />
+    }
+    else
+    {
+        var (icon, title) = Describe(session.Eligibility);
+        <EmptyState Icon="@icon" Title="@title" Message="@(session.Message ?? DefaultMessage(session.Eligibility))">
+            <div class="d-flex flex-wrap justify-content-center gap-2">
+                @switch (session.Eligibility)
+                {
+                    case SurveyEligibility.LoginRequired:
+                        <a class="btn btn-primary" href="@LoginUrl"><i class="bi bi-box-arrow-in-right"></i>Sign in</a>
+                        <a class="btn btn-light" href="@RegisterUrl"><i class="bi bi-person-plus"></i>Create free account</a>
+                        break;
+                    case SurveyEligibility.AlreadyResponded:
+                        <a class="btn btn-primary" href="my/responses"><i class="bi bi-journal-check"></i>My responses</a>
+                        <a class="btn btn-light" href="surveys">Other surveys</a>
+                        break;
+                    default:
+                        <a class="btn btn-primary" href="surveys"><i class="bi bi-ui-checks"></i>Browse open surveys</a>
+                        break;
+                }
+            </div>
+        </EmptyState>
+    }
+</div>
+
+@code {
+    private SurveySessionDto? session;
+
+    /// <summary>Survey link name.</summary>
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private string ReturnUrl => Uri.EscapeDataString($"/s/{Slug}");
+
+    private string LoginUrl => $"Account/Login?ReturnUrl={ReturnUrl}";
+
+    private string RegisterUrl => $"Account/Register?ReturnUrl={ReturnUrl}";
+
+    protected override async Task OnParametersSetAsync() => session = await Responses.StartOrResumeAsync(Slug);
+
+    private static (string Icon, string Title) Describe(SurveyEligibility eligibility) => eligibility switch
+    {
+        SurveyEligibility.NotFound => ("bi-question-circle", "We couldn't find this survey"),
+        SurveyEligibility.NotPublished => ("bi-hourglass", "This survey isn't open"),
+        SurveyEligibility.NotOpenYet => ("bi-calendar-event", "This survey hasn't started yet"),
+        SurveyEligibility.Closed => ("bi-lock", "This survey has closed"),
+        SurveyEligibility.QuotaReached => ("bi-people", "This survey is full"),
+        SurveyEligibility.LoginRequired => ("bi-person-lock", "Please sign in to take this survey"),
+        SurveyEligibility.AlreadyResponded => ("bi-check2-circle", "You've already answered this survey"),
+        _ => ("bi-info-circle", "This survey isn't available"),
+    };
+
+    private static string DefaultMessage(SurveyEligibility eligibility) => eligibility switch
+    {
+        SurveyEligibility.NotFound => "The link may be mistyped, or the survey was removed.",
+        SurveyEligibility.QuotaReached => "It has received all the responses it needs. Thank you for your interest!",
+        SurveyEligibility.LoginRequired => "This survey is for members. Signing in takes a moment and lets you save your progress.",
+        SurveyEligibility.AlreadyResponded => "Thanks — your response has already been recorded.",
+        _ => "Please check back later.",
+    };
+}

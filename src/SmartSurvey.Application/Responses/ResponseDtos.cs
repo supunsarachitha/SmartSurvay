@@ -118,6 +118,12 @@ public sealed class SaveResponseRequest
 
     /// <summary>Optional browser user agent (set by the host, truncated to 512 chars).</summary>
     public string? UserAgent { get; set; }
+
+    /// <summary>
+    /// When the respondent started answering (UTC, optional). Only used when this request creates the
+    /// response; clamped to the past 24 hours so completion times stay plausible.
+    /// </summary>
+    public DateTime? StartedAt { get; set; }
 }
 
 /// <summary>Result of a successful submission.</summary>

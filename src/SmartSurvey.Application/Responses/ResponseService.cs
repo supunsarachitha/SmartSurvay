@@ -36,6 +36,9 @@ public sealed class ResponseService(
     IValidator<ResponseQuery> queryValidator,
     ILogger<ResponseService> logger) : IResponseService
 {
+    /// <summary>Longest answering time accepted from a client-reported start time.</summary>
+    public static readonly TimeSpan MaxReportedDuration = TimeSpan.FromHours(24);
+
     /// <summary>Maximum stored user-agent length (matches the database column).</summary>
     public const int MaxUserAgentLength = 512;
 
@@ -144,7 +147,7 @@ public sealed class ResponseService(
         // Drafts skip required/format validation (the respondent is not finished) but are always sanitised.
         var answers = ResponseAnswerWriter.Sanitize(questions, request.Answers);
         var draft = await FindDraftForUpdateAsync(db, surveyId, userId, request.ResponseId, ct)
-            ?? StartResponse(db, surveyId, userId);
+            ?? StartResponse(db, surveyId, userId, request.StartedAt);
 
         ResponseAnswerWriter.Replace(db, draft, answers, questions);
         draft.CurrentSectionIndex = ClampSectionIndex(request.CurrentSectionIndex, definition.Sections.Count);
@@ -172,7 +175,7 @@ public sealed class ResponseService(
         // Guests cannot own drafts, so a ResponseId sent by a guest is ignored.
         var userId = UserId;
         var response = (userId is { } uid ? await FindDraftForUpdateAsync(db, surveyId, uid, request.ResponseId, ct) : null)
-            ?? StartResponse(db, surveyId, userId);
+            ?? StartResponse(db, surveyId, userId, request.StartedAt);
 
         ResponseAnswerWriter.Replace(db, response, answers, questions);
         var now = UtcNow;
@@ -465,17 +468,35 @@ public sealed class ResponseService(
     }
 
     /// <summary>Creates and tracks a new in-progress response.</summary>
-    private SurveyResponse StartResponse(IAppDbContext db, Guid surveyId, Guid? respondentId)
+    private SurveyResponse StartResponse(IAppDbContext db, Guid surveyId, Guid? respondentId, DateTime? reportedStart)
     {
         var response = new SurveyResponse
         {
             SurveyId = surveyId,
             RespondentId = respondentId,
             Status = ResponseStatus.InProgress,
-            StartedAt = UtcNow,
+            StartedAt = ClampReportedStart(reportedStart),
         };
         db.Responses.Add(response);
         return response;
+    }
+
+    /// <summary>
+    /// Start time of a new response: the client-reported start (so completion times are meaningful for
+    /// respondents who submit without saving a draft), never in the future and at most
+    /// <see cref="MaxReportedDuration"/> before now; the current time when nothing was reported.
+    /// </summary>
+    private DateTime ClampReportedStart(DateTime? reported)
+    {
+        var now = UtcNow;
+        if (reported is not { } value)
+        {
+            return now;
+        }
+
+        var utc = value.Kind == DateTimeKind.Local ? value.ToUniversalTime() : DateTime.SpecifyKind(value, DateTimeKind.Utc);
+        var earliest = now - MaxReportedDuration;
+        return utc > now ? now : utc < earliest ? earliest : utc;
     }
 
     // ---------------------------------------------------------------- answers

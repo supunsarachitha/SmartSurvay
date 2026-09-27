@@ -1,0 +1,289 @@
+@* One question of the survey runner: title, help text, the input for its type (text, e-mail,
+   number, date, single/multiple choice with "Other" text boxes, dropdown, star rating, scale) and
+   inline validation messages. *@
+
+<div class="question-card @(Errors.Count > 0 ? "has-error" : "")" id="question-@Question.Id">
+    @if (Question.Type.IsChoice() && Question.Type != QuestionType.Dropdown)
+    {
+        <fieldset aria-describedby="@DescribedBy">
+            <legend class="question-title fs-6 mb-1">@Title</legend>
+            @Help
+            @if (Question.Type == QuestionType.Radio)
+            {
+                <div class="choice-list" role="radiogroup">
+                    @foreach (var option in Options)
+                    {
+                        var selected = Answer.IsSelected(option.Id);
+                        <label class="choice-item @(selected ? "selected" : "")" @key="option.Id">
+                            <input class="form-check-input" type="radio" name="q-@Question.Id" checked="@selected" disabled="@ReadOnly"
+                                   @onchange="() => SelectSingle(option)" />
+                            <span>@option.Text</span>
+                        </label>
+                        @if (selected && option.AllowsFreeText)
+                        {
+                            <input class="form-control form-control-sm choice-other-input" aria-label="@($"{option.Text} — please specify")"
+                                   placeholder="@(option.FreeTextPlaceholder ?? "Please specify")" maxlength="@ResponseValidator.MaxFreeTextLength" disabled="@ReadOnly"
+                                   value="@Answer.FreeTextFor(option.Id)" @onchange="e => SetFreeText(option, e)" />
+                        }
+                    }
+                </div>
+            }
+            else
+            {
+                var limitReached = Question.Settings.MaxSelections is { } max && Answer.Selections.Count >= max;
+                <div class="choice-list">
+                    @foreach (var option in Options)
+                    {
+                        var selected = Answer.IsSelected(option.Id);
+                        <label class="choice-item @(selected ? "selected" : "")" @key="option.Id">
+                            <input class="form-check-input" type="checkbox" checked="@selected" disabled="@(ReadOnly || (!selected && limitReached))"
+                                   @onchange="e => Toggle(option, e)" />
+                            <span>@option.Text</span>
+                        </label>
+                        @if (selected && option.AllowsFreeText)
+                        {
+                            <input class="form-control form-control-sm choice-other-input" aria-label="@($"{option.Text} — please specify")"
+                                   placeholder="@(option.FreeTextPlaceholder ?? "Please specify")" maxlength="@ResponseValidator.MaxFreeTextLength" disabled="@ReadOnly"
+                                   value="@Answer.FreeTextFor(option.Id)" @onchange="e => SetFreeText(option, e)" />
+                        }
+                    }
+                </div>
+                @if (SelectionHint is { } hint)
+                {
+                    <div class="form-text">@hint</div>
+                }
+            }
+        </fieldset>
+    }
+    else
+    {
+        <label class="question-title d-block" for="input-@Question.Id">@Title</label>
+        @Help
+        @switch (Question.Type)
+        {
+            case QuestionType.LongText:
+                <textarea id="input-@Question.Id" class="form-control" rows="4" placeholder="@Question.Settings.Placeholder" aria-describedby="@DescribedBy"
+                          maxlength="@(Question.Settings.MaxLength ?? ResponseValidator.MaxTextLength)" disabled="@ReadOnly"
+                          value="@Answer.Text" @onchange="SetText"></textarea>
+                break;
+
+            case QuestionType.ShortText or QuestionType.Email:
+                <input id="input-@Question.Id" class="form-control" type="@(Question.Type == QuestionType.Email ? "email" : "text")"
+                       autocomplete="@(Question.Type == QuestionType.Email ? "email" : "off")" aria-describedby="@DescribedBy"
+                       placeholder="@(Question.Settings.Placeholder ?? (Question.Type == QuestionType.Email ? "name@example.com" : null))"
+                       maxlength="@(Question.Settings.MaxLength ?? ResponseValidator.MaxTextLength)" disabled="@ReadOnly"
+                       value="@Answer.Text" @onchange="SetText" />
+                break;
+
+            case QuestionType.Number:
+                <input id="input-@Question.Id" class="form-control" type="number" inputmode="decimal" style="max-width:14rem" aria-describedby="@DescribedBy"
+                       step="@(Question.Settings.AllowDecimals ? "any" : "1")" min="@Question.Settings.MinValue" max="@Question.Settings.MaxValue"
+                       placeholder="@Question.Settings.Placeholder" disabled="@ReadOnly"
+                       value="@Answer.Number?.ToString(System.Globalization.CultureInfo.InvariantCulture)" @onchange="SetNumber" />
+                break;
+
+            case QuestionType.Date:
+                <input id="input-@Question.Id" class="form-control" type="date" style="max-width:14rem" aria-describedby="@DescribedBy"
+                       min="@Question.Settings.MinDate?.ToString("yyyy-MM-dd")" max="@Question.Settings.MaxDate?.ToString("yyyy-MM-dd")" disabled="@ReadOnly"
+                       value="@Answer.Date?.ToString("yyyy-MM-dd")" @onchange="SetDate" />
+                break;
+
+            case QuestionType.Dropdown:
+                var chosen = Answer.Selections.FirstOrDefault()?.OptionId;
+                <select id="input-@Question.Id" class="form-select" style="max-width:28rem" aria-describedby="@DescribedBy" disabled="@ReadOnly"
+                        value="@(chosen?.ToString() ?? string.Empty)" @onchange="SelectFromDropdown">
+                    <option value="">Choose…</option>
+                    @foreach (var option in Options)
+                    {
+                        <option value="@option.Id">@option.Text</option>
+                    }
+                </select>
+                @if (Options.FirstOrDefault(o => o.Id == chosen) is { AllowsFreeText: true } other)
+                {
+                    <input class="form-control form-control-sm mt-2" style="max-width:28rem" aria-label="@($"{other.Text} — please specify")"
+                           placeholder="@(other.FreeTextPlaceholder ?? "Please specify")" maxlength="@ResponseValidator.MaxFreeTextLength" disabled="@ReadOnly"
+                           value="@Answer.FreeTextFor(other.Id)" @onchange="e => SetFreeText(other, e)" />
+                }
+                break;
+
+            case QuestionType.Rating:
+                var rating = (int)(Answer.Number ?? 0);
+                <div class="d-flex align-items-center gap-3 flex-wrap">
+                    <div class="rating-stars" role="radiogroup" id="input-@Question.Id" aria-describedby="@DescribedBy">
+                        @for (var i = 1; i <= Math.Max(2, Question.Settings.RatingMax); i++)
+                        {
+                            var value = i;
+                            <button type="button" class="@(value <= rating ? "on" : "")" role="radio" aria-checked="@(value == rating ? "true" : "false")"
+                                    aria-label="@($"{value} of {Question.Settings.RatingMax} stars")" disabled="@ReadOnly" @onclick="() => SetScore(value)">
+                                <i class="bi @(value <= rating ? "bi-star-fill" : "bi-star")"></i>
+                            </button>
+                        }
+                    </div>
+                    @if (rating > 0)
+                    {
+                        <span class="small text-muted">@rating / @Question.Settings.RatingMax</span>
+                        @if (!ReadOnly && !Question.IsRequired)
+                        {
+                            <button type="button" class="btn btn-link btn-sm p-0" @onclick="() => SetScore(null)">Clear</button>
+                        }
+                    }
+                </div>
+                break;
+
+            case QuestionType.Scale:
+                var min = Question.Settings.ScaleMin;
+                var max = Math.Max(min + 1, Question.Settings.ScaleMax);
+                var current = Answer.Number is { } n ? (int?)n : null;
+                @if (max - min <= MaxScaleButtons)
+                {
+                    <div class="scale-options" role="radiogroup" id="input-@Question.Id" aria-describedby="@DescribedBy">
+                        @for (var i = min; i <= max; i++)
+                        {
+                            var value = i;
+                            <button type="button" class="@(current == value ? "on" : "")" role="radio" aria-checked="@(current == value ? "true" : "false")"
+                                    disabled="@ReadOnly" @onclick="() => SetScore(value)">@value</button>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <div class="d-flex align-items-center gap-3">
+                        <input id="input-@Question.Id" type="range" class="form-range" min="@min" max="@max" step="1" aria-describedby="@DescribedBy" disabled="@ReadOnly"
+                               value="@(current ?? min)" @onchange="SetNumber" />
+                        <span class="fw-semibold" style="min-width:3ch">@(current?.ToString() ?? "–")</span>
+                    </div>
+                }
+                @if (!string.IsNullOrWhiteSpace(Question.Settings.ScaleMinLabel) || !string.IsNullOrWhiteSpace(Question.Settings.ScaleMaxLabel))
+                {
+                    <div class="scale-labels"><span>@Question.Settings.ScaleMinLabel</span><span>@Question.Settings.ScaleMaxLabel</span></div>
+                }
+                break;
+        }
+    }
+
+    @if (Errors.Count > 0)
+    {
+        <div id="error-@Question.Id" class="invalid-feedback d-block mt-2" role="alert">
+            @foreach (var message in Errors)
+            {
+                <div><i class="bi bi-exclamation-circle me-1"></i>@message</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>Scales with more values than this use a slider instead of buttons.</summary>
+    private const int MaxScaleButtons = 11;
+
+    /// <summary>The question.</summary>
+    [Parameter, EditorRequired] public QuestionDto Question { get; set; } = default!;
+
+    /// <summary>The (mutable) answer being edited.</summary>
+    [Parameter, EditorRequired] public AnswerInputDto Answer { get; set; } = default!;
+
+    /// <summary>Options in display order (possibly shuffled); defaults to the question's order.</summary>
+    [Parameter] public IReadOnlyList<OptionDto>? OptionOrder { get; set; }
+
+    /// <summary>Number shown before the title (null hides numbering).</summary>
+    [Parameter] public int? Number { get; set; }
+
+    /// <summary>Validation messages.</summary>
+    [Parameter] public IReadOnlyList<string> Errors { get; set; } = [];
+
+    /// <summary>Disables the inputs.</summary>
+    [Parameter] public bool ReadOnly { get; set; }
+
+    /// <summary>Raised after every change of the answer.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private IReadOnlyList<OptionDto> Options => OptionOrder ?? Question.Options;
+
+    private string? DescribedBy =>
+        string.Join(' ', new[] { string.IsNullOrWhiteSpace(Question.Description) ? null : $"help-{Question.Id}", Errors.Count > 0 ? $"error-{Question.Id}" : null }
+            .Where(x => x is not null)) is { Length: > 0 } ids ? ids : null;
+
+    private RenderFragment Title => @<text>
+        @if (Number is { } number)
+        {
+            <span class="question-number">@(number).</span>
+        }
+        @Question.Text
+        @if (Question.IsRequired)
+        {
+            <span class="question-required" aria-label="required">*</span>
+        }
+    </text>;
+
+    private RenderFragment Help => @<text>
+        @if (!string.IsNullOrWhiteSpace(Question.Description))
+        {
+            <div class="question-help" id="help-@Question.Id">@Question.Description</div>
+        }
+        else
+        {
+            <div class="mb-2"></div>
+        }
+    </text>;
+
+    private string? SelectionHint => (Question.Settings.MinSelections, Question.Settings.MaxSelections) switch
+    {
+        ({ } min, { } max) when min == max => $"Choose {max}.",
+        ({ } min, { } max) => $"Choose {min} to {max}.",
+        ({ } min, null) when min > 1 => $"Choose at least {min}.",
+        (_, { } max) => $"Choose up to {max}.",
+        _ => null,
+    };
+
+    private Task SelectSingle(OptionDto option)
+    {
+        Answer.SelectSingle(option.Id);
+        return ChangedAsync();
+    }
+
+    private Task Toggle(OptionDto option, ChangeEventArgs e)
+    {
+        Answer.Toggle(option.Id, e.Value is true);
+        return ChangedAsync();
+    }
+
+    private Task SelectFromDropdown(ChangeEventArgs e)
+    {
+        Answer.SelectSingle(Guid.TryParse(e.Value?.ToString(), out var id) ? id : null);
+        return ChangedAsync();
+    }
+
+    private Task SetFreeText(OptionDto option, ChangeEventArgs e)
+    {
+        Answer.SetFreeText(option.Id, e.Value?.ToString());
+        return ChangedAsync();
+    }
+
+    private Task SetText(ChangeEventArgs e)
+    {
+        Answer.Text = string.IsNullOrWhiteSpace(e.Value?.ToString()) ? null : e.Value!.ToString();
+        return ChangedAsync();
+    }
+
+    private Task SetNumber(ChangeEventArgs e)
+    {
+        Answer.Number = double.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value)
+            ? value
+            : null;
+        return ChangedAsync();
+    }
+
+    private Task SetDate(ChangeEventArgs e)
+    {
+        Answer.Date = DateOnly.TryParseExact(e.Value?.ToString(), "yyyy-MM-dd", out var value) ? value : null;
+        return ChangedAsync();
+    }
+
+    private Task SetScore(int? value)
+    {
+        Answer.Number = value;
+        return ChangedAsync();
+    }
+
+    private Task ChangedAsync() => OnChanged.InvokeAsync();
+}
