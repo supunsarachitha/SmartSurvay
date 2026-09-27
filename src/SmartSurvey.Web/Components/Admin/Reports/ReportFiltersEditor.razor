@@ -1,0 +1,181 @@
+@* Global response filters of a report: date range, drafts and answer-based filters ("only respondents
+   who chose Europe"). Comparisons and value inputs adapt to the filtered question's type. *@
+
+<div class="row g-2 mb-3">
+    <div class="col-sm-6">
+        <label class="form-label small" for="rf-from">From <span class="text-muted">(UTC date)</span></label>
+        <input class="form-control form-control-sm" type="date" id="rf-from" @bind="Report.Filters.From" @bind:after="ChangedAsync" />
+    </div>
+    <div class="col-sm-6">
+        <label class="form-label small" for="rf-to">To</label>
+        <input class="form-control form-control-sm" type="date" id="rf-to" @bind="Report.Filters.To" @bind:after="ChangedAsync" />
+    </div>
+    <div class="col-12">
+        <div class="form-check form-switch mb-0">
+            <input class="form-check-input" type="checkbox" id="rf-drafts" @bind="Report.Filters.IncludeInProgress" @bind:after="ChangedAsync" />
+            <label class="form-check-label small" for="rf-drafts">Include unfinished responses (drafts)</label>
+        </div>
+    </div>
+</div>
+<FieldErrors Messages="Errors.For(FiltersField)" />
+
+@{
+    var filters = Report.Filters.AnswerFilters;
+    var questions = SurveyDesign.Placed(Survey);
+}
+@if (filters.Count > 1)
+{
+    <div class="d-flex align-items-center gap-2 small mb-2">
+        <span>Include respondents matching</span>
+        <select class="form-select form-select-sm w-auto" aria-label="Combine filters" @bind="Report.Filters.MatchType" @bind:after="ChangedAsync">
+            <option value="@LogicMatchType.All">all</option>
+            <option value="@LogicMatchType.Any">any</option>
+        </select>
+        <span>of these filters:</span>
+    </div>
+}
+@for (var i = 0; i < filters.Count; i++)
+{
+    var index = i;
+    var filter = filters[index];
+    var question = questions.FirstOrDefault(p => p.Question.Id == filter.QuestionId)?.Question;
+    var filterErrors = Errors.ForFilter(index);
+    <div class="logic-rule @(filterErrors.Count > 0 ? "border-danger" : null)">
+        <div class="row g-2 align-items-center">
+            <div class="col-12">
+                <select class="form-select form-select-sm" aria-label="Filter question" value="@filter.QuestionId" @onchange="e => SetQuestionAsync(filter, e)">
+                    @if (question is null)
+                    {
+                        <option value="@filter.QuestionId">(question no longer available)</option>
+                    }
+                    @foreach (var placed in questions)
+                    {
+                        <option value="@placed.Question.Id">@Label(placed)</option>
+                    }
+                </select>
+            </div>
+            @if (question is not null)
+            {
+                <div class="col-5">
+                    <select class="form-select form-select-sm" aria-label="Comparison" value="@filter.Operator" @onchange="e => SetOperatorAsync(filter, question, e)">
+                        @foreach (var op in question.Type.SupportedOperators())
+                        {
+                            <option value="@op">@SurveyDesign.OperatorLabel(question.Type, op)</option>
+                        }
+                    </select>
+                </div>
+                <div class="col">
+                    @if (SurveyDesign.NeedsOption(question.Type, filter.Operator))
+                    {
+                        <select class="form-select form-select-sm" aria-label="Option" value="@filter.OptionId" @onchange="e => SetOptionAsync(filter, e)">
+                            @foreach (var option in question.Options.OrderBy(o => o.Order))
+                            {
+                                <option value="@option.Id">@option.Text</option>
+                            }
+                        </select>
+                    }
+                    else if (SurveyDesign.NeedsValue(question.Type, filter.Operator))
+                    {
+                        <input class="form-control form-control-sm" aria-label="Value"
+                               type="@(question.Type.IsNumeric() ? "number" : question.Type.IsDate() ? "date" : "text")"
+                               step="@(question.Type.IsNumeric() ? "any" : null)" maxlength="@ReportLimits.FilterValueMaxLength"
+                               placeholder="@(question.Type.IsNumeric() ? "Number" : "Text")"
+                               value="@filter.Value" @onchange="e => SetValueAsync(filter, e)" />
+                    }
+                </div>
+            }
+            <div class="col-auto ms-auto">
+                <button type="button" class="btn btn-sm btn-light btn-icon" title="Remove filter" aria-label="Remove filter" @onclick="() => RemoveAsync(filter)"><i class="bi bi-x-lg"></i></button>
+            </div>
+        </div>
+        <FieldErrors Messages="filterErrors" />
+    </div>
+}
+
+@if (questions.Count > 0 && filters.Count < ReportLimits.MaxAnswerFilters)
+{
+    <button type="button" class="btn btn-sm btn-soft-primary" @onclick="AddAsync"><i class="bi bi-funnel"></i>Add answer filter</button>
+}
+else if (questions.Count == 0)
+{
+    <p class="small text-muted mb-0">Answer filters become available once the survey has questions.</p>
+}
+
+@code {
+    private const string FiltersField = "Filters";
+
+    /// <summary>The report whose filters are edited.</summary>
+    [Parameter, EditorRequired] public ReportDefinitionDto Report { get; set; } = default!;
+
+    /// <summary>The report's survey.</summary>
+    [Parameter, EditorRequired] public SurveyDefinitionDto Survey { get; set; } = default!;
+
+    /// <summary>Validation messages.</summary>
+    [Parameter] public ReportErrors Errors { get; set; } = ReportErrors.None;
+
+    /// <summary>Raised after every change.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private static string Label(PlacedQuestion placed) =>
+        $"{(string.IsNullOrWhiteSpace(placed.Question.Code) ? $"Q{placed.Number}" : placed.Question.Code)}. {placed.Question.Text}";
+
+    private Task ChangedAsync() => OnChanged.InvokeAsync();
+
+    private Task AddAsync()
+    {
+        var first = Survey.AllQuestions().First();
+        Report.Filters.AnswerFilters.Add(ReportDesign.NewFilter(first));
+        return ChangedAsync();
+    }
+
+    private Task RemoveAsync(AnswerFilter filter)
+    {
+        Report.Filters.AnswerFilters.Remove(filter);
+        return ChangedAsync();
+    }
+
+    private Task SetQuestionAsync(AnswerFilter filter, ChangeEventArgs e)
+    {
+        if (Guid.TryParse(e.Value as string, out var id) && Survey.FindQuestion(id) is { } question)
+        {
+            ReportDesign.ResetFilter(filter, question);
+        }
+
+        return ChangedAsync();
+    }
+
+    private Task SetOperatorAsync(AnswerFilter filter, QuestionDto question, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<ConditionOperator>(e.Value as string, out var op))
+        {
+            filter.Operator = op;
+            if (!SurveyDesign.NeedsOption(question.Type, op))
+            {
+                filter.OptionId = null;
+            }
+            else
+            {
+                filter.OptionId ??= question.Options.OrderBy(o => o.Order).FirstOrDefault()?.Id;
+            }
+
+            if (!SurveyDesign.NeedsValue(question.Type, op))
+            {
+                filter.Value = null;
+            }
+        }
+
+        return ChangedAsync();
+    }
+
+    private Task SetOptionAsync(AnswerFilter filter, ChangeEventArgs e)
+    {
+        filter.OptionId = Guid.TryParse(e.Value as string, out var id) ? id : null;
+        return ChangedAsync();
+    }
+
+    private Task SetValueAsync(AnswerFilter filter, ChangeEventArgs e)
+    {
+        filter.Value = string.IsNullOrWhiteSpace(e.Value as string) ? null : ((string)e.Value!).Trim();
+        return ChangedAsync();
+    }
+}

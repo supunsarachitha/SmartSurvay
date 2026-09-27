@@ -1,0 +1,112 @@
+@page "/admin/reports/{Id:guid}"
+@rendermode InteractiveServer
+@inject IReportService Reports
+@inject ToastService Toasts
+@inject BrowserInterop Browser
+@inject NavigationManager Navigation
+@* Report viewer: runs the saved report on current data and shows it; refresh, print, edit, duplicate
+   and export (PDF, Excel, CSV, text, JSON). *@
+
+@if (loadError is not null)
+{
+    <PageHeader Title="Report not available" />
+    <EmptyState Icon="bi-exclamation-circle" Title="This report can't be opened" Message="@loadError">
+        <a class="btn btn-primary" href="admin/reports"><i class="bi bi-arrow-left"></i>Back to reports</a>
+    </EmptyState>
+}
+else if (result is null)
+{
+    <LoadingSpinner Text="Running report…" />
+}
+else
+{
+    <PageHeader Title="@result.ReportName" Subtitle="@($"Survey: {result.SurveyTitle}")">
+        <Breadcrumb>
+            <li class="breadcrumb-item"><a href="admin">Admin</a></li>
+            <li class="breadcrumb-item"><a href="admin/reports">Reports</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@result.ReportName</li>
+        </Breadcrumb>
+        <Actions>
+            <button class="btn btn-light" @onclick="RefreshAsync" disabled="@refreshing" title="Run again with the latest responses">
+                @if (refreshing)
+                {
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                }
+                else
+                {
+                    <i class="bi bi-arrow-clockwise"></i>
+                }
+                Refresh
+            </button>
+            <button class="btn btn-light" @onclick="PrintAsync"><i class="bi bi-printer"></i>Print</button>
+            <button class="btn btn-light" @onclick="DuplicateAsync" disabled="@duplicating"><i class="bi bi-copy"></i>Duplicate</button>
+            <a class="btn btn-light" href="admin/reports/@Id/edit"><i class="bi bi-pencil"></i>Edit</a>
+            <ExportMenu ReportId="Id" ReportName="@result.ReportName" />
+        </Actions>
+    </PageHeader>
+
+    <ReportView Result="result" />
+}
+
+@code {
+    private ReportResult? result;
+    private string? loadError;
+    private bool refreshing;
+    private bool duplicating;
+
+    /// <summary>Report id.</summary>
+    [Parameter] public Guid Id { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        result = null;
+        loadError = null;
+        try
+        {
+            result = await Reports.RunAsync(Id);
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            loadError = UiErrors.Describe(ex);
+        }
+    }
+
+    private async Task RefreshAsync()
+    {
+        refreshing = true;
+        try
+        {
+            result = await Reports.RunAsync(Id);
+            Toasts.Info("Report updated", $"{UiFormat.Plural(result.TotalResponses, "response")} included.");
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not refresh the report", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            refreshing = false;
+        }
+    }
+
+    private async Task PrintAsync() => await Browser.PrintAsync();
+
+    private async Task DuplicateAsync()
+    {
+        duplicating = true;
+        try
+        {
+            var copy = await Reports.DuplicateAsync(Id);
+            Toasts.Success("Report duplicated", copy.Name);
+            Navigation.NavigateTo($"admin/reports/{copy.Id}/edit");
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not duplicate the report", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            duplicating = false;
+        }
+    }
+}

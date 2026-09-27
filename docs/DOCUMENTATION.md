@@ -481,8 +481,11 @@ in Swagger (`/swagger`). Ready-to-run examples: [`docs/examples`](examples/).
 4. **Preview** (`/admin/surveys/{id}/preview`: the real runner with logic and validation, nothing saved,
    desktop/phone width) and **Share** (link, QR code, invitation text, embed snippet).
 5. **Responses** — filter, inspect, delete, export raw data.
-6. **Reports** — create from the recommended template or blank, add widgets, set filters, watch the live
-   preview, save, then view and export (PDF/CSV/TXT/Excel/JSON).
+6. **Reports** (`/admin/reports`) — *Quick overview* builds a complete report for a survey in one click. In the
+   builder (`/admin/reports/new`, `/admin/reports/{id}/edit`) pick the survey, start from the recommended overview or
+   small, add widgets (the menu only offers widgets the survey has suitable questions for), choose which responses count
+   (date range, drafts, answer filters combined with all/any) and watch the live preview update as you edit. Save, then
+   open the viewer (`/admin/reports/{id}`) to refresh, print or export (PDF/Excel/CSV/TXT/JSON).
 7. **Users** and **Audit log** under *Administration*.
 
 ### 15.3 Design system

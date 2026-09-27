@@ -1,0 +1,266 @@
+@* One widget in the report builder: a compact header (type, title, actions) that expands into the editor
+   (type, title, question(s) and the settings that apply to the chosen type and question). *@
+
+<div class="question-editor @(Active ? "active" : "") @(Errors.Count > 0 ? "border-danger" : "")" id="we-@Widget.Id">
+    <div class="qe-header" role="button" tabindex="0" aria-expanded="@(Active ? "true" : "false")"
+         @onclick="() => OnActivate.InvokeAsync()" @onkeydown="OnHeaderKey">
+        <span class="type-icon" title="@Widget.Type.DisplayName()"><i class="bi @UiFormat.WidgetTypeIcon(Widget.Type)"></i></span>
+        <div class="min-w-0 flex-grow-1">
+            <div class="fw-semibold text-truncate">@ReportDesign.TitleOf(Widget, Survey)</div>
+            <div class="small text-muted d-flex flex-wrap gap-2">
+                <span>@Widget.Type.DisplayName()</span>
+                @if (Errors.Count > 0)
+                {
+                    <span class="text-danger"><i class="bi bi-exclamation-triangle"></i> Needs attention</span>
+                }
+            </div>
+        </div>
+        <div class="d-flex gap-1" @onclick:stopPropagation="true">
+            <button type="button" class="btn btn-sm btn-light btn-icon" title="Move up" aria-label="Move widget up" disabled="@IsFirst" @onclick="() => OnMove.InvokeAsync(-1)"><i class="bi bi-arrow-up"></i></button>
+            <button type="button" class="btn btn-sm btn-light btn-icon" title="Move down" aria-label="Move widget down" disabled="@IsLast" @onclick="() => OnMove.InvokeAsync(1)"><i class="bi bi-arrow-down"></i></button>
+            <button type="button" class="btn btn-sm btn-light btn-icon" title="Duplicate" aria-label="Duplicate widget" @onclick="() => OnDuplicate.InvokeAsync()"><i class="bi bi-copy"></i></button>
+            <button type="button" class="btn btn-sm btn-soft-danger btn-icon" title="Remove" aria-label="Remove widget" @onclick="() => OnRemove.InvokeAsync()"><i class="bi bi-trash"></i></button>
+        </div>
+        <i class="bi @(Active ? "bi-chevron-up" : "bi-chevron-down") text-muted"></i>
+    </div>
+
+    @if (Active)
+    {
+        var question = Widget.QuestionId is { } qid ? Survey.FindQuestion(qid) : null;
+        <div class="qe-body">
+            @if (Errors.Count > 0)
+            {
+                <div class="alert alert-danger py-2 small">
+                    @foreach (var message in Errors)
+                    {
+                        <div><i class="bi bi-exclamation-circle me-1"></i>@message</div>
+                    }
+                </div>
+            }
+
+            <div class="row g-3">
+                <div class="col-sm-6">
+                    <label class="form-label small" for="@($"wt-{Widget.Id}")">Widget type</label>
+                    <select class="form-select form-select-sm" id="@($"wt-{Widget.Id}")" value="@Widget.Type" @onchange="ChangeTypeAsync">
+                        @foreach (var type in ReportDesign.MenuOrder)
+                        {
+                            <option value="@type" disabled="@(type != Widget.Type && !ReportDesign.CanAdd(Survey, type))">@type.DisplayName()</option>
+                        }
+                    </select>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label small" for="@($"wtitle-{Widget.Id}")">Title <span class="text-muted">(optional)</span></label>
+                    <input class="form-control form-control-sm" id="@($"wtitle-{Widget.Id}")" maxlength="@ReportLimits.WidgetTitleMaxLength"
+                           placeholder="@ReportDesign.DefaultTitle(Widget, Survey)" @bind="Widget.Title" @bind:event="oninput" @bind:after="ChangedAsync" />
+                </div>
+
+                @if (Widget.Type.RequiresQuestion())
+                {
+                    var candidates = ReportDesign.QuestionsFor(Survey, Widget.Type);
+                    <div class="@(Widget.Type.RequiresSecondaryQuestion() ? "col-sm-6" : "col-12")">
+                        <label class="form-label small" for="@($"wq-{Widget.Id}")">@(Widget.Type.RequiresSecondaryQuestion() ? "Rows (question)" : "Question")</label>
+                        <select class="form-select form-select-sm" id="@($"wq-{Widget.Id}")" value="@Widget.QuestionId" @onchange="e => SetQuestionAsync(e, secondary: false)">
+                            @if (question is null)
+                            {
+                                <option value="">@(candidates.Count == 0 ? "No suitable question in this survey" : "Choose a question…")</option>
+                            }
+                            @foreach (var placed in candidates)
+                            {
+                                <option value="@placed.Question.Id">@Label(placed)</option>
+                            }
+                        </select>
+                    </div>
+                    @if (Widget.Type.RequiresSecondaryQuestion())
+                    {
+                        <div class="col-sm-6">
+                            <label class="form-label small" for="@($"wq2-{Widget.Id}")">Columns (question)</label>
+                            <select class="form-select form-select-sm" id="@($"wq2-{Widget.Id}")" value="@Widget.SecondaryQuestionId" @onchange="e => SetQuestionAsync(e, secondary: true)">
+                                @if (Widget.SecondaryQuestionId is null)
+                                {
+                                    <option value="">Choose a question…</option>
+                                }
+                                @foreach (var placed in candidates.Where(p => p.Question.Id != Widget.QuestionId))
+                                {
+                                    <option value="@placed.Question.Id">@Label(placed)</option>
+                                }
+                            </select>
+                        </div>
+                    }
+                }
+
+                @if (ReportDesign.UsesDistributionOptions(Widget.Type, question?.Type))
+                {
+                    <div class="col-sm-6">
+                        <label class="form-label small" for="@($"wsort-{Widget.Id}")">Order</label>
+                        <select class="form-select form-select-sm" id="@($"wsort-{Widget.Id}")" @bind="Widget.Settings.SortOrder" @bind:after="ChangedAsync">
+                            <option value="@WidgetSortOrder.Default">As in the survey</option>
+                            <option value="@WidgetSortOrder.CountDescending">Most answers first</option>
+                            <option value="@WidgetSortOrder.CountAscending">Fewest answers first</option>
+                            <option value="@WidgetSortOrder.LabelAscending">Alphabetical</option>
+                        </select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small" for="@($"wtop-{Widget.Id}")">Show only the top <span class="text-muted">(empty = all)</span></label>
+                        <input class="form-control form-control-sm" type="number" min="1" id="@($"wtop-{Widget.Id}")" placeholder="All"
+                               @bind="Widget.Settings.TopN" @bind:after="ChangedAsync" />
+                    </div>
+                    <div class="col-12 d-flex flex-wrap gap-3">
+                        <div class="form-check form-switch mb-0">
+                            <input class="form-check-input" type="checkbox" id="@($"wpct-{Widget.Id}")" @bind="Widget.Settings.ShowPercentages" @bind:after="ChangedAsync" />
+                            <label class="form-check-label small" for="@($"wpct-{Widget.Id}")">Show percentages</label>
+                        </div>
+                        @if (ReportDesign.UsesDataTable(Widget.Type, question?.Type))
+                        {
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="@($"wtable-{Widget.Id}")" @bind="Widget.Settings.ShowDataTable" @bind:after="ChangedAsync" />
+                                <label class="form-check-label small" for="@($"wtable-{Widget.Id}")">Show data table</label>
+                            </div>
+                        }
+                        @if (ReportDesign.UsesFreeText(Widget.Type, question))
+                        {
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" id="@($"wfree-{Widget.Id}")" @bind="Widget.Settings.IncludeFreeText" @bind:after="ChangedAsync" />
+                                <label class="form-check-label small" for="@($"wfree-{Widget.Id}")">List “Other” answers</label>
+                            </div>
+                        }
+                    </div>
+                }
+
+                @if (ReportDesign.UsesTimeGrouping(Widget.Type))
+                {
+                    <div class="col-sm-6">
+                        <label class="form-label small" for="@($"wgroup-{Widget.Id}")">Group by</label>
+                        <select class="form-select form-select-sm" id="@($"wgroup-{Widget.Id}")" @bind="Widget.Settings.TimeGrouping" @bind:after="ChangedAsync">
+                            <option value="@TimeGrouping.Day">Day</option>
+                            <option value="@TimeGrouping.Week">Week</option>
+                            <option value="@TimeGrouping.Month">Month</option>
+                        </select>
+                    </div>
+                }
+
+                @if (ReportDesign.UsesMaxRows(Widget.Type, question, Widget.Settings))
+                {
+                    <div class="col-sm-6">
+                        <label class="form-label small" for="@($"wrows-{Widget.Id}")">Maximum rows</label>
+                        <input class="form-control form-control-sm" type="number" min="1" max="@ReportLimits.MaxRows" id="@($"wrows-{Widget.Id}")"
+                               @bind="Widget.Settings.MaxRows" @bind:after="ChangedAsync" />
+                    </div>
+                }
+
+                @if (ReportDesign.UsesColumns(Widget.Type))
+                {
+                    <div class="col-12">
+                        <div class="form-label small mb-1">Columns <span class="text-muted">(none selected = every question)</span></div>
+                        <div class="column-picker">
+                            @foreach (var placed in SurveyDesign.Placed(Survey))
+                            {
+                                var id = placed.Question.Id;
+                                <div class="form-check mb-1">
+                                    <input class="form-check-input" type="checkbox" id="@($"wcol-{Widget.Id}-{id}")"
+                                           checked="@Widget.Settings.ColumnQuestionIds.Contains(id)" @onchange="e => ToggleColumnAsync(id, e.Value is true)" />
+                                    <label class="form-check-label small" for="@($"wcol-{Widget.Id}-{id}")">@Label(placed)</label>
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (Widget.Type == WidgetType.SummaryStats)
+                {
+                    <div class="col-12 small text-muted"><i class="bi bi-info-circle me-1"></i>Shows total and completed responses, completion rate and average completion time.</div>
+                }
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The widget being edited.</summary>
+    [Parameter, EditorRequired] public ReportWidgetDto Widget { get; set; } = default!;
+
+    /// <summary>The report's survey.</summary>
+    [Parameter, EditorRequired] public SurveyDefinitionDto Survey { get; set; } = default!;
+
+    /// <summary>Validation messages of this widget.</summary>
+    [Parameter] public IReadOnlyList<string> Errors { get; set; } = [];
+
+    /// <summary>Expanded.</summary>
+    [Parameter] public bool Active { get; set; }
+
+    /// <summary>First widget (cannot move up).</summary>
+    [Parameter] public bool IsFirst { get; set; }
+
+    /// <summary>Last widget (cannot move down).</summary>
+    [Parameter] public bool IsLast { get; set; }
+
+    /// <summary>Header clicked.</summary>
+    [Parameter] public EventCallback OnActivate { get; set; }
+
+    /// <summary>Move up (-1) or down (+1).</summary>
+    [Parameter] public EventCallback<int> OnMove { get; set; }
+
+    /// <summary>Duplicate requested.</summary>
+    [Parameter] public EventCallback OnDuplicate { get; set; }
+
+    /// <summary>Removal requested.</summary>
+    [Parameter] public EventCallback OnRemove { get; set; }
+
+    /// <summary>Raised after every change of the widget.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    private static string Label(PlacedQuestion placed) =>
+        $"{(string.IsNullOrWhiteSpace(placed.Question.Code) ? $"Q{placed.Number}" : placed.Question.Code)}. {(string.IsNullOrWhiteSpace(placed.Question.Text) ? "(untitled question)" : placed.Question.Text)}";
+
+    private Task ChangedAsync() => OnChanged.InvokeAsync();
+
+    private Task ChangeTypeAsync(ChangeEventArgs e)
+    {
+        if (Enum.TryParse<WidgetType>(e.Value as string, out var type))
+        {
+            ReportDesign.ChangeType(Widget, Survey, type);
+        }
+
+        return ChangedAsync();
+    }
+
+    private Task SetQuestionAsync(ChangeEventArgs e, bool secondary)
+    {
+        Guid? id = Guid.TryParse(e.Value as string, out var parsed) ? parsed : null;
+        if (secondary)
+        {
+            Widget.SecondaryQuestionId = id;
+        }
+        else
+        {
+            Widget.QuestionId = id;
+            if (Widget.SecondaryQuestionId == id)
+            {
+                // Keep the cross-tab valid: the two questions must differ.
+                Widget.SecondaryQuestionId = ReportDesign.QuestionsFor(Survey, Widget.Type)
+                    .Select(p => p.Question.Id).Where(q => q != id).Cast<Guid?>().FirstOrDefault();
+            }
+        }
+
+        return ChangedAsync();
+    }
+
+    private Task ToggleColumnAsync(Guid questionId, bool selected)
+    {
+        var columns = Widget.Settings.ColumnQuestionIds;
+        if (selected && !columns.Contains(questionId))
+        {
+            // Keep the survey's question order.
+            var order = SurveyDesign.Placed(Survey).Select(p => p.Question.Id).ToList();
+            columns.Add(questionId);
+            columns.Sort((a, b) => order.IndexOf(a).CompareTo(order.IndexOf(b)));
+        }
+        else if (!selected)
+        {
+            columns.Remove(questionId);
+        }
+
+        return ChangedAsync();
+    }
+
+    private Task OnHeaderKey(KeyboardEventArgs e) => e.Key is "Enter" or " " ? OnActivate.InvokeAsync() : Task.CompletedTask;
+}

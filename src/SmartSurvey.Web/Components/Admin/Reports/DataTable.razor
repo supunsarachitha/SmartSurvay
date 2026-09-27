@@ -1,0 +1,63 @@
+@* A report table (TableData): optional caption, header, rows and totals. Numeric columns are right-aligned. *@
+
+<div class="report-table @Class">
+    @if (!string.IsNullOrWhiteSpace(Table.Title))
+    {
+        <div class="small fw-semibold mb-1">@Table.Title</div>
+    }
+    @if (Table.Rows.Count == 0 && Table.Footer is null)
+    {
+        <div class="small text-muted py-2">No answers yet.</div>
+    }
+    else
+    {
+        <div class="table-responsive report-table-scroll">
+            <table class="table table-sm align-middle mb-0">
+                <thead>
+                    <tr>
+                        @for (var i = 0; i < Table.Columns.Count; i++)
+                        {
+                            <th scope="col" class="@CellClass(i)">@Table.Columns[i]</th>
+                        }
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var row in Table.Rows)
+                    {
+                        <tr>
+                            @for (var i = 0; i < row.Count; i++)
+                            {
+                                <td class="@CellClass(i)">@row[i]</td>
+                            }
+                        </tr>
+                    }
+                </tbody>
+                @if (Table.Footer is { } footer)
+                {
+                    <tfoot>
+                        <tr class="fw-semibold">
+                            @for (var i = 0; i < footer.Count; i++)
+                            {
+                                <td class="@CellClass(i)">@footer[i]</td>
+                            }
+                        </tr>
+                    </tfoot>
+                }
+            </table>
+        </div>
+    }
+</div>
+
+@code {
+    private HashSet<int> numeric = [];
+
+    /// <summary>The table.</summary>
+    [Parameter, EditorRequired] public TableData Table { get; set; } = default!;
+
+    /// <summary>Extra CSS classes.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    protected override void OnParametersSet() => numeric = [.. Table.NumericColumns];
+
+    private string? CellClass(int column) => numeric.Contains(column) ? "text-end text-nowrap font-tabular" : null;
+}

@@ -79,6 +79,9 @@ public sealed class BrowserInterop(IJSRuntime js)
         }
     }
 
+    /// <summary>Opens the browser's print dialog (the print stylesheet hides navigation).</summary>
+    public ValueTask PrintAsync() => js.InvokeVoidAsync("SmartSurvey.print");
+
     /// <summary>Smoothly scrolls to the top of the page.</summary>
     public ValueTask ScrollToTopAsync() => js.InvokeVoidAsync("SmartSurvey.scrollToTop");
 

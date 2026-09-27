@@ -1,0 +1,79 @@
+@* One computed report widget: title, question, KPI tiles, chart, tables and notes. Distribution charts
+   take half a row on wide screens; everything else spans the full width. *@
+
+<section class="card widget-card @(IsWide ? "widget-wide" : null)" id="w-@Widget.WidgetId" aria-labelledby="w-@Widget.WidgetId-title">
+    <div class="card-body">
+        <div class="d-flex align-items-start gap-2 mb-3">
+            <span class="type-icon" title="@Widget.Type.DisplayName()"><i class="bi @UiFormat.WidgetTypeIcon(Widget.Type)" aria-hidden="true"></i></span>
+            <div class="min-w-0 flex-grow-1">
+                <h3 class="h6 fw-semibold mb-0" id="w-@Widget.WidgetId-title">@Widget.Title</h3>
+                <div class="widget-meta">
+                    @if (!string.IsNullOrWhiteSpace(Widget.QuestionText) && !Widget.Title.Contains(Widget.QuestionText, StringComparison.Ordinal))
+                    {
+                        <span>@Widget.QuestionText · </span>
+                    }
+                    <span>@(Widget.Type.RequiresQuestion() ? $"Answered by {UiFormat.Plural(Widget.ResponseCount, "respondent")}" : UiFormat.Plural(Widget.ResponseCount, "response"))</span>
+                </div>
+            </div>
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Widget.Error))
+        {
+            <div class="alert alert-warning small mb-0 d-flex gap-2"><i class="bi bi-exclamation-triangle"></i><span>@Widget.Error</span></div>
+        }
+        else
+        {
+            @if (Widget.Stats.Count > 0)
+            {
+                <div class="kpi-grid mb-3">
+                    @foreach (var stat in Widget.Stats)
+                    {
+                        <div class="kpi">
+                            <div class="kpi-label">@stat.Label</div>
+                            <div class="kpi-value">@stat.Value</div>
+                        </div>
+                    }
+                </div>
+            }
+            @if (Widget.Chart is { } chart)
+            {
+                <ChartView Data="chart" Height="ChartHeight(chart)" ShowPercentages="true" AriaLabel="@($"{Widget.Type.DisplayName()}: {Widget.Title}")" Class="mb-3" />
+            }
+            @if (Widget.Table is { } table)
+            {
+                <DataTable Table="table" Class="mb-3" />
+            }
+            @foreach (var extra in Widget.ExtraTables)
+            {
+                <DataTable Table="extra" Class="mb-3" />
+            }
+            @if (!string.IsNullOrWhiteSpace(Widget.Note))
+            {
+                <p class="small text-muted mb-0"><i class="bi bi-info-circle me-1"></i>@Widget.Note</p>
+            }
+            @if (IsEmpty)
+            {
+                <div class="text-center text-muted small py-3"><i class="bi bi-inbox me-1"></i>No data yet.</div>
+            }
+        }
+    </div>
+</section>
+
+@code {
+    /// <summary>The computed widget.</summary>
+    [Parameter, EditorRequired] public WidgetResult Widget { get; set; } = default!;
+
+    private bool IsWide => Widget.Type is not (WidgetType.BarChart or WidgetType.HorizontalBarChart or WidgetType.PieChart or WidgetType.DoughnutChart);
+
+    private bool IsEmpty => Widget.Stats.Count == 0 && Widget.Chart is null && Widget.Table is null && Widget.ExtraTables.Count == 0
+                            && string.IsNullOrWhiteSpace(Widget.Note);
+
+    // Horizontal bars grow with the number of categories; round charts stay compact.
+    private static int ChartHeight(ChartData chart) => chart.Kind switch
+    {
+        ChartKind.HorizontalBar => Math.Clamp(60 + chart.Labels.Count * 34, 180, 640),
+        ChartKind.Pie or ChartKind.Doughnut => 300,
+        ChartKind.Line => 280,
+        _ => 320,
+    };
+}

@@ -1,0 +1,313 @@
+@page "/admin/reports"
+@rendermode InteractiveServer
+@inject IReportService Reports
+@inject ISurveyService SurveyService
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+@* Report list: search, survey filter, paging; view, edit, export, duplicate and delete; new report and a
+   one-click "overview" report (one widget per question) for any survey. *@
+
+<PageHeader Title="Reports" Subtitle="Charts, tables and exports built from your survey responses.">
+    <Breadcrumb><li class="breadcrumb-item"><a href="admin">Admin</a></li><li class="breadcrumb-item active" aria-current="page">Reports</li></Breadcrumb>
+    <Actions>
+        <button class="btn btn-light" @onclick="OpenOverviewPicker"><i class="bi bi-magic"></i>Quick overview</button>
+        <a class="btn btn-primary" href="@NewReportUrl"><i class="bi bi-plus-lg"></i>New report</a>
+    </Actions>
+</PageHeader>
+
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-6">
+                <div class="input-group">
+                    <span class="input-group-text bg-body"><i class="bi bi-search"></i></span>
+                    <input class="form-control" type="search" placeholder="Search reports" aria-label="Search reports"
+                           @bind="search" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+                </div>
+            </div>
+            <div class="col-md-6">
+                <select class="form-select" aria-label="Filter by survey" value="@(surveyFilter?.ToString() ?? string.Empty)" @onchange="OnSurveyFilterChangedAsync">
+                    <option value="">All surveys</option>
+                    @foreach (var survey in surveys)
+                    {
+                        <option value="@survey.Id">@survey.Title</option>
+                    }
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<ErrorAlert Message="@error" OnDismiss="() => error = null" Class="mb-3" />
+
+@if (result is null)
+{
+    <LoadingSpinner Text="Loading reports…" />
+}
+else if (result.TotalCount == 0)
+{
+    @if (IsFiltered)
+    {
+        <EmptyState Icon="bi-search" Title="No reports match the filters" Message="Try another search term or survey.">
+            <button class="btn btn-soft-primary" @onclick="ClearFiltersAsync">Clear filters</button>
+        </EmptyState>
+    }
+    else
+    {
+        <EmptyState Icon="bi-bar-chart-line" Title="Turn responses into insights" Message="Create a report with charts and tables, or let us build an overview of any survey in one click.">
+            <button class="btn btn-soft-primary" @onclick="OpenOverviewPicker"><i class="bi bi-magic"></i>Quick overview</button>
+            <a class="btn btn-primary" href="@NewReportUrl"><i class="bi bi-plus-lg"></i>New report</a>
+        </EmptyState>
+    }
+}
+else
+{
+    <div class="card table-card">
+        <div class="table-responsive">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th scope="col">Report</th>
+                        <th scope="col" class="d-none d-md-table-cell">Survey</th>
+                        <th scope="col" class="col-num d-none d-lg-table-cell">Widgets</th>
+                        <th scope="col" class="d-none d-lg-table-cell">Updated</th>
+                        <th scope="col" class="text-end"><span class="visually-hidden">Actions</span></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var report in result.Items)
+                    {
+                        <tr @key="report.Id">
+                            <td class="min-w-0">
+                                <a class="fw-semibold text-body text-decoration-none" href="admin/reports/@report.Id">@report.Name</a>
+                                @if (!string.IsNullOrWhiteSpace(report.Description))
+                                {
+                                    <div class="small text-muted text-truncate" style="max-width:26rem">@report.Description</div>
+                                }
+                                <div class="small text-muted d-md-none">@report.SurveyTitle</div>
+                            </td>
+                            <td class="d-none d-md-table-cell small">@report.SurveyTitle</td>
+                            <td class="col-num d-none d-lg-table-cell">@report.WidgetCount</td>
+                            <td class="d-none d-lg-table-cell text-muted small">@UiFormat.Relative(report.UpdatedAt ?? report.CreatedAt)</td>
+                            <td class="text-end text-nowrap">
+                                <a class="btn btn-sm btn-soft-primary" href="admin/reports/@report.Id" title="View"><i class="bi bi-eye"></i><span class="d-none d-xl-inline">View</span></a>
+                                <ExportMenu ReportId="report.Id" ReportName="@report.Name" Label="" ButtonClass="btn-sm btn-light" />
+                                <div class="dropdown d-inline-block">
+                                    <button class="btn btn-sm btn-light btn-icon" type="button" data-bs-toggle="dropdown" aria-expanded="false"
+                                            aria-label="More actions for @report.Name" disabled="@(busyId == report.Id)">
+                                        @if (busyId == report.Id)
+                                        {
+                                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+                                        }
+                                        else
+                                        {
+                                            <i class="bi bi-three-dots"></i>
+                                        }
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end">
+                                        <li><a class="dropdown-item" href="admin/reports/@report.Id/edit"><i class="bi bi-pencil"></i>Edit</a></li>
+                                        <li><button class="dropdown-item" @onclick="() => DuplicateAsync(report)"><i class="bi bi-copy"></i>Duplicate</button></li>
+                                        <li><hr class="dropdown-divider" /></li>
+                                        <li><button class="dropdown-item text-danger" @onclick="() => DeleteAsync(report)"><i class="bi bi-trash"></i>Delete</button></li>
+                                    </ul>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+        <div class="card-footer bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="small text-muted">@UiFormat.Plural(result.TotalCount, "report")</span>
+            <Pager Page="result.Page" PageSize="result.PageSize" TotalCount="result.TotalCount" OnPageChanged="GoToPageAsync" />
+        </div>
+    </div>
+}
+
+<Modal Visible="overviewVisible" Title="Quick overview report" Icon="bi-magic" Size="lg" OnClose="() => overviewVisible = false">
+    <p class="small text-muted">Pick a survey: we create a report with summary numbers, responses over time and a chart or table for every question. You can adjust it afterwards.</p>
+    @if (surveys.Count == 0)
+    {
+        <EmptyState Icon="bi-ui-checks-grid" Title="No surveys yet" Message="Create a survey first — reports analyse its responses." />
+    }
+    else
+    {
+        <div class="list-group">
+            @foreach (var survey in surveys)
+            {
+                <button class="list-group-item list-group-item-action d-flex justify-content-between align-items-center gap-3 py-3"
+                        disabled="@(busyId is not null)" @onclick="() => CreateOverviewAsync(survey)">
+                    <span class="min-w-0">
+                        <span class="fw-semibold d-block">@survey.Title</span>
+                        <span class="small text-muted">@UiFormat.Plural(survey.QuestionCount, "question") · @UiFormat.Plural(survey.CompletedResponses, "response")</span>
+                    </span>
+                    @if (busyId == survey.Id)
+                    {
+                        <span class="spinner-border spinner-border-sm text-primary" aria-hidden="true"></span>
+                    }
+                    else
+                    {
+                        <StatusBadge SurveyStatus="survey.Status" />
+                    }
+                </button>
+            }
+        </div>
+    }
+</Modal>
+
+<ConfirmDialog @ref="confirm" />
+
+@code {
+    private const int PageSize = 20;
+
+    private PagedResult<ReportSummaryDto>? result;
+    private IReadOnlyList<SurveySummaryDto> surveys = [];
+    private ConfirmDialog confirm = default!;
+    private string? error;
+    private string search = string.Empty;
+    private Guid? surveyFilter;
+    private bool overviewVisible;
+    private int page = 1;
+    private Guid? busyId;
+
+    /// <summary>Pre-selected survey filter (e.g. from a survey's menu).</summary>
+    [SupplyParameterFromQuery(Name = "surveyId")] public Guid? SurveyIdQuery { get; set; }
+
+    private bool IsFiltered => !string.IsNullOrWhiteSpace(search) || surveyFilter is not null;
+
+    private string NewReportUrl => surveyFilter is { } id ? $"admin/reports/new?surveyId={id}" : "admin/reports/new";
+
+    protected override async Task OnInitializedAsync()
+    {
+        surveyFilter = SurveyIdQuery;
+        try
+        {
+            surveys = (await SurveyService.ListAsync(new SurveyQuery { IsTemplate = false, IncludeArchived = true, PageSize = PageRequest.MaxPageSize })).Items;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            error = UiErrors.Describe(ex);
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            result = await Reports.ListAsync(new ReportQuery
+            {
+                Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
+                SurveyId = surveyFilter,
+                Page = page,
+                PageSize = PageSize,
+            });
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            error = UiErrors.Describe(ex);
+            result ??= PagedResult<ReportSummaryDto>.Empty(page, PageSize);
+        }
+    }
+
+    private async Task ReloadFromFirstPageAsync()
+    {
+        page = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "Escape" || search.Length == 0 || search.Length >= 2)
+        {
+            if (e.Key == "Escape")
+            {
+                search = string.Empty;
+            }
+
+            await ReloadFromFirstPageAsync();
+        }
+    }
+
+    private async Task OnSurveyFilterChangedAsync(ChangeEventArgs e)
+    {
+        surveyFilter = Guid.TryParse(e.Value as string, out var id) ? id : null;
+        await ReloadFromFirstPageAsync();
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        search = string.Empty;
+        surveyFilter = null;
+        await ReloadFromFirstPageAsync();
+    }
+
+    private async Task GoToPageAsync(int newPage)
+    {
+        page = newPage;
+        await LoadAsync();
+    }
+
+    private void OpenOverviewPicker() => overviewVisible = true;
+
+    private async Task CreateOverviewAsync(SurveySummaryDto survey)
+    {
+        await RunAsync(survey.Id, async () =>
+        {
+            var definition = await Reports.BuildDefaultAsync(survey.Id);
+            var created = await Reports.CreateAsync(definition);
+            overviewVisible = false;
+            Toasts.Success("Overview report created", created.Name);
+            Navigation.NavigateTo($"admin/reports/{created.Id}");
+        });
+    }
+
+    private async Task DuplicateAsync(ReportSummaryDto report)
+    {
+        await RunAsync(report.Id, async () =>
+        {
+            var copy = await Reports.DuplicateAsync(report.Id);
+            Toasts.Success("Report duplicated", copy.Name);
+            Navigation.NavigateTo($"admin/reports/{copy.Id}/edit");
+        });
+    }
+
+    private async Task DeleteAsync(ReportSummaryDto report)
+    {
+        if (!await confirm.ShowAsync($"Delete “{report.Name}”?", "The report definition is removed. Survey responses are not affected.", "Delete report", danger: true))
+        {
+            return;
+        }
+
+        await RunAsync(report.Id, async () =>
+        {
+            await Reports.DeleteAsync(report.Id);
+            Toasts.Success("Report deleted", report.Name);
+            if (result is { Items.Count: 1, Page: > 1 })
+            {
+                page--;
+            }
+
+            await LoadAsync();
+        });
+    }
+
+    /// <summary>Runs an action for one row with a busy indicator and friendly error handling.</summary>
+    private async Task RunAsync(Guid id, Func<Task> action)
+    {
+        busyId = id;
+        try
+        {
+            await action();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Something went wrong", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            busyId = null;
+        }
+    }
+}

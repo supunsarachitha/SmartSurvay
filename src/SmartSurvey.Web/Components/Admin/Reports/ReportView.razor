@@ -1,0 +1,50 @@
+@* Renders a computed report (ReportResult): header facts, filter summary and the widget grid. Used by
+   the report viewer and the builder's live preview. *@
+
+<div class="report-view">
+    @if (ShowHeader)
+    {
+        <div class="d-flex flex-wrap gap-3 small text-muted mb-3">
+            <span><i class="bi bi-ui-checks-grid me-1"></i>@Result.SurveyTitle</span>
+            <span><i class="bi bi-people me-1"></i>@UiFormat.Plural(Result.TotalResponses, "response")</span>
+            <span><i class="bi bi-clock me-1"></i>Generated <LocalDateTime Value="Result.GeneratedAt" /></span>
+        </div>
+        @if (!string.IsNullOrWhiteSpace(Result.Description))
+        {
+            <p class="text-muted text-pre-line">@Result.Description</p>
+        }
+    }
+    @if (Result.FilterSummary.Count > 0)
+    {
+        <div class="alert alert-light border small py-2 d-flex gap-2">
+            <i class="bi bi-funnel"></i>
+            <span><span class="fw-semibold">Filters:</span> @string.Join(" · ", Result.FilterSummary)</span>
+        </div>
+    }
+
+    @if (Result.Widgets.Count == 0)
+    {
+        <EmptyState Icon="bi-bar-chart" Title="No widgets yet" Message="Add widgets to see charts and tables here." />
+    }
+    else
+    {
+        @if (Result.TotalResponses == 0)
+        {
+            <div class="alert alert-info small d-flex gap-2"><i class="bi bi-info-circle"></i><span>No responses match yet — widgets fill in as responses arrive.</span></div>
+        }
+        <div class="report-grid">
+            @foreach (var widget in Result.Widgets)
+            {
+                <WidgetView @key="widget.WidgetId" Widget="widget" />
+            }
+        </div>
+    }
+</div>
+
+@code {
+    /// <summary>The computed report.</summary>
+    [Parameter, EditorRequired] public ReportResult Result { get; set; } = default!;
+
+    /// <summary>Show survey, response count, generation time and description.</summary>
+    [Parameter] public bool ShowHeader { get; set; } = true;
+}

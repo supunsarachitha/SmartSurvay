@@ -1,0 +1,548 @@
+@page "/admin/reports/new"
+@page "/admin/reports/{Id:guid}/edit"
+@rendermode InteractiveServer
+@implements IDisposable
+@inject IReportService Reports
+@inject ISurveyService SurveyService
+@inject ToastService Toasts
+@inject BrowserInterop Browser
+@inject NavigationManager Navigation
+@inject ILogger<ReportBuilder> Logger
+@* Report builder: report details, response filters and widgets on the left, a live preview on current
+   data on the right (refreshed shortly after every change). New reports start from the recommended
+   overview or a blank page and are only stored when first saved. *@
+
+<NavigationLock ConfirmExternalNavigation="dirty" OnBeforeInternalNavigation="ConfirmLeaveAsync" />
+
+@if (loadError is not null)
+{
+    <PageHeader Title="Report not available" />
+    <EmptyState Icon="bi-exclamation-circle" Title="This report can't be opened" Message="@loadError">
+        <a class="btn btn-primary" href="admin/reports"><i class="bi bi-arrow-left"></i>Back to reports</a>
+    </EmptyState>
+}
+else if (model is null)
+{
+    <LoadingSpinner Text="Loading report…" />
+}
+else
+{
+    <PageHeader Title="@(string.IsNullOrWhiteSpace(model.Name) ? (isNew ? "New report" : "Untitled report") : model.Name)"
+                Subtitle="@(isNew ? "Pick a survey, add widgets and watch the live preview. The report is stored when you create it." : $"Last saved {UiFormat.Relative(model.UpdatedAt ?? model.CreatedAt)}")">
+        <Breadcrumb>
+            <li class="breadcrumb-item"><a href="admin">Admin</a></li>
+            <li class="breadcrumb-item"><a href="admin/reports">Reports</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@(isNew ? "New" : "Edit")</li>
+        </Breadcrumb>
+        <Actions>
+            @if (!isNew)
+            {
+                <button class="btn btn-light" @onclick='() => GoAsync($"admin/reports/{model.Id}")'><i class="bi bi-eye"></i>View report</button>
+            }
+            <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(saving || survey is null || (!dirty && !isNew))">
+                @if (saving)
+                {
+                    <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Saving…</span>
+                }
+                else
+                {
+                    <i class="bi bi-check2"></i><span>@(isNew ? "Create report" : dirty ? "Save changes" : "Saved")</span>
+                }
+            </button>
+        </Actions>
+    </PageHeader>
+
+    @if (errors.General.Count > 0)
+    {
+        <div class="alert alert-danger small">
+            @foreach (var message in errors.General)
+            {
+                <div><i class="bi bi-exclamation-circle me-1"></i>@message</div>
+            }
+        </div>
+    }
+
+    <div class="report-builder">
+        <div class="min-w-0">
+            <div class="card mb-3">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-file-earmark-bar-graph me-1"></i>Report</h2>
+                    <div class="mb-3">
+                        <label class="form-label small" for="r-name">Name <span class="text-danger">*</span></label>
+                        <input class="form-control @(errors.For("Name").Count > 0 ? "is-invalid" : null)" id="r-name" maxlength="@ReportLimits.NameMaxLength"
+                               @bind="model.Name" @bind:event="oninput" @bind:after="MarkDirty" />
+                        <FieldErrors Messages="errors.For(nameof(ReportDefinitionDto.Name))" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small" for="r-desc">Description <span class="text-muted">(optional, shown above the report)</span></label>
+                        <textarea class="form-control" id="r-desc" rows="2" maxlength="@ReportLimits.DescriptionMaxLength"
+                                  @bind="model.Description" @bind:event="oninput" @bind:after="MarkChanged"></textarea>
+                        <FieldErrors Messages="errors.For(nameof(ReportDefinitionDto.Description))" />
+                    </div>
+                    <div>
+                        <label class="form-label small" for="r-survey">Survey</label>
+                        @if (isNew)
+                        {
+                            <select class="form-select @(errors.For("SurveyId").Count > 0 ? "is-invalid" : null)" id="r-survey"
+                                    value="@(survey?.Id.ToString() ?? string.Empty)" @onchange="OnSurveyChangedAsync" disabled="@loadingSurvey">
+                                <option value="">Choose a survey…</option>
+                                @foreach (var option in surveys)
+                                {
+                                    <option value="@option.Id">@option.Title (@UiFormat.Plural(option.CompletedResponses, "response"))</option>
+                                }
+                            </select>
+                            @if (surveys.Count == 0)
+                            {
+                                <div class="form-text">There are no surveys yet. <a href="admin/surveys/new">Create one</a> first.</div>
+                            }
+                        }
+                        else
+                        {
+                            <div class="form-control-plaintext py-1">
+                                <a href="admin/surveys/@model.SurveyId/edit">@survey?.Title</a>
+                            </div>
+                            <div class="form-text">To analyse another survey, create a new report.</div>
+                        }
+                        <FieldErrors Messages="errors.For(nameof(ReportDefinitionDto.SurveyId))" />
+                    </div>
+                </div>
+            </div>
+
+            @if (survey is not null)
+            {
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h2 class="h6 mb-3"><i class="bi bi-funnel me-1"></i>Which responses</h2>
+                        <ReportFiltersEditor Report="model" Survey="survey" Errors="errors" OnChanged="MarkChanged" />
+                    </div>
+                </div>
+
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-2">
+                    <h2 class="h6 mb-0"><i class="bi bi-grid-1x2 me-1"></i>Widgets <span class="badge rounded-pill text-bg-light ms-1">@model.Widgets.Count</span></h2>
+                    @if (model.Widgets.Count < ReportLimits.MaxWidgets)
+                    {
+                        <div class="dropdown">
+                            <button class="btn btn-sm btn-soft-primary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi bi-plus-lg"></i>Add widget</button>
+                            <ul class="dropdown-menu dropdown-menu-end widget-menu">
+                                @foreach (var type in ReportDesign.MenuOrder)
+                                {
+                                    var enabled = ReportDesign.CanAdd(survey, type);
+                                    <li>
+                                        <button class="dropdown-item d-flex gap-2 align-items-start py-2" type="button" disabled="@(!enabled)" @onclick="() => AddWidget(type)">
+                                            <i class="bi @UiFormat.WidgetTypeIcon(type) mt-1"></i>
+                                            <span class="min-w-0">
+                                                <span class="d-block fw-semibold small">@type.DisplayName()</span>
+                                                <span class="d-block small text-muted text-wrap">@(enabled ? ReportDesign.Describe(type) : "Needs suitable questions in the survey.")</span>
+                                            </span>
+                                        </button>
+                                    </li>
+                                }
+                            </ul>
+                        </div>
+                    }
+                </div>
+
+                @if (model.Widgets.Count == 0)
+                {
+                    <div class="row g-3 mb-3">
+                        <div class="col-sm-6">
+                            <button class="card card-hover h-100 w-100 text-start border-dashed" type="button" @onclick="StartWithOverviewAsync" disabled="@startingOverview">
+                                <span class="card-body d-block">
+                                    <span class="type-icon mb-2"><i class="bi bi-magic"></i></span>
+                                    <span class="d-block fw-semibold">Recommended overview</span>
+                                    <span class="d-block small text-muted">Summary, responses over time and a chart or table for every question.</span>
+                                </span>
+                            </button>
+                        </div>
+                        <div class="col-sm-6">
+                            <button class="card card-hover h-100 w-100 text-start border-dashed" type="button" @onclick="StartBlank">
+                                <span class="card-body d-block">
+                                    <span class="type-icon mb-2"><i class="bi bi-file-earmark"></i></span>
+                                    <span class="d-block fw-semibold">Start small</span>
+                                    <span class="d-block small text-muted">Summary and responses over time; add the widgets you need.</span>
+                                </span>
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                @for (var i = 0; i < model.Widgets.Count; i++)
+                {
+                    var widget = model.Widgets[i];
+                    <WidgetEditor @key="widget.Id" Widget="widget" Survey="survey" Errors="errors.ForWidget(widget.Id)"
+                                  Active="activeWidgetId == widget.Id" IsFirst="i == 0" IsLast="i == model.Widgets.Count - 1"
+                                  OnActivate="() => ToggleWidget(widget.Id)" OnMove="delta => MoveWidget(widget, delta)"
+                                  OnDuplicate="() => DuplicateWidget(widget)" OnRemove="() => RemoveWidgetAsync(widget)" OnChanged="MarkChanged" />
+                }
+            }
+            else if (!isNew)
+            {
+                <LoadingSpinner Text="Loading survey…" />
+            }
+        </div>
+
+        <div class="min-w-0">
+            <div class="report-preview">
+                <div class="d-flex align-items-center justify-content-between gap-2 mb-3">
+                    <h2 class="h6 mb-0"><i class="bi bi-eye me-1"></i>Live preview</h2>
+                    <span class="small text-muted" aria-live="polite">
+                        @if (previewing)
+                        {
+                            <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span><span>Updating…</span>
+                        }
+                        else if (preview is not null)
+                        {
+                            <span>@UiFormat.Plural(preview.TotalResponses, "response")</span>
+                        }
+                    </span>
+                </div>
+                @if (survey is null)
+                {
+                    <EmptyState Icon="bi-graph-up" Title="Preview" Message="Choose a survey to see the report on its current responses." />
+                }
+                else if (previewError is not null)
+                {
+                    <div class="alert alert-warning small d-flex gap-2"><i class="bi bi-exclamation-triangle"></i><span>@previewError</span></div>
+                }
+                else if (preview is not null)
+                {
+                    <ReportView Result="preview" ShowHeader="false" />
+                }
+                else
+                {
+                    <LoadingSpinner Text="Building preview…" />
+                }
+            </div>
+        </div>
+    </div>
+
+    <ConfirmDialog @ref="confirm" />
+}
+
+@code {
+    /// <summary>Delay between the last edit and the live-preview refresh (tests set it to zero).</summary>
+    internal static TimeSpan PreviewDelay { get; set; } = TimeSpan.FromMilliseconds(600);
+
+    private ReportDefinitionDto? model;
+    private SurveyDefinitionDto? survey;
+    private IReadOnlyList<SurveySummaryDto> surveys = [];
+    private ReportResult? preview;
+    private ReportErrors errors = ReportErrors.None;
+    private ConfirmDialog confirm = default!;
+    private CancellationTokenSource? previewCts;
+    private Guid? activeWidgetId;
+    private string? loadError;
+    private string? previewError;
+    private bool isNew;
+    private bool dirty;
+    private bool saving;
+    private bool previewing;
+    private bool loadingSurvey;
+    private bool startingOverview;
+    private bool previewPending;
+
+    /// <summary>Report id (null for a new report).</summary>
+    [Parameter] public Guid? Id { get; set; }
+
+    /// <summary>Survey pre-selected for a new report.</summary>
+    [SupplyParameterFromQuery(Name = "surveyId")] public Guid? SurveyIdQuery { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // After "Create report" the page switches to the edit address of the same (already loaded) report.
+        if (model is not null && !isNew && Id == model.Id)
+        {
+            return;
+        }
+
+        await LoadAsync();
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // Previews only start once the page is interactive (never during prerendering).
+        if (previewPending)
+        {
+            previewPending = false;
+            SchedulePreview(immediate: true);
+        }
+    }
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+        previewCts?.Cancel();
+        previewCts?.Dispose();
+    }
+
+    private async Task LoadAsync()
+    {
+        loadError = null;
+        errors = ReportErrors.None;
+        dirty = false;
+        preview = null;
+        activeWidgetId = null;
+        try
+        {
+            if (Id is { } id)
+            {
+                isNew = false;
+                model = await Reports.GetAsync(id);
+                survey = await SurveyService.GetAsync(model.SurveyId);
+            }
+            else
+            {
+                isNew = true;
+                model = new ReportDefinitionDto();
+                survey = null;
+                surveys = (await SurveyService.ListAsync(new SurveyQuery { IsTemplate = false, IncludeArchived = true, PageSize = PageRequest.MaxPageSize })).Items;
+                if (SurveyIdQuery is { } surveyId && surveys.Any(s => s.Id == surveyId))
+                {
+                    await SelectSurveyAsync(surveyId);
+                }
+            }
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            loadError = UiErrors.Describe(ex);
+            model = null;
+            return;
+        }
+
+        previewPending = true;
+    }
+
+    private async Task OnSurveyChangedAsync(ChangeEventArgs e)
+    {
+        if (!Guid.TryParse(e.Value as string, out var id))
+        {
+            survey = null;
+            preview = null;
+            model!.SurveyId = Guid.Empty;
+            return;
+        }
+
+        loadingSurvey = true;
+        try
+        {
+            await SelectSurveyAsync(id);
+            MarkChanged();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not load the survey", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            loadingSurvey = false;
+        }
+    }
+
+    private async Task SelectSurveyAsync(Guid surveyId)
+    {
+        survey = await SurveyService.GetAsync(surveyId);
+        ReportDesign.ApplySurvey(model!, survey);
+        if (string.IsNullOrWhiteSpace(model!.Name))
+        {
+            var name = $"{survey.Title} report";
+            model.Name = name.Length <= ReportLimits.NameMaxLength ? name : name[..ReportLimits.NameMaxLength];
+        }
+    }
+
+    private async Task StartWithOverviewAsync()
+    {
+        startingOverview = true;
+        try
+        {
+            var overview = await Reports.BuildDefaultAsync(survey!.Id);
+            model!.Widgets = overview.Widgets;
+            if (string.IsNullOrWhiteSpace(model.Description))
+            {
+                model.Description = overview.Description;
+            }
+
+            MarkChanged();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not build the overview", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            startingOverview = false;
+        }
+    }
+
+    private void StartBlank()
+    {
+        ReportDesign.StartBlank(model!, survey!);
+        MarkChanged();
+    }
+
+    private void AddWidget(WidgetType type)
+    {
+        var widget = ReportDesign.AddWidget(model!, survey!, type);
+        activeWidgetId = widget.Id;
+        MarkChanged();
+    }
+
+    private void ToggleWidget(Guid id) => activeWidgetId = activeWidgetId == id ? null : id;
+
+    private void MoveWidget(ReportWidgetDto widget, int delta)
+    {
+        if (ReportDesign.Move(model!, widget, delta))
+        {
+            MarkChanged();
+        }
+    }
+
+    private void DuplicateWidget(ReportWidgetDto widget)
+    {
+        activeWidgetId = ReportDesign.Duplicate(model!, widget).Id;
+        MarkChanged();
+    }
+
+    private async Task RemoveWidgetAsync(ReportWidgetDto widget)
+    {
+        if (!await confirm.ShowAsync("Remove this widget?", ReportDesign.TitleOf(widget, survey), "Remove", danger: true))
+        {
+            return;
+        }
+
+        ReportDesign.Remove(model!, widget);
+        errors.Widgets.Remove(widget.Id);
+        MarkChanged();
+    }
+
+    // Name changes don't affect the preview (it shows no title).
+    private void MarkDirty() => dirty = true;
+
+    private void MarkChanged()
+    {
+        dirty = true;
+        SchedulePreview();
+    }
+
+    /// <summary>Refreshes the preview after a short pause, cancelling any refresh still pending or running.</summary>
+    private void SchedulePreview(bool immediate = false)
+    {
+        previewCts?.Cancel();
+        previewCts?.Dispose();
+        previewCts = null;
+        if (model is null || survey is null)
+        {
+            return;
+        }
+
+        previewCts = new CancellationTokenSource();
+        _ = RefreshPreviewAsync(ReportDesign.Clone(model), immediate ? TimeSpan.Zero : PreviewDelay, previewCts.Token);
+    }
+
+    private async Task RefreshPreviewAsync(ReportDefinitionDto snapshot, TimeSpan delay, CancellationToken token)
+    {
+        try
+        {
+            if (delay > TimeSpan.Zero)
+            {
+                await Task.Delay(delay, token);
+            }
+
+            previewing = true;
+            await InvokeAsync(StateHasChanged);
+            var result = await Reports.PreviewAsync(snapshot, token);
+            token.ThrowIfCancellationRequested();
+            preview = result;
+            previewError = null;
+        }
+        catch (OperationCanceledException)
+        {
+            return; // superseded by a newer change
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            previewError = $"The preview can't be shown yet: {UiErrors.Describe(ex)}";
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Report preview failed.");
+            previewError = "The preview could not be updated. Your changes are not lost; try saving.";
+        }
+
+        previewing = false;
+        await InvokeAsync(StateHasChanged);
+    }
+
+    private async Task<bool> SaveAsync()
+    {
+        if (model is null || survey is null || saving)
+        {
+            return false;
+        }
+
+        saving = true;
+        try
+        {
+            ReportDesign.Renumber(model);
+            if (isNew)
+            {
+                var created = await Reports.CreateAsync(model);
+                model = created;
+                isNew = false;
+                dirty = false;
+                errors = ReportErrors.None;
+                Toasts.Success("Report created", "Open “View report” to export it as PDF, Excel, CSV and more.");
+                Navigation.NavigateTo($"admin/reports/{created.Id}/edit", replace: true);
+                return true;
+            }
+
+            model = await Reports.UpdateAsync(model.Id, model);
+            dirty = false;
+            errors = ReportErrors.None;
+            Toasts.Success("Changes saved");
+            return true;
+        }
+        catch (AppValidationException ex)
+        {
+            errors = ReportErrors.From(ex.Errors, model);
+            if (errors.Widgets.Keys.FirstOrDefault() is var widgetId && widgetId != Guid.Empty)
+            {
+                activeWidgetId = widgetId;
+            }
+
+            Toasts.Error("Please fix the highlighted problems", $"{UiFormat.Plural(errors.Count, "problem")} found.");
+            return false;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not save the report", UiErrors.Describe(ex));
+            return false;
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+
+    private async Task GoAsync(string url)
+    {
+        if (dirty && !await SaveAsync())
+        {
+            return;
+        }
+
+        Navigation.NavigateTo(url);
+    }
+
+    private async Task ConfirmLeaveAsync(LocationChangingContext context)
+    {
+        if (!dirty)
+        {
+            return;
+        }
+
+        if (!await confirm.ShowAsync("Leave without saving?", "Your changes to this report will be lost.", "Leave page", danger: true, cancelText: "Stay"))
+        {
+            context.PreventNavigation();
+        }
+    }
+}

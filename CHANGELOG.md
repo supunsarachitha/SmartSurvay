@@ -61,6 +61,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   options for "randomise" questions ("Other" stays last), automatic draft saving for signed-in respondents (page
   changes, leaving, "Save & finish later") with resume and start-over, a leave warning for guests and a thank-you page
   with the survey's message (and "answer again" where allowed). Administrators get a preview with desktop/phone width.
+- **Reports UI**: report list (search, survey filter, one-click overview report, export, duplicate, delete), report
+  builder (response filters incl. answer filters, widgets with type-aware options, recommended or blank start, live
+  preview on current data, inline validation) and report viewer (refresh, print, duplicate, export as PDF, Excel, CSV,
+  text or JSON).
 - **Embedding**: surveys can be embedded in other websites via `/embed/s/{slug}` (snippet on the share page);
   `Embedding:Enabled` / `Embedding:AllowedOrigins` settings. All other pages refuse to be framed by other sites
   (`X-Frame-Options` + CSP `frame-ancestors`).

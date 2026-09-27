@@ -258,7 +258,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] 6A Layout, nav, dark mode, shared components, Home, FAQ, Buy Me a Coffee, surveys list, my responses, account pages restyle
 - [x] 6B Admin: survey list/create/import/templates, builder (sections, questions, options, settings, logic), share page
 - [x] 6C Respondent: survey runner (multi-page, logic, validation, drafts), preview, thank-you (my responses done in 6A). `RandomizeOptions` honoured (per-respondent shuffle, free-text options last). Embedding decided: `/embed/s/{slug}` pages only, frame headers set by `FrameOptionsMiddleware` (antiforgery's X-Frame-Options suppressed), `Embedding:*` config, snippet on the share page
-- [ ] 6D Admin reports: report list/builder (live preview)/viewer/exports
+- [x] 6D Admin reports: report list (search, survey filter, quick overview, export/duplicate/delete), builder (details, response filters incl. answer filters, widget editor with type-aware settings, recommended/blank start, debounced live preview on a snapshot, server errors mapped to fields/widgets/filters), viewer (refresh, print, duplicate, export PDF/Excel/CSV/TXT/JSON)
 - [ ] 6E Admin: dashboard, responses browser/detail, users, audit log, **branding page**
 
 ### Phase 7 — Verification
@@ -306,6 +306,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   `.section-block`, `.question-editor(.active)`, `.type-picker`, `.option-row`, `.logic-rule`, `.chart-container`,
   `.code-box`, `.qr-box`, `.coffee-card`, `.btn-coffee`, `.auth-card`, `.btn-soft-*`, `.btn-icon`, `.status-icon`,
   `.survey-welcome`, `.thank-you-message`, `.text-pre-line`, `.embed-main`, `.preview-stage/.preview-phone`.
+* Reports UI: `Components/Admin/Reports` — `ReportDesign` (pure widget/filter operations + `ReportErrors` mapping;
+  unit-tested), `WidgetEditor`, `ReportFiltersEditor`, `ReportView`/`WidgetView`/`DataTable` (shared by viewer and
+  live preview), `ExportMenu`.
 * Survey runner: `Components/Runner` — `SurveyRunState` (pure state machine: pages, logic, validation, option order,
   requests; unit-tested), `QuestionField` (one question per type), `SurveyRunner` (live / embedded / preview modes),
   `ThankYouCard`.
@@ -350,3 +353,4 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Phase 6A done | Home (branded hero, features, how it works), FAQ (grouped accordion + GET search), Buy Me a Coffee (Support options), /surveys (cards, guest prompt, search), /my/responses, account pages restyled (AuthCard, AccountLayout container, settings layout). Fixes: login now counts failures toward lockout, password minimum 8 on all forms, self-registered users get the User role, last sign-in recorded, display name claim in the user menu, BrowserInterop null time zone, dead scoped-CSS link. 14 bUnit tests; 613 tests green; smoke OK. Next: 6B builder |
 | 2026-09-27 | Phase 6B done | Admin survey list (filters, paging, lifecycle actions, duplicate/template/export/import/delete), builder (`/admin/surveys/new` creates on first save; pages, questions, options incl. "Other" + paste list, per-type settings, question/page display logic, outline, server-error mapping to questions, unsaved-changes guard, optimistic-concurrency reload), share page (link, QR SVG/PNG, invitation text). `SurveyDesign` operations + 24 new tests; 637 tests green. Next: 6C runner |
 | 2026-09-27 | Phase 6C done | Survey runner `/s/{slug}` (prerendered → interactive with persisted session + shuffle seed; live logic, per-page and final validation with live error clearing, progress by answered questions, question numbering along the path, pages whose questions are all hidden skipped, drafts auto-saved on page change/leave and via "Save & finish later", resume with "Welcome back"/start over, guest leave warning, server validation mapped to questions), thank-you page (`GetCompletionAsync`), admin preview (desktop/phone), embedding (`/embed/s/{slug}`, `EmbedLayout`, `FrameOptionsMiddleware`, `Embedding` options, share-page snippet). 58 new tests (695 green); smoke OK; verified in headless Chrome (guest submit, draft resume, preview, shuffle stability, third-party iframe allowed only for /embed). Next: 6D reports UI |
+| 2026-09-27 | Phase 6D done | Reports UI: list, builder with live preview (600 ms debounce, preview only once interactive, runs on a deep copy), viewer with exports and print. 27 new tests (722 green). Verified in headless Chrome: viewer charts, real PDF/XLSX downloads, overview start, live preview follows widget changes, create → edit address → view. Next: 6E |

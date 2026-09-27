@@ -1,0 +1,69 @@
+@inject IReportService Reports
+@inject BrowserInterop Browser
+@inject ToastService Toasts
+@* "Export" dropdown of a saved report: runs the report on the server and downloads PDF, Excel, CSV,
+   text or JSON. *@
+
+<div class="dropdown d-inline-block">
+    <button class="btn @ButtonClass dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" disabled="@(busy is not null)"
+            aria-label="@($"Export {ReportName}")">
+        @if (busy is not null)
+        {
+            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Exporting…</span>
+        }
+        else
+        {
+            <i class="bi bi-download"></i><span>@Label</span>
+        }
+    </button>
+    <ul class="dropdown-menu dropdown-menu-end">
+        @foreach (var (format, label, icon) in Formats)
+        {
+            <li><button class="dropdown-item" type="button" @onclick="() => ExportAsync(format)"><i class="bi @icon"></i>@label</button></li>
+        }
+    </ul>
+</div>
+
+@code {
+    private ExportFormat? busy;
+
+    /// <summary>Formats in menu order with label and icon.</summary>
+    public static readonly IReadOnlyList<(ExportFormat Format, string Label, string Icon)> Formats =
+    [
+        (ExportFormat.Pdf, "PDF document", "bi-filetype-pdf"),
+        (ExportFormat.Xlsx, "Excel workbook", "bi-file-earmark-excel"),
+        (ExportFormat.Csv, "CSV (spreadsheet)", "bi-filetype-csv"),
+        (ExportFormat.Txt, "Plain text", "bi-filetype-txt"),
+        (ExportFormat.Json, "JSON data", "bi-filetype-json"),
+    ];
+
+    /// <summary>Report to export.</summary>
+    [Parameter, EditorRequired] public Guid ReportId { get; set; }
+
+    /// <summary>Report name (accessible label, toast text).</summary>
+    [Parameter] public string ReportName { get; set; } = "report";
+
+    /// <summary>Button text.</summary>
+    [Parameter] public string Label { get; set; } = "Export";
+
+    /// <summary>Button classes (e.g. "btn-sm btn-light").</summary>
+    [Parameter] public string ButtonClass { get; set; } = "btn-primary";
+
+    private async Task ExportAsync(ExportFormat format)
+    {
+        busy = format;
+        try
+        {
+            var file = await Reports.ExportAsync(ReportId, format);
+            await Browser.DownloadAsync(file);
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Export failed", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            busy = null;
+        }
+    }
+}

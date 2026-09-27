@@ -459,6 +459,25 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
 .kpi .kpi-value { font-size: 1.35rem; font-weight: 700; color: var(--bs-emphasis-color); font-variant-numeric: tabular-nums; }
 .bar-inline { height: .45rem; border-radius: 999px; background: rgba(var(--ss-primary-rgb), .12); overflow: hidden; min-width: 60px; }
 .bar-inline > span { display: block; height: 100%; background: var(--ss-primary); border-radius: 999px; }
+.report-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.report-grid > .widget-card { margin: 0; }
+.report-grid > .widget-wide { grid-column: 1 / -1; }
+@media (max-width: 991.98px) { .report-grid { grid-template-columns: minmax(0, 1fr); } }
+.report-table-scroll { max-height: 420px; overflow: auto; }
+.report-table thead th { position: sticky; top: 0; background: var(--ss-surface); z-index: 1; }
+.font-tabular { font-variant-numeric: tabular-nums; }
+.report-builder { display: grid; grid-template-columns: minmax(340px, 460px) minmax(0, 1fr); gap: 1.5rem; align-items: start; }
+@media (max-width: 1199.98px) { .report-builder { grid-template-columns: minmax(0, 1fr); } }
+.report-preview { background: var(--ss-surface-2); border: 1px dashed var(--ss-border); border-radius: var(--ss-radius); padding: 1rem; }
+.report-preview .report-grid { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 1600px) { .report-preview .report-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.widget-menu { width: 21rem; max-height: 70vh; overflow-y: auto; }
+.column-picker { max-height: 14rem; overflow-y: auto; border: 1px solid var(--ss-border); border-radius: .5rem; padding: .5rem .75rem; background: var(--ss-surface); }
+@media print {
+    .report-grid { display: block; }
+    .report-grid > .widget-card { margin-bottom: 1rem; }
+    .report-table-scroll { max-height: none; overflow: visible; }
+}
 
 /* ----- Misc ---------------------------------------------------------------------------------- */
 .code-box { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .82rem; background: var(--ss-surface-2); border: 1px solid var(--ss-border); border-radius: .55rem; padding: .75rem 1rem; word-break: break-all; }
