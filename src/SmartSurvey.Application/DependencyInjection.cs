@@ -2,6 +2,7 @@ using FluentValidation;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SmartSurvey.Application.Audit;
+using SmartSurvey.Application.Branding;
 using SmartSurvey.Application.Dashboard;
 using SmartSurvey.Application.Reports;
 using SmartSurvey.Application.Reports.Charts;
@@ -30,6 +31,11 @@ public static class DependencyInjection
         services.AddScoped<IDashboardService, DashboardService>();
         services.AddScoped<IAuditService, AuditService>();
         services.AddSingleton<ISvgChartRenderer, SvgChartRenderer>();
+
+        // Branding: process-wide cache + scoped service (admin-only writes).
+        services.AddOptions<BrandingOptions>();
+        services.AddSingleton<BrandingCache>();
+        services.AddScoped<IBrandingService, BrandingService>();
 
         return services;
     }

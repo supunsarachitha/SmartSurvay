@@ -1,0 +1,33 @@
+@using SmartSurvey.Application.Branding
+@inject IBrandingService Branding
+@* Product brand (icon or uploaded logo + product name) as configured by administrators under
+   Admin › Branding. Used by the navigation bars, footer and auth pages. *@
+
+<span class="brand-mark @(brand.HasLogo ? "has-logo" : null) @SizeClass" aria-hidden="true">
+    @if (brand.HasLogo)
+    {
+        <img src="@brand.LogoUrl" alt="" />
+    }
+    else
+    {
+        <i class="bi @brand.IconName"></i>
+    }
+</span>
+@if (ShowName)
+{
+    <span class="brand-name">@brand.ProductName</span>
+}
+
+@code {
+    private BrandingDto brand = new();
+
+    /// <summary>Render the product name next to the mark.</summary>
+    [Parameter] public bool ShowName { get; set; } = true;
+
+    /// <summary>"sm", "lg" or null (default size).</summary>
+    [Parameter] public string? Size { get; set; }
+
+    private string? SizeClass => Size is null ? null : $"brand-mark-{Size}";
+
+    protected override async Task OnInitializedAsync() => brand = await Branding.GetAsync();
+}

@@ -155,6 +155,7 @@ app.MapGroup("/api/auth")
     .MapIdentityApi<ApplicationUser>();
 
 app.MapApiEndpoints();
+app.MapBrandingAssets();
 app.MapHealthChecks("/health");
 
 // ----- Database -------------------------------------------------------------------------------

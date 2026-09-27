@@ -475,3 +475,15 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
 .min-w-0 { min-width: 0; }
 .cursor-pointer { cursor: pointer; }
 .text-balance { text-wrap: balance; }
+
+/* Brand mark (icon or uploaded logo, see Components/Shared/BrandMark.razor) */
+.brand-mark.has-logo { background: transparent; box-shadow: none; overflow: hidden; }
+.brand-mark img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.brand-mark-sm { width: 1.6rem; height: 1.6rem; font-size: .85rem; border-radius: .45rem; }
+.brand-mark-lg { width: 3.25rem; height: 3.25rem; font-size: 1.6rem; border-radius: .9rem; }
+.brand-name { font-weight: 750; letter-spacing: -.02em; }
+.navbar-brand .brand-name, .sidebar-brand .brand-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 14rem; }
+.icon-picker { display: grid; grid-template-columns: repeat(auto-fill, minmax(3rem, 1fr)); gap: .4rem; }
+.icon-picker button { height: 3rem; border: 1px solid var(--ss-border); border-radius: .6rem; background: var(--ss-surface); color: var(--ss-text); font-size: 1.25rem; }
+.icon-picker button:hover { border-color: var(--ss-primary); color: var(--ss-primary); }
+.icon-picker button.selected { border-color: var(--ss-primary); background: var(--ss-primary-soft); color: var(--ss-primary); box-shadow: 0 0 0 3px rgba(var(--ss-primary-rgb), .15); }

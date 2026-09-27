@@ -5,7 +5,7 @@
        <Actions><a class="btn btn-primary" href="admin/surveys/new"><i class="bi bi-plus-lg"></i>New</a></Actions>
    </PageHeader> *@
 
-<PageTitle>@(string.IsNullOrWhiteSpace(Title) ? "SmartSurvey" : $"{Title} · SmartSurvey")</PageTitle>
+<PageTitle>@(string.IsNullOrWhiteSpace(Title) ? productName : $"{Title} · {productName}")</PageTitle>
 
 <div class="page-header">
     <div class="min-w-0">
@@ -28,6 +28,12 @@
 </div>
 
 @code {
+    private string productName = Application.Branding.BrandingDefaults.ProductName;
+
+    [Inject] private Application.Branding.IBrandingService Branding { get; set; } = default!;
+
+    protected override async Task OnInitializedAsync() => productName = (await Branding.GetAsync()).ProductName;
+
     /// <summary>Page title (also used for the browser tab).</summary>
     [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
 
