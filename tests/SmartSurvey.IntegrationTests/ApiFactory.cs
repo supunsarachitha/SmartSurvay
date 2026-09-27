@@ -5,6 +5,7 @@ using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.Logging;
 
 namespace SmartSurvey.IntegrationTests;
 
@@ -30,6 +31,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     private readonly string _keysPath = Path.Combine(Path.GetTempPath(), $"smartsurvey-it-keys-{Guid.NewGuid():N}");
     private string? _adminToken;
     private string? _userToken;
+
+    /// <summary>Log entries written by the application (for assertions about logging).</summary>
+    public CapturedLogs Logs { get; } = new();
 
     /// <summary>Client without credentials (redirects are not followed).</summary>
     public HttpClient Anonymous() => CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
@@ -64,6 +68,15 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseEnvironment("Testing");
+        builder.ConfigureLogging(logging => logging.AddProvider(Logs));
+
+        // Same DI checks as Development: catches scoped services resolved from the root provider (e.g. by
+        // endpoint builders at start-up) and registrations that cannot be constructed.
+        builder.UseDefaultServiceProvider(options =>
+        {
+            options.ValidateScopes = true;
+            options.ValidateOnBuild = true;
+        });
         builder.UseSetting("ConnectionStrings:DefaultConnection", $"Data Source={_dbPath};Pooling=False");
         builder.UseSetting("Database:Provider", "Sqlite");
         builder.UseSetting("Seed:CreateAdmin", "true");
@@ -111,4 +124,59 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
 public sealed class ApiCollection : ICollectionFixture<ApiFactory>
 {
     public const string Name = "api";
+}
+
+/// <summary>Logger provider that records every entry of Warning level and above.</summary>
+public sealed class CapturedLogs : ILoggerProvider
+{
+    private readonly List<(string Category, LogLevel Level, string Message)> _entries = [];
+
+    /// <summary>Recorded entries (a snapshot).</summary>
+    public IReadOnlyList<(string Category, LogLevel Level, string Message)> Entries
+    {
+        get
+        {
+            lock (_entries)
+            {
+                return _entries.ToList();
+            }
+        }
+    }
+
+    /// <summary>Forgets everything recorded so far.</summary>
+    public void Clear()
+    {
+        lock (_entries)
+        {
+            _entries.Clear();
+        }
+    }
+
+    /// <inheritdoc />
+    public ILogger CreateLogger(string categoryName) => new Logger(this, categoryName);
+
+    /// <inheritdoc />
+    public void Dispose()
+    {
+    }
+
+    private sealed class Logger(CapturedLogs owner, string category) : ILogger
+    {
+        public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
+
+        public bool IsEnabled(LogLevel logLevel) => logLevel >= LogLevel.Warning;
+
+        public void Log<TState>(LogLevel logLevel, EventId eventId, TState state, Exception? exception, Func<TState, Exception?, string> formatter)
+        {
+            if (!IsEnabled(logLevel))
+            {
+                return;
+            }
+
+            lock (owner._entries)
+            {
+                owner._entries.Add((category, logLevel, formatter(state, exception)));
+            }
+        }
+    }
 }

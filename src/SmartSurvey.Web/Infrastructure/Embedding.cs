@@ -37,16 +37,20 @@ public sealed class EmbeddingOptions
 }
 
 /// <summary>
-/// Clickjacking protection: every response may only be framed by this site, except <c>/embed</c>
-/// pages when embedding is enabled. Replaces the antiforgery system's <c>X-Frame-Options</c> header
-/// (suppressed in <see cref="WebSetup.AddWebServices"/>), which would otherwise block all embedding.
+/// Security headers for every response: <c>X-Content-Type-Options: nosniff</c>, a
+/// <c>strict-origin-when-cross-origin</c> referrer policy and clickjacking protection — responses may only be
+/// framed by this site, except <c>/embed</c> pages when embedding is enabled. Replaces the antiforgery
+/// system's <c>X-Frame-Options</c> header (suppressed in <see cref="WebSetup.AddWebServices"/>), which
+/// would otherwise block all embedding.
 /// </summary>
-public sealed class FrameOptionsMiddleware(RequestDelegate next, IOptions<EmbeddingOptions> options)
+public sealed class SecurityHeadersMiddleware(RequestDelegate next, IOptions<EmbeddingOptions> options)
 {
     /// <summary>Middleware entry point.</summary>
     public Task InvokeAsync(HttpContext context)
     {
         var headers = context.Response.Headers;
+        headers.XContentTypeOptions = "nosniff";
+        headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
         if (options.Value.Enabled && context.Request.Path.StartsWithSegments(EmbeddingOptions.PathPrefix))
         {
             headers.ContentSecurityPolicy = $"frame-ancestors {options.Value.FrameAncestors}";

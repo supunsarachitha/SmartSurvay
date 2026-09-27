@@ -15,8 +15,10 @@ namespace SmartSurvey.Web.Components.Account;
 /// <remarks>
 /// Identity passes links already HTML-encoded ("do not double encode"), so they are inserted into the
 /// HTML as they are and decoded for the text part; every other value is encoded here.
+/// Registered as a singleton because <c>MapIdentityApi</c> resolves it from the root provider at start-up;
+/// the (scoped) branding service is therefore resolved in a short-lived scope per e-mail.
 /// </remarks>
-internal sealed class IdentityEmailSender(IEmailTransport transport, IBrandingService branding, ILogger<IdentityEmailSender> logger)
+internal sealed class IdentityEmailSender(IEmailTransport transport, IServiceScopeFactory scopes, ILogger<IdentityEmailSender> logger)
     : IEmailSender<ApplicationUser>
 {
     /// <inheritdoc />
@@ -41,7 +43,12 @@ internal sealed class IdentityEmailSender(IEmailTransport transport, IBrandingSe
     {
         try
         {
-            var productName = (await branding.GetAsync()).ProductName;
+            string productName;
+            await using (var scope = scopes.CreateAsyncScope())
+            {
+                productName = (await scope.ServiceProvider.GetRequiredService<IBrandingService>().GetAsync()).ProductName;
+            }
+
             await transport.SendAsync(AccountEmails.Build(email, productName, user.DisplayName, subject, intro, buttonText, encodedLink, code));
         }
         catch (Exception ex)

@@ -81,7 +81,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   cookie-or-bearer default authentication scheme; string enums in API JSON.
 - DevOps: Dockerfile, docker-compose (app + PostgreSQL), GitHub Actions CI, `scripts/smoke.sh`.
 
+### Security
+- Every response sends `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`;
+  pages refuse to be framed by other sites (except `/embed`).
+- Survey submissions from the interactive runner are limited per connection (5 per minute) — the REST API already
+  had a per-IP limit.
+- Test dependency upgrade to bUnit 2.11 (fixes the AngleSharp advisory GHSA-pgww-w46g-26qg); no known vulnerable
+  packages remain.
+
 ### Fixed
+- Expected API errors (validation, not found, conflicts, business rules) are no longer logged as server errors with
+  stack traces.
+- Development start-up no longer fails because the account e-mail sender was registered with the wrong lifetime.
 - Failed sign-ins on the login page now count towards the account lockout (5 attempts → 15 minutes).
 - Password forms require at least 8 characters, matching the Identity policy; self-registered accounts get the User role.
 - Local time display falls back to UTC when the browser reports no time zone.

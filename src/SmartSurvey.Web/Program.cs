@@ -67,7 +67,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddApiEndpoints();
 
 builder.Services.ConfigureApiFriendlyCookies();
-builder.Services.AddScoped<IEmailSender<ApplicationUser>, IdentityEmailSender>();
+builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityEmailSender>(); // MapIdentityApi resolves it from the root provider
 
 // ----- Hosting concerns -----------------------------------------------------------------------
 // Persist data-protection keys (auth cookies, bearer tokens, antiforgery) when a path is configured,
@@ -126,7 +126,7 @@ if (app.Configuration.GetValue("Https:Redirect", true))
     app.UseHttpsRedirection();
 }
 
-app.UseMiddleware<FrameOptionsMiddleware>();
+app.UseMiddleware<SecurityHeadersMiddleware>();
 app.UseStaticFiles();
 app.UseRouting();
 app.UseRateLimiter();

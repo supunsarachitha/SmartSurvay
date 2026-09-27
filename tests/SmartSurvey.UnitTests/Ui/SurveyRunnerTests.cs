@@ -16,20 +16,20 @@ public sealed class SurveyRunnerTests : UiTestBase
 {
     private const string Slug = "customer-feedback";
     private readonly SampleSurvey _s = SampleSurveys.CustomerFeedback();
-    private readonly FakePersistentComponentState _state;
+    private readonly BunitPersistentComponentState _state;
 
     public SurveyRunnerTests()
     {
-        _state = this.AddFakePersistentComponentState();
+        _state = this.AddBunitPersistentComponentState();
         _s.Definition.Id = Guid.NewGuid();
         _s.Definition.Slug = Slug;
         Responses.Session = new SurveySessionDto { Eligibility = SurveyEligibility.Eligible, Survey = _s.Definition };
     }
 
-    private string CurrentUri => Services.GetRequiredService<FakeNavigationManager>().Uri;
+    private string CurrentUri => Services.GetRequiredService<BunitNavigationManager>().Uri;
 
     private IRenderedComponent<SurveyRunner> RenderRunner(bool embedded = false) =>
-        RenderComponent<SurveyRunner>(p => p.Add(x => x.Slug, Slug).Add(x => x.Embedded, embedded));
+        Render<SurveyRunner>(p => p.Add(x => x.Slug, Slug).Add(x => x.Embedded, embedded));
 
     private static void Choose(IRenderedComponent<SurveyRunner> cut, OptionDto option) => cut.Find($"input[value='{option.Id}']").Change(true);
 
@@ -192,6 +192,24 @@ public sealed class SurveyRunnerTests : UiTestBase
         Assert.Contains("This survey is closed", cut.Find(".alert-danger").TextContent);
     }
 
+    [Fact]
+    public void Rapid_repeated_submissions_on_one_circuit_are_throttled()
+    {
+        _s.Definition.Sections.Remove(_s.Page2);
+        var throttle = Services.GetRequiredService<SmartSurvey.Web.Infrastructure.SubmissionThrottle>();
+        for (var i = 0; i < SmartSurvey.Web.Infrastructure.SubmissionThrottle.Limit; i++)
+        {
+            Assert.True(throttle.TryAcquire());
+        }
+
+        var cut = RenderRunner();
+        Choose(cut, _s.Yes);
+        Click(cut, "Submit");
+
+        Assert.Empty(Responses.Submissions);
+        Assert.Contains("sending responses very quickly", cut.Find(".alert-danger").TextContent);
+    }
+
     [Theory]
     [InlineData(SurveyEligibility.Closed, "This survey is closed")]
     [InlineData(SurveyEligibility.NotOpenYet, "This survey isn't open yet")]
@@ -236,7 +254,7 @@ public sealed class SurveyRunnerTests : UiTestBase
     public void Preview_never_touches_the_service_and_thanks_in_place()
     {
         _s.Definition.Sections.Remove(_s.Page2);
-        var cut = RenderComponent<SurveyRunner>(p => p.Add(x => x.PreviewSurvey, _s.Definition));
+        var cut = Render<SurveyRunner>(p => p.Add(x => x.PreviewSurvey, _s.Definition));
 
         Assert.Contains("nothing is saved", cut.Markup);
         Choose(cut, _s.Yes);
@@ -287,7 +305,7 @@ public sealed class SurveyRunnerTests : UiTestBase
         var answer = new AnswerInputDto { QuestionId = question.Id, Number = 7 };
         var changes = 0;
 
-        var cut = RenderComponent<QuestionField>(p => p
+        var cut = Render<QuestionField>(p => p
             .Add(x => x.Question, question).Add(x => x.Answer, answer).Add(x => x.OnChanged, () => changes++));
 
         Assert.Equal(11, cut.FindAll(".scale-options button").Count);
@@ -302,7 +320,7 @@ public sealed class SurveyRunnerTests : UiTestBase
     [Fact]
     public void Question_errors_mark_the_input_invalid_and_are_announced()
     {
-        var cut = RenderComponent<QuestionField>(p => p
+        var cut = Render<QuestionField>(p => p
             .Add(x => x.Question, _s.Email).Add(x => x.Answer, new AnswerInputDto { QuestionId = _s.Email.Id, Text = "nope" })
             .Add(x => x.Number, 5).Add(x => x.Errors, new[] { "Please enter a valid e-mail address." }));
 
@@ -319,7 +337,7 @@ public sealed class SurveyRunnerTests : UiTestBase
     {
         Responses.Completion = new SurveyCompletionDto(Guid.NewGuid(), "Customer feedback", Slug, "See you soon.", CanRespondAgain: true);
 
-        var cut = RenderComponent<ThankYou>(p => p.Add(x => x.Slug, Slug));
+        var cut = Render<ThankYou>(p => p.Add(x => x.Slug, Slug));
 
         Assert.Contains("Customer feedback", cut.Markup);
         Assert.Contains("See you soon.", cut.Markup);
@@ -332,7 +350,7 @@ public sealed class SurveyRunnerTests : UiTestBase
     {
         SignInAsRespondent();
 
-        var cut = RenderComponent<ThankYou>(p => p.Add(x => x.Slug, "unknown"));
+        var cut = Render<ThankYou>(p => p.Add(x => x.Slug, "unknown"));
 
         Assert.Contains("Your response has been recorded.", cut.Markup);
         Assert.NotNull(cut.Find("a[href='my/responses']"));

@@ -12,7 +12,7 @@ public sealed class BuilderComponentTests : UiTestBase
     [Fact]
     public void Logic_editor_explains_that_the_first_question_cannot_have_rules()
     {
-        var editor = RenderComponent<LogicRulesEditor>(p => p.Add(x => x.Survey, _s.Definition).Add(x => x.TargetQuestion, _s.Enjoy));
+        var editor = Render<LogicRulesEditor>(p => p.Add(x => x.Survey, _s.Definition).Add(x => x.TargetQuestion, _s.Enjoy));
 
         Assert.Contains("Rules can only use questions that come before", editor.Markup);
         Assert.Empty(editor.FindAll("button"));
@@ -22,7 +22,7 @@ public sealed class BuilderComponentTests : UiTestBase
     public void Adding_a_rule_uses_the_nearest_earlier_question()
     {
         var changes = 0;
-        var editor = RenderComponent<LogicRulesEditor>(p => p
+        var editor = Render<LogicRulesEditor>(p => p
             .Add(x => x.Survey, _s.Definition)
             .Add(x => x.TargetQuestion, _s.Rating)
             .Add(x => x.OnChanged, () => changes++));
@@ -39,7 +39,7 @@ public sealed class BuilderComponentTests : UiTestBase
     [Fact]
     public void Existing_rule_shows_the_option_to_compare_with()
     {
-        var editor = RenderComponent<LogicRulesEditor>(p => p.Add(x => x.Survey, _s.Definition).Add(x => x.TargetQuestion, _s.WhyNot));
+        var editor = Render<LogicRulesEditor>(p => p.Add(x => x.Survey, _s.Definition).Add(x => x.TargetQuestion, _s.WhyNot));
 
         var selects = editor.FindAll(".logic-rule select");
         Assert.Equal(5, selects.Count); // action, match, question, operator, option
@@ -49,7 +49,7 @@ public sealed class BuilderComponentTests : UiTestBase
     [Fact]
     public void Read_only_logic_editor_has_no_edit_buttons()
     {
-        var editor = RenderComponent<LogicRulesEditor>(p => p
+        var editor = Render<LogicRulesEditor>(p => p
             .Add(x => x.Survey, _s.Definition).Add(x => x.TargetQuestion, _s.WhyNot).Add(x => x.ReadOnly, true));
 
         Assert.Empty(editor.FindAll("button"));
@@ -59,7 +59,7 @@ public sealed class BuilderComponentTests : UiTestBase
     [Fact]
     public void Changing_a_question_type_resets_conditions_that_use_it()
     {
-        var editor = RenderComponent<QuestionEditor>(p => p
+        var editor = Render<QuestionEditor>(p => p
             .Add(x => x.Survey, _s.Definition).Add(x => x.Question, _s.Enjoy).Add(x => x.Number, 1).Add(x => x.Active, true));
 
         editor.Find("select[id^='qtype-']").Change(QuestionType.Number.ToString());
@@ -73,7 +73,7 @@ public sealed class BuilderComponentTests : UiTestBase
     [Fact]
     public void Collapsed_question_shows_summary_badges()
     {
-        var editor = RenderComponent<QuestionEditor>(p => p
+        var editor = Render<QuestionEditor>(p => p
             .Add(x => x.Survey, _s.Definition).Add(x => x.Question, _s.WhyNot).Add(x => x.Number, 3)
             .Add(x => x.Errors, new[] { "Question text is required." }));
 

@@ -70,7 +70,7 @@ public static class WebSetup
         services.Configure<SupportOptions>(configuration.GetSection(SupportOptions.SectionName));
         services.Configure<EmbeddingOptions>(configuration.GetSection(EmbeddingOptions.SectionName));
 
-        // Frame headers are set by FrameOptionsMiddleware so /embed pages can be allowed in iframes.
+        // Frame headers are set by SecurityHeadersMiddleware so /embed pages can be allowed in iframes.
         services.Configure<AntiforgeryOptions>(options => options.SuppressXFrameOptionsHeader = true);
 
         services.AddScoped<CurrentUser>();
@@ -79,6 +79,7 @@ public static class WebSetup
 
         services.AddScoped<ToastService>();
         services.AddScoped<BrowserInterop>();
+        services.AddScoped<SubmissionThrottle>();
 
         services.AddAuthorizationBuilder()
             .AddPolicy(AuthPolicies.Admin, p => p.RequireRole(AppRoles.Admin))

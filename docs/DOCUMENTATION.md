@@ -508,7 +508,12 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
 * **Authorization:** roles `Admin` and `User`; policy `Admin` for admin pages, `ApiAdmin`/`ApiUser` for the
   API. Services re-check admin rights (defense in depth) and response ownership.
 * **API hygiene:** API requests get `401/403` instead of login redirects; ProblemDetails never leak stack
-  traces outside Development; rate limiting on authentication (20/min/IP) and submissions (30/min/IP).
+  traces outside Development; expected errors (400/403/404/409/422) are not logged as server errors; rate limiting on
+  authentication (20/min/IP) and submissions (30/min/IP). Submissions from the interactive survey runner are limited
+  per connection (5 per minute) — not per IP, because many respondents can share one address. For very public
+  surveys that attract spam, put a WAF / bot protection in front of the site.
+* **Headers:** `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` and
+  clickjacking protection (below) on every response.
 * **Input handling:** server-side validation of every survey design and answer; logic re-evaluated on the
   server; Blazor HTML-encodes all output; chart SVG text is XML-escaped; CSV exports neutralise formula
   injection.

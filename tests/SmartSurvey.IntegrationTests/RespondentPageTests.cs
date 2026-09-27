@@ -72,5 +72,7 @@ public sealed class RespondentPageTests(ApiFactory factory)
 
         Assert.Equal("SAMEORIGIN", response.Headers.GetValues("X-Frame-Options").Single());
         Assert.Equal("frame-ancestors 'self'", response.Headers.GetValues("Content-Security-Policy").Single());
+        Assert.Equal("nosniff", response.Headers.GetValues("X-Content-Type-Options").Single());
+        Assert.Equal("strict-origin-when-cross-origin", response.Headers.GetValues("Referrer-Policy").Single());
     }
 }

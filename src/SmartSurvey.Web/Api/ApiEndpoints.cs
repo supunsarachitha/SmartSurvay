@@ -14,7 +14,7 @@ public static class ApiEndpoints
     /// </summary>
     public static IEndpointRouteBuilder MapApiEndpoints(this IEndpointRouteBuilder app)
     {
-        var api = app.MapGroup(Prefix);
+        var api = app.MapGroup(Prefix).AddEndpointFilter<ApiErrorFilter>();
 
         api.MapGroup("/surveys").WithTags("Surveys").RequireAuthorization(AuthPolicies.ApiAdmin).MapSurveyEndpoints();
         api.MapGroup("/responses").WithTags("Responses").RequireAuthorization(AuthPolicies.ApiUser).MapResponseEndpoints();

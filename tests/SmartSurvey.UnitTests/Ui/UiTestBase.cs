@@ -17,7 +17,7 @@ namespace SmartSurvey.UnitTests.Ui;
 /// options, a settable current user, chart renderer, loose JS interop, test authorization and a
 /// <see cref="FakeResponseService"/>.
 /// </summary>
-public abstract class UiTestBase : TestContext
+public abstract class UiTestBase : BunitContext
 {
     protected UiTestBase()
     {
@@ -28,7 +28,9 @@ public abstract class UiTestBase : TestContext
         Services.AddSingleton<ISvgChartRenderer, SvgChartRenderer>();
         Services.AddSingleton<IResponseService>(Responses);
         Services.AddScoped<BrowserInterop>();
-        Auth = this.AddTestAuthorization();
+        Services.AddSingleton(TimeProvider.System);
+        Services.AddScoped<SubmissionThrottle>();
+        Auth = AddAuthorization();
     }
 
     protected const string ProductName = "Acme Surveys";
@@ -39,7 +41,7 @@ public abstract class UiTestBase : TestContext
 
     protected FakeResponseService Responses { get; } = new();
 
-    protected TestAuthorizationContext Auth { get; }
+    protected BunitAuthorizationContext Auth { get; }
 
     /// <summary>Signs in as a respondent (current user and authorization state).</summary>
     protected void SignInAsRespondent()

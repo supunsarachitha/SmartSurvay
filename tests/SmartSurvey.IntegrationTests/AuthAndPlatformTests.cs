@@ -79,4 +79,17 @@ public sealed class AuthAndPlatformTests(ApiFactory factory)
         Assert.Contains("/api/v1/users/{id}/roles", paths);
         Assert.Contains("/api/auth/login", paths);
     }
+
+    [Fact]
+    public async Task Expected_api_errors_are_not_logged_as_server_errors()
+    {
+        var admin = factory.Admin();
+        factory.Logs.Clear();
+
+        await ApiTestData.AssertStatusAsync(await admin.GetAsync($"/api/v1/surveys/{Guid.NewGuid()}"), System.Net.HttpStatusCode.NotFound);
+        await ApiTestData.AssertStatusAsync(
+            await admin.PostAsJsonAsync("/api/v1/surveys", new { title = "" }, ApiFactory.Json), System.Net.HttpStatusCode.BadRequest);
+
+        Assert.DoesNotContain(factory.Logs.Entries, e => e.Level >= Microsoft.Extensions.Logging.LogLevel.Error);
+    }
 }

@@ -31,7 +31,7 @@ public sealed class ReportUiTests : UiTestBase
         SignInAsAdmin();
     }
 
-    private string CurrentUri => Services.GetRequiredService<FakeNavigationManager>().Uri;
+    private string CurrentUri => Services.GetRequiredService<BunitNavigationManager>().Uri;
 
     private static ReportResult SampleResult() => new()
     {
@@ -61,7 +61,7 @@ public sealed class ReportUiTests : UiTestBase
     [Fact]
     public void Report_view_renders_kpis_charts_tables_notes_and_errors()
     {
-        var cut = RenderComponent<ReportView>(p => p.Add(x => x.Result, SampleResult()));
+        var cut = Render<ReportView>(p => p.Add(x => x.Result, SampleResult()));
 
         Assert.Contains("12 responses", cut.Markup);
         Assert.Contains("Completed responses only", cut.Find(".alert-light").TextContent);
@@ -79,7 +79,7 @@ public sealed class ReportUiTests : UiTestBase
     [Fact]
     public void Report_view_explains_empty_reports()
     {
-        var cut = RenderComponent<ReportView>(p => p.Add(x => x.Result, new ReportResult { SurveyTitle = "S" }));
+        var cut = Render<ReportView>(p => p.Add(x => x.Result, new ReportResult { SurveyTitle = "S" }));
 
         Assert.Contains("No widgets yet", cut.Markup);
     }
@@ -90,7 +90,7 @@ public sealed class ReportUiTests : UiTestBase
         var report = new ReportDefinitionDto();
         var pie = ReportDesign.AddWidget(report, _s.Definition, WidgetType.PieChart);
 
-        var cut = RenderComponent<WidgetEditor>(p => p.Add(x => x.Widget, pie).Add(x => x.Survey, _s.Definition).Add(x => x.Active, true));
+        var cut = Render<WidgetEditor>(p => p.Add(x => x.Widget, pie).Add(x => x.Survey, _s.Definition).Add(x => x.Active, true));
 
         Assert.Contains("Q1. Did you enjoy the product?", cut.Find(".qe-header").TextContent);
         Assert.Contains("Show percentages", cut.Markup);
@@ -114,7 +114,7 @@ public sealed class ReportUiTests : UiTestBase
         var report = new ReportDefinitionDto();
         var widget = ReportDesign.AddWidget(report, _s.Definition, WidgetType.CrossTab);
 
-        var cut = RenderComponent<WidgetEditor>(p => p.Add(x => x.Widget, widget).Add(x => x.Survey, _s.Definition).Add(x => x.Active, true));
+        var cut = Render<WidgetEditor>(p => p.Add(x => x.Widget, widget).Add(x => x.Survey, _s.Definition).Add(x => x.Active, true));
         cut.Find($"#wq-{widget.Id}").Change(_s.Features.Id.ToString());
 
         Assert.Equal(_s.Features.Id, widget.QuestionId);
@@ -126,7 +126,7 @@ public sealed class ReportUiTests : UiTestBase
     public void New_report_for_a_survey_starts_small_previews_and_is_created()
     {
         NavigateTo($"admin/reports/new?surveyId={_s.Definition.Id}");
-        var cut = RenderComponent<ReportBuilder>();
+        var cut = Render<ReportBuilder>();
 
         Assert.Equal("Customer feedback report", cut.Find("#r-name").GetAttribute("value"));
         Assert.Contains("Recommended overview", cut.Markup);
@@ -154,7 +154,7 @@ public sealed class ReportUiTests : UiTestBase
             Widgets = [new ReportWidgetDto { Type = WidgetType.SummaryStats }, new ReportWidgetDto { Type = WidgetType.PieChart, QuestionId = _s.Enjoy.Id }],
         };
         NavigateTo($"admin/reports/new?surveyId={_s.Definition.Id}");
-        var cut = RenderComponent<ReportBuilder>();
+        var cut = Render<ReportBuilder>();
 
         cut.FindAll("button").First(b => b.TextContent.Contains("Recommended overview")).Click();
 
@@ -166,7 +166,7 @@ public sealed class ReportUiTests : UiTestBase
     public void Validation_errors_are_shown_next_to_their_fields_and_widgets()
     {
         NavigateTo($"admin/reports/new?surveyId={_s.Definition.Id}");
-        var cut = RenderComponent<ReportBuilder>();
+        var cut = Render<ReportBuilder>();
         cut.FindAll("button").First(b => b.TextContent.Contains("Start small")).Click();
         _reports.SaveError = new AppValidationException(new Dictionary<string, string[]>
         {
@@ -191,7 +191,7 @@ public sealed class ReportUiTests : UiTestBase
         ReportDesign.AddWidget(existing, _s.Definition, WidgetType.PieChart);
         _reports.Existing = existing;
 
-        var cut = RenderComponent<ReportBuilder>(p => p.Add(x => x.Id, existing.Id));
+        var cut = Render<ReportBuilder>(p => p.Add(x => x.Id, existing.Id));
 
         Assert.Contains("Customer feedback", cut.Find(".form-control-plaintext").TextContent);
         var save = cut.FindAll("button").First(b => b.TextContent.Contains("Saved"));
@@ -209,7 +209,7 @@ public sealed class ReportUiTests : UiTestBase
         var id = Guid.NewGuid();
         _reports.RunResult = SampleResult();
 
-        var cut = RenderComponent<ReportViewer>(p => p.Add(x => x.Id, id));
+        var cut = Render<ReportViewer>(p => p.Add(x => x.Id, id));
 
         Assert.Contains("Q3 feedback", cut.Find("h1").TextContent);
         Assert.Equal(3, cut.FindAll(".widget-card").Count);

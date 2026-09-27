@@ -48,13 +48,13 @@ public sealed class AdminPagesTests : UiTestBase
         SignInAsAdmin();
     }
 
-    private FakeNavigationManager Navigation => Services.GetRequiredService<FakeNavigationManager>();
+    private BunitNavigationManager Navigation => Services.GetRequiredService<BunitNavigationManager>();
 
-    private static void Click(IRenderedFragment cut, string text, string selector = "button") =>
+    private static void Click<T>(IRenderedComponent<T> cut, string text, string selector = "button") where T : Microsoft.AspNetCore.Components.IComponent =>
         cut.FindAll(selector).First(b => b.TextContent.Contains(text, StringComparison.Ordinal)).Click();
 
     // The confirm dialog's primary button (rendered in the modal footer).
-    private static void Confirm(IRenderedFragment cut, string text) =>
+    private static void Confirm<T>(IRenderedComponent<T> cut, string text) where T : Microsoft.AspNetCore.Components.IComponent =>
         cut.FindAll(".ss-modal button").Last(b => b.TextContent.Contains(text, StringComparison.Ordinal)).Click();
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class AdminPagesTests : UiTestBase
             RecentResponses = [new RecentResponseDto { ResponseId = responseId, SurveyId = _s.Definition.Id, SurveyTitle = "Customer feedback", RespondentName = "Rita", SubmittedAt = DateTime.UtcNow }],
         };
 
-        var cut = RenderComponent<Dashboard>();
+        var cut = Render<Dashboard>();
 
         Assert.Equal(["4", "1,234", "87.5%", "9"], cut.FindAll(".stat-value").Select(v => v.TextContent.Trim()));
         Assert.Contains("2 live · 1 draft · 1 closed", cut.Markup);
@@ -84,7 +84,7 @@ public sealed class AdminPagesTests : UiTestBase
     [Fact]
     public void Dashboard_welcomes_new_installations()
     {
-        var cut = RenderComponent<Dashboard>();
+        var cut = Render<Dashboard>();
 
         Assert.Contains("Let's create your first survey", cut.Markup);
         Assert.Empty(cut.FindAll(".stat-card"));
@@ -108,7 +108,7 @@ public sealed class AdminPagesTests : UiTestBase
         var rita = AddResponse("Rita");
         AddResponse("Sam", ResponseStatus.InProgress);
 
-        var cut = RenderComponent<SurveyResponses>(p => p.Add(x => x.Id, _s.Definition.Id));
+        var cut = Render<SurveyResponses>(p => p.Add(x => x.Id, _s.Definition.Id));
 
         Assert.Equal(2, cut.FindAll("tbody tr").Count);
         Assert.Contains("1m 35s", cut.Markup);
@@ -130,7 +130,7 @@ public sealed class AdminPagesTests : UiTestBase
     [Fact]
     public void Responses_page_without_responses_invites_to_share()
     {
-        var cut = RenderComponent<SurveyResponses>(p => p.Add(x => x.Id, _s.Definition.Id));
+        var cut = Render<SurveyResponses>(p => p.Add(x => x.Id, _s.Definition.Id));
 
         Assert.Contains("No responses yet", cut.Markup);
         Assert.NotNull(cut.Find($"a[href='admin/surveys/{_s.Definition.Id}/share']"));
@@ -152,7 +152,7 @@ public sealed class AdminPagesTests : UiTestBase
             ],
         };
 
-        var cut = RenderComponent<ResponseDetail>(p => p.Add(x => x.Id, id));
+        var cut = Render<ResponseDetail>(p => p.Add(x => x.Id, id));
 
         Assert.Contains("Response from Rita Respondent", cut.Find("h1").TextContent);
         Assert.Equal(["Experience", "About you"], cut.FindAll("h2.text-uppercase").Select(h => h.TextContent.Trim()));
@@ -170,7 +170,7 @@ public sealed class AdminPagesTests : UiTestBase
     [Fact]
     public void Missing_response_shows_a_friendly_message()
     {
-        var cut = RenderComponent<ResponseDetail>(p => p.Add(x => x.Id, Guid.NewGuid()));
+        var cut = Render<ResponseDetail>(p => p.Add(x => x.Id, Guid.NewGuid()));
 
         Assert.Contains("This response can't be opened", cut.Markup);
     }
@@ -192,7 +192,7 @@ public sealed class AdminPagesTests : UiTestBase
         AddUser("admin@test.local", admin: true, id: TestCurrentUser.AdminId);
         var other = AddUser("rita@test.local");
 
-        var cut = RenderComponent<UserList>();
+        var cut = Render<UserList>();
 
         var rows = cut.FindAll("tbody tr");
         Assert.Contains("You", rows[0].TextContent);
@@ -212,7 +212,7 @@ public sealed class AdminPagesTests : UiTestBase
     public void Users_page_creates_users_and_shows_validation_errors()
     {
         AddUser("admin@test.local", admin: true, id: TestCurrentUser.AdminId);
-        var cut = RenderComponent<UserList>();
+        var cut = Render<UserList>();
 
         Click(cut, "New user");
         cut.Find("#nu-email").Input("new@test.local");
@@ -238,7 +238,7 @@ public sealed class AdminPagesTests : UiTestBase
     {
         AddUser("admin@test.local", admin: true, id: TestCurrentUser.AdminId);
         var rita = AddUser("rita@test.local");
-        var cut = RenderComponent<UserList>();
+        var cut = Render<UserList>();
 
         cut.FindAll("tbody tr")[1].QuerySelectorAll(".dropdown-item").Single(i => i.TextContent.Contains("Set new password")).Click();
         _users.PasswordError = new AppValidationException("Password", "Passwords must have at least one digit ('0'-'9').");
@@ -265,7 +265,7 @@ public sealed class AdminPagesTests : UiTestBase
         });
         _audit.Entries.Add(new AuditLogDto { Id = Guid.NewGuid(), Timestamp = DateTime.UtcNow, Action = AuditActions.ResponseSubmitted, EntityType = "Response", EntityId = "not-a-guid" });
 
-        var cut = RenderComponent<AuditLog>();
+        var cut = Render<AuditLog>();
 
         Assert.Contains("Survey status changed", cut.Markup);
         Assert.NotNull(cut.Find($"a[href='admin/surveys/{surveyId}/edit']"));
@@ -285,7 +285,7 @@ public sealed class AdminPagesTests : UiTestBase
     [Fact]
     public void Branding_page_saves_name_and_icon_and_refreshes_the_layout()
     {
-        var cut = RenderComponent<BrandingPage>();
+        var cut = Render<BrandingPage>();
         Assert.True(cut.FindAll("button").First(b => b.TextContent.Contains("Saved")).HasAttribute("disabled"));
 
         cut.Find("#b-name").Input("Pulse");
@@ -305,7 +305,7 @@ public sealed class AdminPagesTests : UiTestBase
     public void Branding_validation_errors_are_shown_on_the_fields()
     {
         _branding.UpdateError = new AppValidationException("IconName", "Please choose a valid Bootstrap icon (e.g. bi-ui-checks).");
-        var cut = RenderComponent<BrandingPage>();
+        var cut = Render<BrandingPage>();
 
         cut.Find("#b-icon").Input("not an icon");
         Click(cut, "Save changes");
@@ -319,7 +319,7 @@ public sealed class AdminPagesTests : UiTestBase
     public void Branding_reset_restores_the_defaults_after_confirmation()
     {
         _branding.Current = new BrandingDto { ProductName = "Pulse", IconName = "bi-star" };
-        var cut = RenderComponent<BrandingPage>();
+        var cut = Render<BrandingPage>();
 
         Click(cut, "Reset to defaults");
         Confirm(cut, "Reset");

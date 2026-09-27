@@ -11,7 +11,7 @@ public sealed class HomePageTests : UiTestBase
     [Fact]
     public void Uses_the_branded_product_name_and_invites_guests_to_sign_up()
     {
-        var page = RenderComponent<Home>();
+        var page = Render<Home>();
 
         Assert.Contains($"{ProductName} helps you build surveys", page.Markup);
         Assert.NotNull(page.Find("a[href='Account/Register']"));
@@ -23,7 +23,7 @@ public sealed class HomePageTests : UiTestBase
     {
         SignInAsAdmin();
 
-        var page = RenderComponent<Home>();
+        var page = Render<Home>();
 
         Assert.NotNull(page.Find("a[href='admin/surveys']"));
         Assert.Empty(page.FindAll("a[href='Account/Register']"));
@@ -35,7 +35,7 @@ public sealed class FaqPageTests : UiTestBase
     [Fact]
     public void Lists_every_group_with_the_product_name()
     {
-        var page = RenderComponent<Faq>();
+        var page = Render<Faq>();
 
         Assert.Equal(5, page.FindAll("div.accordion").Count);
         Assert.Contains($"What is {ProductName}?", page.Markup);
@@ -47,7 +47,7 @@ public sealed class FaqPageTests : UiTestBase
     {
         NavigateTo("faq?q=EXPORT");
 
-        var page = RenderComponent<Faq>();
+        var page = Render<Faq>();
 
         var questions = page.FindAll(".accordion-button").Select(b => b.TextContent.Trim()).ToList();
         Assert.Contains("Which export formats are supported?", questions);
@@ -61,7 +61,7 @@ public sealed class FaqPageTests : UiTestBase
     {
         NavigateTo("faq?q=zzzz-nothing");
 
-        var page = RenderComponent<Faq>();
+        var page = Render<Faq>();
 
         Assert.Contains("No matching questions", page.Markup);
         Assert.Empty(page.FindAll(".accordion"));
@@ -72,7 +72,7 @@ public sealed class FaqPageTests : UiTestBase
     {
         Support.ContactEmail = "help@acme.test";
 
-        var page = RenderComponent<Faq>();
+        var page = Render<Faq>();
 
         Assert.NotNull(page.Find("a[href='mailto:help@acme.test']"));
     }
@@ -83,7 +83,7 @@ public sealed class BuyMeACoffeePageTests : UiTestBase
     [Fact]
     public void Links_to_the_configured_account_in_a_new_tab()
     {
-        var page = RenderComponent<BuyMeACoffee>();
+        var page = Render<BuyMeACoffee>();
 
         var link = page.Find("a.btn-coffee");
         Assert.Equal("https://www.buymeacoffee.com/acme", link.GetAttribute("href"));
@@ -96,7 +96,7 @@ public sealed class BuyMeACoffeePageTests : UiTestBase
     {
         Support.BuyMeACoffeeUsername = "";
 
-        var page = RenderComponent<BuyMeACoffee>();
+        var page = Render<BuyMeACoffee>();
 
         Assert.Empty(page.FindAll("a.btn-coffee"));
         Assert.Contains("not set up", page.Markup);
@@ -105,10 +105,10 @@ public sealed class BuyMeACoffeePageTests : UiTestBase
     [Fact]
     public void GitHub_link_appears_only_when_configured()
     {
-        Assert.Empty(RenderComponent<BuyMeACoffee>().FindAll("a[href^='https://github.com']"));
+        Assert.Empty(Render<BuyMeACoffee>().FindAll("a[href^='https://github.com']"));
 
         Support.GitHubUrl = "https://github.com/acme/surveys";
-        Assert.NotNull(RenderComponent<BuyMeACoffee>().Find("a[href='https://github.com/acme/surveys']"));
+        Assert.NotNull(Render<BuyMeACoffee>().Find("a[href='https://github.com/acme/surveys']"));
     }
 }
 
@@ -117,7 +117,7 @@ public sealed class SurveysPageTests : UiTestBase
     [Fact]
     public void Guests_see_a_sign_in_prompt_and_an_empty_state()
     {
-        var page = RenderComponent<SurveysPage>();
+        var page = Render<SurveysPage>();
 
         Assert.Contains("Some surveys are for members only", page.Markup);
         Assert.Contains("No open surveys right now", page.Markup);
@@ -134,7 +134,7 @@ public sealed class SurveysPageTests : UiTestBase
             Survey("All done", "done", canRespond: false, hasCompleted: true),
         ]);
 
-        var page = RenderComponent<SurveysPage>();
+        var page = Render<SurveysPage>();
 
         Assert.DoesNotContain("Some surveys are for members only", page.Markup);
         Assert.Contains("Start survey", page.Find("a[href='s/new']").TextContent);
@@ -149,7 +149,7 @@ public sealed class SurveysPageTests : UiTestBase
         Responses.Available.AddRange([Survey("Customer feedback", "cf", canRespond: true), Survey("Team pulse", "tp", canRespond: true)]);
         NavigateTo("surveys?q=pulse");
 
-        var page = RenderComponent<SurveysPage>();
+        var page = Render<SurveysPage>();
 
         Assert.Single(page.FindAll("h2.h5"));
         Assert.Contains("Team pulse", page.Markup);
@@ -176,7 +176,7 @@ public sealed class MyResponsesPageTests : UiTestBase
     {
         SignInAsRespondent();
 
-        var page = RenderComponent<MyResponses>();
+        var page = Render<MyResponses>();
 
         Assert.Contains("No responses yet", page.Markup);
     }
@@ -191,7 +191,7 @@ public sealed class MyResponsesPageTests : UiTestBase
             new MyResponseDto { ResponseId = Guid.NewGuid(), SurveyTitle = "Draft survey", Slug = "draft", Status = ResponseStatus.InProgress, StartedAt = DateTime.UtcNow, CanContinue = true },
         ]);
 
-        var page = RenderComponent<MyResponses>();
+        var page = Render<MyResponses>();
 
         Assert.Equal(2, page.FindAll("tbody tr").Count);
         Assert.Single(page.FindAll("a[href='s/draft']"));
