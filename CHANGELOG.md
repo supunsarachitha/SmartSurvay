@@ -43,6 +43,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   uploaded PNG/JPEG/GIF/WebP/ICO/SVG logo, also used as favicon). Cached `IBrandingService`, public
   `/branding/logo` and `/branding/favicon` endpoints, `BrandMark` component in all layouts, product name in page titles
   and export footers, `AddBrandingSettings` migration, `Branding` configuration section for initial values.
+- **REST API** (`/api/v1`, cookie or bearer): surveys (CRUD, status, duplicate, templates, slug check, definition
+  export/import, responses list and raw export), public respondent endpoints (available surveys, start/resume, submit,
+  drafts, branding), my responses, response detail/delete, reports (CRUD, duplicate, default report, run, preview,
+  export), dashboard, users, audit log and branding administration; OpenAPI descriptions for every endpoint.
+  `docs/examples`: an .http walkthrough plus survey, response and report JSON examples. 35 integration tests.
 - Hosting: persistent data-protection keys, optional forwarded headers, configurable HTTPS redirect;
   cookie-or-bearer default authentication scheme; string enums in API JSON.
 - DevOps: Dockerfile, docker-compose (app + PostgreSQL), GitHub Actions CI, `scripts/smoke.sh`.

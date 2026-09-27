@@ -20,4 +20,8 @@
   <ItemGroup>
     <Using Include="Xunit" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The documented API examples are verified by DocumentedExampleTests. -->
+    <None Include="..\..\docs\examples\*.*" Link="Examples\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>

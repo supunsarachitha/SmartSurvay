@@ -1,0 +1,110 @@
+### SmartSurvey REST API walkthrough
+# Works with the VS Code "REST Client" extension, Visual Studio and JetBrains HTTP clients.
+# Start the app (dotnet run --project src/SmartSurvey.Web), then run the requests top to bottom.
+# The JSON bodies live next to this file: survey-definition.json, submit-response.json, report-definition.json.
+
+@baseUrl = http://localhost:5057
+@adminEmail = admin@smartsurvey.local
+@adminPassword = Admin123!
+
+### 1. Log in as administrator (bearer token)
+# @name login
+POST {{baseUrl}}/api/auth/login
+Content-Type: application/json
+
+{ "email": "{{adminEmail}}", "password": "{{adminPassword}}" }
+
+###
+@token = {{login.response.body.accessToken}}
+
+### 2. Create a survey (always saved as a draft)
+# @name createSurvey
+POST {{baseUrl}}/api/v1/surveys
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+< ./survey-definition.json
+
+###
+@surveyId = {{createSurvey.response.body.id}}
+@slug = {{createSurvey.response.body.slug}}
+
+### 3. Publish it
+POST {{baseUrl}}/api/v1/surveys/{{surveyId}}/status
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "status": "Published" }
+
+### 4. Respondent view: available surveys (anonymous)
+GET {{baseUrl}}/api/v1/public/surveys
+
+### 5. Start the survey (definition + eligibility; a signed-in user also gets their draft)
+GET {{baseUrl}}/api/v1/public/surveys/{{slug}}
+
+### 6. Submit a response (anonymous allowed by this survey; validated with the conditional logic)
+POST {{baseUrl}}/api/v1/public/surveys/{{surveyId}}/responses
+Content-Type: application/json
+
+< ./submit-response.json
+
+### 7. Responses of the survey (admin)
+GET {{baseUrl}}/api/v1/surveys/{{surveyId}}/responses?page=1&pageSize=20
+Authorization: Bearer {{token}}
+
+### 8. Raw export (csv | xlsx | json)
+GET {{baseUrl}}/api/v1/surveys/{{surveyId}}/responses/export?format=csv
+Authorization: Bearer {{token}}
+
+### 9. Generate and save the automatic overview report
+# @name defaultReport
+POST {{baseUrl}}/api/v1/reports/default/{{surveyId}}?save=true
+Authorization: Bearer {{token}}
+
+###
+@reportId = {{defaultReport.response.body.id}}
+
+### 10. Run the report (tables, chart data, statistics as JSON)
+GET {{baseUrl}}/api/v1/reports/{{reportId}}/run
+Authorization: Bearer {{token}}
+
+### 11. Export the report (pdf | csv | txt | xlsx | json)
+GET {{baseUrl}}/api/v1/reports/{{reportId}}/export?format=pdf
+Authorization: Bearer {{token}}
+
+### 12. Build a custom report: preview first (nothing is saved) ...
+# Replace "surveyId" in report-definition.json with the id from step 2 first.
+POST {{baseUrl}}/api/v1/reports/preview
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+< ./report-definition.json
+
+### 13. ... then save it
+POST {{baseUrl}}/api/v1/reports
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+< ./report-definition.json
+
+### 14. Dashboard KPIs
+GET {{baseUrl}}/api/v1/dashboard
+Authorization: Bearer {{token}}
+
+### 15. Audit log for the survey
+GET {{baseUrl}}/api/v1/audit?entityType=Survey&entityId={{surveyId}}
+Authorization: Bearer {{token}}
+
+### 16. Branding: read (public) and change (admin)
+GET {{baseUrl}}/api/v1/public/branding
+
+###
+PUT {{baseUrl}}/api/v1/branding
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "productName": "Pulse Check", "tagline": "Listen better", "iconName": "bi-heart-pulse" }
+
+###
+POST {{baseUrl}}/api/v1/branding/reset
+Authorization: Bearer {{token}}

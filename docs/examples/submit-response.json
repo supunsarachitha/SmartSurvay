@@ -1,0 +1,28 @@
+{
+  "currentSectionIndex": 1,
+  "answers": [
+    {
+      "questionId": "0a000000-0000-4000-8000-000000000001",
+      "selections": [ { "optionId": "0b000000-0000-4000-8000-000000000002" } ]
+    },
+    {
+      "questionId": "0a000000-0000-4000-8000-000000000002",
+      "text": "Exports take too long for large surveys."
+    },
+    {
+      "questionId": "0a000000-0000-4000-8000-000000000003",
+      "selections": [
+        { "optionId": "0b000000-0000-4000-8000-000000000011" },
+        { "optionId": "0b000000-0000-4000-8000-000000000014", "freeText": "API access" }
+      ]
+    },
+    {
+      "questionId": "0a000000-0000-4000-8000-000000000004",
+      "number": 3
+    },
+    {
+      "questionId": "0a000000-0000-4000-8000-000000000005",
+      "selections": [ { "optionId": "0b000000-0000-4000-8000-000000000024", "freeText": "Oceania" } ]
+    }
+  ]
+}

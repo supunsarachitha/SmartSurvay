@@ -24,6 +24,7 @@ public static class ApiEndpoints
         api.MapGroup("/dashboard").WithTags("Dashboard").RequireAuthorization(AuthPolicies.ApiAdmin).MapDashboardEndpoints();
         api.MapGroup("/users").WithTags("Users").RequireAuthorization(AuthPolicies.ApiAdmin).MapUserEndpoints();
         api.MapGroup("/audit").WithTags("Audit").RequireAuthorization(AuthPolicies.ApiAdmin).MapAuditEndpoints();
+        api.MapGroup("/branding").WithTags("Branding").RequireAuthorization(AuthPolicies.ApiAdmin).MapBrandingEndpoints();
 
         return app;
     }

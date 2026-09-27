@@ -1,0 +1,108 @@
+{
+  "title": "Customer satisfaction",
+  "description": "Tell us about your experience. It takes about two minutes.",
+  "slug": "customer-satisfaction",
+  "allowAnonymous": true,
+  "allowMultipleResponses": false,
+  "showProgressBar": true,
+  "showQuestionNumbers": true,
+  "welcomeMessage": "Thanks for taking the time to help us improve.",
+  "thankYouMessage": "Thank you! Your feedback has been recorded.",
+  "sections": [
+    {
+      "id": "5e000000-0000-4000-8000-000000000001",
+      "title": "Your experience",
+      "order": 0,
+      "questions": [
+        {
+          "id": "0a000000-0000-4000-8000-000000000001",
+          "type": "Radio",
+          "code": "Q1",
+          "text": "Overall, are you satisfied with our product?",
+          "isRequired": true,
+          "order": 0,
+          "options": [
+            { "id": "0b000000-0000-4000-8000-000000000001", "text": "Yes", "order": 0 },
+            { "id": "0b000000-0000-4000-8000-000000000002", "text": "No", "order": 1 }
+          ]
+        },
+        {
+          "id": "0a000000-0000-4000-8000-000000000002",
+          "type": "LongText",
+          "code": "Q2",
+          "text": "What should we improve?",
+          "description": "Only shown when you answered \"No\" above.",
+          "isRequired": true,
+          "order": 1,
+          "settings": { "maxLength": 1000, "placeholder": "Tell us what went wrong" }
+        },
+        {
+          "id": "0a000000-0000-4000-8000-000000000003",
+          "type": "Checkbox",
+          "code": "Q3",
+          "text": "Which features do you use?",
+          "order": 2,
+          "settings": { "maxSelections": 3 },
+          "options": [
+            { "id": "0b000000-0000-4000-8000-000000000011", "text": "Reports", "order": 0 },
+            { "id": "0b000000-0000-4000-8000-000000000012", "text": "Conditional logic", "order": 1 },
+            { "id": "0b000000-0000-4000-8000-000000000013", "text": "Exports", "order": 2 },
+            { "id": "0b000000-0000-4000-8000-000000000014", "text": "Other", "order": 3, "allowsFreeText": true, "freeTextPlaceholder": "Please specify" }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "5e000000-0000-4000-8000-000000000002",
+      "title": "About you",
+      "order": 1,
+      "questions": [
+        {
+          "id": "0a000000-0000-4000-8000-000000000004",
+          "type": "Rating",
+          "code": "Q4",
+          "text": "How would you rate us?",
+          "isRequired": true,
+          "order": 0,
+          "settings": { "ratingMax": 5 }
+        },
+        {
+          "id": "0a000000-0000-4000-8000-000000000005",
+          "type": "Dropdown",
+          "code": "Q5",
+          "text": "Where are you based?",
+          "order": 1,
+          "options": [
+            { "id": "0b000000-0000-4000-8000-000000000021", "text": "Europe", "order": 0 },
+            { "id": "0b000000-0000-4000-8000-000000000022", "text": "Asia", "order": 1 },
+            { "id": "0b000000-0000-4000-8000-000000000023", "text": "Americas", "order": 2 },
+            { "id": "0b000000-0000-4000-8000-000000000024", "text": "Other", "order": 3, "allowsFreeText": true }
+          ]
+        },
+        {
+          "id": "0a000000-0000-4000-8000-000000000006",
+          "type": "Email",
+          "code": "Q6",
+          "text": "Your e-mail (optional, if you would like a reply)",
+          "order": 2
+        }
+      ]
+    }
+  ],
+  "logicRules": [
+    {
+      "id": "0c000000-0000-4000-8000-000000000001",
+      "targetQuestionId": "0a000000-0000-4000-8000-000000000002",
+      "action": "Show",
+      "matchType": "All",
+      "conditions": [
+        {
+          "id": "0d000000-0000-4000-8000-000000000001",
+          "sourceQuestionId": "0a000000-0000-4000-8000-000000000001",
+          "operator": "Equals",
+          "optionId": "0b000000-0000-4000-8000-000000000002"
+        }
+      ]
+    }
+  ]
+}

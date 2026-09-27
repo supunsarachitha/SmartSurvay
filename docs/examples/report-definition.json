@@ -1,0 +1,39 @@
+{
+  "name": "Customer satisfaction - monthly overview",
+  "description": "Completed responses of September 2026.",
+  "surveyId": "REPLACE-WITH-SURVEY-ID",
+  "filters": {
+    "from": "2026-09-01",
+    "to": "2026-09-30",
+    "includeInProgress": false,
+    "matchType": "All",
+    "answerFilters": []
+  },
+  "widgets": [
+    { "title": "Summary", "type": "SummaryStats", "order": 0 },
+    { "title": "Responses per week", "type": "LineChart", "order": 1, "settings": { "timeGrouping": "Week" } },
+    { "title": "Satisfied?", "type": "PieChart", "questionId": "0a000000-0000-4000-8000-000000000001", "order": 2 },
+    {
+      "title": "Features used",
+      "type": "HorizontalBarChart",
+      "questionId": "0a000000-0000-4000-8000-000000000003",
+      "order": 3,
+      "settings": { "sortOrder": "CountDescending", "includeFreeText": true }
+    },
+    {
+      "title": "Satisfaction by region",
+      "type": "CrossTab",
+      "questionId": "0a000000-0000-4000-8000-000000000001",
+      "secondaryQuestionId": "0a000000-0000-4000-8000-000000000005",
+      "order": 4
+    },
+    { "title": "Rating", "type": "BarChart", "questionId": "0a000000-0000-4000-8000-000000000004", "order": 5 },
+    {
+      "title": "Improvement ideas",
+      "type": "TextResponses",
+      "questionId": "0a000000-0000-4000-8000-000000000002",
+      "order": 6,
+      "settings": { "maxRows": 50 }
+    }
+  ]
+}

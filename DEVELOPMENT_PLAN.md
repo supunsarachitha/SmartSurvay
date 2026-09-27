@@ -248,10 +248,10 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Unit tests for each track (564 unit tests green; separate agent review rounds dropped — see "Working mode")
 
 ### Phase 5 — Web host & REST API
-- [ ] Program.cs: Identity (cookie + bearer), policies, API 401/403 handling, rate limiting, health, Swagger, exception handler
-- [ ] Minimal API endpoint groups (surveys, public, responses, reports, dashboard, users, audit)
-- [ ] `docs/examples/*.http` + JSON examples
-- [ ] Integration tests (WebApplicationFactory + SQLite)
+- [x] Program.cs: Identity (cookie + bearer), policies, API 401/403 handling, rate limiting, health, Swagger, exception handler
+- [x] Minimal API endpoint groups (surveys, public, responses, reports, dashboard, users, audit, branding)
+- [x] `docs/examples/*.http` + JSON examples (verified by `DocumentedExampleTests`)
+- [x] Integration tests (WebApplicationFactory + SQLite): 35 tests
 
 ### Phase 6 — Blazor UI
 - [ ] 6A Layout, nav, dark mode, shared components, Home, FAQ, Buy Me a Coffee, surveys list
@@ -340,3 +340,4 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Phase 4 (run 2) | Workflow `phase4-complete`: finish 4C/4D, independent review+fix of 4A–4D (incl. PostgreSQL query checks). Workflow scripts saved in `.claude/workflows/` (`phase4-complete.js`, next `phase56-api-and-ui.js`; args documented at the top of §9) |
 | 2026-09-27 | Working mode | User asked to stop multi-agent workflows (usage). Workflow run 2 stopped mid-4C/4D; partial files kept. Remaining work continues directly on `main`, sequentially (see "Working mode" above). Login page fix: internal CookieOrBearer scheme hidden from external-login list |
 | 2026-09-27 | Phase 4 done | 4C finished directly: ReportService, PDF/CSV/TXT/XLSX/JSON exporters, raw response export (QuestPDF configured by the PDF exporter). Tests added for 4C (79) and 4D (28: audit, dashboard, users with real Identity, seeder). 564 unit tests green; seeder verified on PostgreSQL (admin login + demo data). Next: Phase 5 (REST API) |
+| 2026-09-27 | Phase 5 done | REST API: 8 groups + branding under `/api/v1` (Api/*Endpoints.cs), optional query records for list endpoints (`ApiQueries.cs`), logo upload as base64 JSON (CSRF-safe without antiforgery), `docs/examples` (.http walkthrough + survey/response/report JSON). 35 integration tests (auth 401/403, ProblemDetails, lifecycle, public flow, exports, reports, admin, branding, OpenAPI, examples). Next: Phase 6A |
