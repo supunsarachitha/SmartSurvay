@@ -4,6 +4,7 @@
   "description": "Headless-browser checks and the guide screenshots of SmartSurvey (see the comment at the top of each script).",
   "scripts": {
     "check": "node workspaces.check.js",
+    "buttons": "node buttons.check.js",
     "screenshots": "node screenshots.js"
   },
   "dependencies": {

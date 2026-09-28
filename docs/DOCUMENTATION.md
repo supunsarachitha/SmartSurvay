@@ -780,6 +780,7 @@ bash scripts/smoke.sh --user admin / /admin /admin/surveys   # boot the app and 
 bash scripts/smoke.sh --user superadmin /system /system/workspaces  # users: admin, user, acme, superadmin, anon
 scripts/container-smoke.sh http://localhost:8080             # smoke-test a running container stack
 cd scripts/browser && npm install && npm run check           # headless-browser workspace flows (see the script)
+cd scripts/browser && npm run buttons                        # GUI check of the buttons: key flows + every button of every page (fresh instance!)
 cd scripts/browser && npm run screenshots                    # recapture every guide/README screenshot (fresh instance!)
 ```
 
@@ -800,6 +801,14 @@ cd scripts/browser && npm run screenshots                    # recapture every g
 * **Browser check** (`scripts/browser/workspaces.check.js`, puppeteer-core + Chrome) drives the interactive Blazor
   circuits through sign-up, settings, disabling/enabling, the System console and the survey runner against a fresh
   instance, and fails on console errors, failed requests or 5xx responses.
+* **GUI button check** (`scripts/browser/buttons.check.js`) checks what the key buttons do — Preview from the survey
+  list, the builder (also with unsaved changes, which are saved first) and the share page, the preview's width toggle
+  and runner buttons, builder editing, exports, copy/QR/print, report live preview, dialogs, branding preview — and then
+  clicks every visible button and button-styled link on every page for guests, members, admins and super admins
+  (dialogs are cancelled; log out and account deletion are never clicked). Clicks that raise errors fail the run; clicks
+  without a visible effect are listed for review. It changes data, so run it against a fresh demo instance only —
+  preferably a throwaway container of the real image (the script's header has the commands), because Development
+  builds serve Blazor's scripts differently from the published app.
 
 ## 19. Deployment
 
@@ -858,6 +867,7 @@ container; builds the Docker image, starts it with docker compose and runs `scri
 | Answers show "[encrypted answer — the key to read it is not available]" | The data-protection key ring is missing or from another installation (e.g. a database restored without its `keys` volume). Restore the matching key backup into `DataProtection:KeysPath` and restart |
 | First start on an empty PostgreSQL database logs `fail: … Failed executing DbCommand … FROM "__EFMigrationsHistory"` | Expected (EF Core 9+): it looks for the history table once before creating it; the migrations are applied right after |
 | `Error: libgssapi_krb5.so.2: cannot open shared object file` in the log | The connection string asks for GSS (Kerberos) encryption on a system without libgssapi — remove `GSS Encryption Mode` (SmartSurvey disables it unless set) or install `libgssapi-krb5-2` |
+| Buttons do nothing; the browser console shows `404` for `_framework/blazor.web.js` | The build restored packages without seeing the `.razor` files (e.g. a custom Dockerfile), so .NET 10 left out Blazor's scripts. Keep `<RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>` in `SmartSurvey.Web.csproj` and rebuild |
 | PDF export fails in a custom Linux image | Install `libfontconfig1` and a font package (see Dockerfile) |
 | Docker Desktop "Linux engine" errors on Windows | Enable WSL 2 (`wsl --install`, reboot) or use native PostgreSQL |
 | `409 Conflict` when saving a survey | Someone else saved it — reload the builder and re-apply your changes |

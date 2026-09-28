@@ -2,6 +2,10 @@
   <!-- Web host: Blazor Web App (Interactive Server) UI + Minimal API endpoints. -->
   <PropertyGroup>
     <UserSecretsId>aspnet-SmartSurvey.Web-c92c54bc-3209-498f-9a48-a2c8dd7a6571</UserSecretsId>
+    <!-- .NET 10 serves Blazor's scripts (_framework/blazor.web.js) as static web assets from a package the SDK only adds
+         when it sees .razor files during restore. The Dockerfile restores with the project files alone (layer caching),
+         so say it explicitly — without it the published app has no Blazor script and no button works. -->
+    <RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\SmartSurvey.Infrastructure\SmartSurvey.Infrastructure.csproj" />

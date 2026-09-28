@@ -24,10 +24,15 @@ version — the migration `AddStarterTemplatesSetting` runs automatically. Self-
 - `Workspaces:StatusCacheSeconds` (default 30, `0` = no cache): how quickly other app instances notice a disabled
   workspace.
 - `scripts/browser/screenshots.js` recaptures every guide and README screenshot from a fresh demo instance.
+- `scripts/browser/buttons.check.js` (`npm run buttons`): GUI check of the buttons — what the key buttons do (Preview,
+  runner, builder, exports, copy/QR/print, dialogs, live previews) and a crawl that clicks every button of every page
+  for each role. `scripts/container-smoke.sh` now also checks that every script the pages load is served.
 
 ### Changed
 - **.NET 10 LTS:** `net10.0`, C# 14, ASP.NET Core / EF Core 10.0.12, Npgsql 10.0.3, container images `sdk:10.0` /
-  `aspnet:10.0` (Ubuntu 24.04), `dotnet-ef` 10. No schema changes from the upgrade.
+  `aspnet:10.0` (Ubuntu 24.04), `dotnet-ef` 10. No schema changes from the upgrade. .NET 10 serves Blazor's script as a
+  static web asset that the SDK only adds when it sees `.razor` files during restore; the web project now requests it
+  explicitly (`RequiresAspNetWebAssets`), because the Docker build restores with the project files alone.
 - The framing headers (`X-Frame-Options` / CSP `frame-ancestors`) come from one place: Blazor's own `frame-ancestors`
   header is switched off, because a second CSP header would block embedded surveys. While embedding is enabled,
   WebSocket compression of the interactive circuit is off, as recommended for pages other sites can frame.
