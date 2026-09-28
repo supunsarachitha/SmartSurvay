@@ -2,7 +2,8 @@
 //  1. Scenarios that check what the key buttons do: Preview from the survey list, the builder (saved and with unsaved
 //     changes) and the share page; preview width toggle; runner Next/Back/Submit/Restart; builder editing buttons;
 //     status menu; new survey; duplicate and delete with confirmation; exports (definition, responses, reports); copy
-//     and QR buttons; print; report live preview; user dialog; branding live preview; theme toggle; public runner.
+//     and QR buttons; print; report live preview; user dialog; branding live preview; theme toggle; public runner;
+//     account settings (profile, password, two-factor sign-in with a computed authenticator code; all restored).
 //  2. A crawler that clicks every visible button and button-styled link on every page for each role (guest, member,
 //     admin, super admin) and reports clicks that raise errors or change nothing. Account-ending buttons (log out,
 //     delete account, 2FA resets) are never clicked; dialogs a click opens are cancelled.
@@ -128,6 +129,17 @@ async function answerPage(page) {
     await h.evaluate(e => e.dispatchEvent(new Event('change', { bubbles: true })));
   }
   await sleep(300);
+}
+// Current 6-digit authenticator code (RFC 6238, SHA-1, 30 s) for a base32 key as the setup page shows it.
+function totp(key) {
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+  const bits = [...key.replace(/\s+/g, '').toUpperCase()].map(c => alphabet.indexOf(c)).filter(v => v >= 0)
+    .map(v => v.toString(2).padStart(5, '0')).join('');
+  const bytes = []; for (let i = 0; i + 8 <= bits.length; i += 8) bytes.push(parseInt(bits.slice(i, i + 8), 2));
+  const counter = Buffer.alloc(8); counter.writeBigUInt64BE(BigInt(Math.floor(Date.now() / 30000)));
+  const hash = require('crypto').createHmac('sha1', Buffer.from(bytes)).update(counter).digest();
+  const offset = hash[hash.length - 1] & 15;
+  return ((hash.readUInt32BE(offset) & 0x7fffffff) % 1000000).toString().padStart(6, '0');
 }
 // Types the text of the active question in the builder (a question without text blocks saving).
 async function fillQuestionText(page, value) {
@@ -603,6 +615,64 @@ async function step(name, fn) {
       await clickText(guest, 'button', 'Submit');
       await waitFor(() => guest.url().includes('/thank-you'), 15000); await sleep(800);
       check('guest: Next… Submit stores the response and shows the thank-you page', guest.url().includes('/thank-you'), `${walked} pages, ${guest.url().replace(BASE, '')}`);
+    });
+
+    // ----- Account settings: profile, password, two-factor sign-in (as the member; everything is restored) ---------
+    await step('Account settings', async () => {
+      const me = await newPage(browser, 'member');
+      await login(me, MEMBER);
+      const status = () => me.$eval('.alert', e => e.innerText).catch(() => '');
+      const post = label => Promise.all([me.waitForNavigation({ waitUntil: 'networkidle0' }).catch(() => {}), clickText(me, 'button', label)])
+        .then(() => sleep(500));
+      const topName = () => me.evaluate(() => [...document.querySelectorAll('[data-bs-toggle=dropdown]')]
+        .find(t => t.parentElement.textContent.includes('Log out'))?.innerText.replace(/\s+/g, ' ').trim() || '');
+      const fill = async (selector, value) => { await me.$eval(selector, e => { e.value = ''; }); await me.type(selector, value); };
+      const follow = async (label, path) => { // links load in place (enhanced navigation): wait for the new page
+        await clickText(me, 'a.btn', label);
+        await me.waitForFunction(p => location.pathname.endsWith(p), { timeout: 10000 }, path);
+        await me.waitForNetworkIdle({ idleTime: 300 }).catch(() => {}); await sleep(400);
+      };
+
+      await go(me, '/Account/Manage');
+      const original = await me.$eval('#profile-name', e => e.value);
+      await fill('#profile-name', `${original} GUI`);
+      await post('Save profile');
+      check('account: Save profile stores the name and the top bar shows it',
+        (await status()).includes('profile has been updated') && (await topName()).includes(`${original} GUI`), await topName());
+      await fill('#profile-name', original);
+      await post('Save profile');
+      await fill('#profile-phone', 'not a phone');
+      await post('Save profile');
+      check('account: an invalid phone number is explained', (await text(me)).includes('valid phone number'));
+
+      const changePassword = async (current, next) => {
+        await go(me, '/Account/Manage/ChangePassword');
+        await fill('#old-password', current); await fill('#new-password', next); await fill('#confirm-password', next);
+        await post('Update password');
+        return status();
+      };
+      const refused = await changePassword('Wrong123!x', 'Changed123!x');
+      check('account: Update password refuses a wrong current password', /incorrect password/i.test(refused), refused);
+      const changed = await changePassword(MEMBER[1], 'Changed123!x');
+      check('account: Update password changes it', /changed/i.test(changed), changed);
+      await changePassword('Changed123!x', MEMBER[1]); // back to the demo password
+
+      await go(me, '/Account/Manage/TwoFactorAuthentication');
+      const badge = () => me.$eval('.settings-card .badge', e => e.innerText.trim()).catch(() => '');
+      check('account: two-factor sign-in starts off', (await badge()) === 'Off', await badge());
+      await follow('authenticator app', '/Account/Manage/EnableAuthenticator');
+      const key = await me.$eval('.secret-key', e => e.innerText);
+      check('account: authenticator setup shows a QR code and the key', !!(await me.$('.qr-box svg')) && key.replace(/\s/g, '').length >= 16, key);
+      await fill('#code', totp(key));
+      await post('Verify');
+      const codes = await count(me, '.recovery-code');
+      check('account: Verify turns two-factor sign-in on and shows 10 recovery codes', codes === 10, `${codes} codes; ${await status()}`);
+      await go(me, '/Account/Manage/TwoFactorAuthentication');
+      check('account: the two-factor page shows On', (await badge()) === 'On', await badge());
+      await follow('Disable 2FA', '/Account/Manage/Disable2fa');
+      await post('Disable 2FA');
+      check('account: Disable 2FA turns it off again', /turned off/i.test(await status()) && (await badge()) === 'Off', await status());
+      await me.browserContext().close();
     });
 
     // ----- Crawler ---------------------------------------------------------------------------------------------

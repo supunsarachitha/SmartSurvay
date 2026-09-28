@@ -1,37 +1,57 @@
-﻿@using Microsoft.AspNetCore.Identity
+@using Microsoft.AspNetCore.Identity
 @using SmartSurvey.Domain.Identity
 
 @inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager NavigationManager
+@* Settings navigation: vertical on large screens, a scrollable row on small ones. A section stays highlighted on its
+   sub-pages (e.g. two-factor authentication while setting up the authenticator app). *@
 
-<ul class="nav nav-pills flex-column">
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage" Match="NavLinkMatch.All"><i class="bi bi-person me-2"></i>Profile</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/Email"><i class="bi bi-envelope me-2"></i>E-mail</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/ChangePassword"><i class="bi bi-key me-2"></i>Password</NavLink>
-    </li>
-    @if (hasExternalLogins)
-    {
-        <li class="nav-item">
-            <NavLink class="nav-link" href="Account/Manage/ExternalLogins"><i class="bi bi-box-arrow-in-right me-2"></i>External logins</NavLink>
-        </li>
-    }
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/TwoFactorAuthentication"><i class="bi bi-shield-lock me-2"></i>Two-factor authentication</NavLink>
-    </li>
-    <li class="nav-item">
-        <NavLink class="nav-link" href="Account/Manage/PersonalData"><i class="bi bi-database me-2"></i>Personal data</NavLink>
-    </li>
-</ul>
+<nav aria-label="Account settings">
+    <ul class="nav flex-column account-nav">
+        @foreach (var item in Items)
+        {
+            var active = IsActive(item);
+            <li class="nav-item">
+                <a class="nav-link @(active ? "active" : null)" href="@item.Href" aria-current="@(active ? "page" : null)">
+                    <i class="bi @item.Icon" aria-hidden="true"></i>@item.Label
+                </a>
+            </li>
+        }
+    </ul>
+</nav>
 
 @code {
+    private string path = string.Empty;
     private bool hasExternalLogins;
+
+    private sealed record NavItem(string Label, string Icon, string Href, string[] Pages);
+
+    private IEnumerable<NavItem> Items
+    {
+        get
+        {
+            yield return new("Profile", "bi-person", "Account/Manage", ["Account/Manage"]);
+            yield return new("E-mail", "bi-envelope", "Account/Manage/Email", ["Account/Manage/Email"]);
+            yield return new("Password", "bi-key", "Account/Manage/ChangePassword", ["Account/Manage/ChangePassword", "Account/Manage/SetPassword"]);
+            if (hasExternalLogins)
+            {
+                yield return new("External logins", "bi-box-arrow-in-right", "Account/Manage/ExternalLogins", ["Account/Manage/ExternalLogins"]);
+            }
+
+            yield return new("Two-factor sign-in", "bi-shield-lock", "Account/Manage/TwoFactorAuthentication",
+                ["Account/Manage/TwoFactorAuthentication", "Account/Manage/EnableAuthenticator", "Account/Manage/Disable2fa",
+                 "Account/Manage/ResetAuthenticator", "Account/Manage/GenerateRecoveryCodes"]);
+            yield return new("Personal data", "bi-database", "Account/Manage/PersonalData", ["Account/Manage/PersonalData", "Account/Manage/DeletePersonalData"]);
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {
         hasExternalLogins = (await SignInManager.GetExternalAuthenticationSchemesAsync()).Any();
     }
+
+    protected override void OnParametersSet() =>
+        path = NavigationManager.ToBaseRelativePath(NavigationManager.Uri).Split('?', '#')[0].TrimEnd('/');
+
+    private bool IsActive(NavItem item) => item.Pages.Any(p => string.Equals(p, path, StringComparison.OrdinalIgnoreCase));
 }

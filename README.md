@@ -23,7 +23,7 @@ ASP.NET Core 10 · Blazor (Interactive Server) · EF Core 10 · PostgreSQL · Qu
 
 - **Workspaces** — one installation hosts many fully isolated workspaces, each with its own admins, members, surveys,
   responses and reports. Anyone can create a workspace at `/signup` (optionally with approval) and invite people with
-  a join link.
+  a join link. New workspaces start with three ready-made survey templates.
 - **System console for super admins** — create, approve, disable, enable and delete workspaces, manage every account,
   the branding and the system settings, without seeing any workspace's content.
 - **Survey builder** — 10 question types (text, paragraph, radio, checkbox, dropdown, number, e-mail, date, star rating,
@@ -41,6 +41,8 @@ ASP.NET Core 10 · Blazor (Interactive Server) · EF Core 10 · PostgreSQL · Qu
   stored as hashes.
 - **Dynamic reports** — KPIs, distribution tables, bar/pie/doughnut/line charts, cross-tabs, NPS, text answers and raw
   grids with date and answer filters, live preview, and **PDF / CSV / TXT / Excel / JSON** export.
+- **Accounts & security** — self-service account settings (name, e-mail, password, personal data download or
+  deletion), two-factor sign-in with any authenticator app (QR code, recovery codes), account lockout and rate limits.
 - **Administration** — per workspace: dashboard, response browser, member & role management (incl. password reset),
   audit log and workspace settings; system-wide branding (product name, tagline, logo) in the System console.
 - **Built-in user guide** — step-by-step help for non-technical users at `/guide`.
@@ -214,7 +216,12 @@ The Blazor UI and the REST API share one Application layer, so business rules ar
 dotnet test                                                       # unit + integration tests
 bash scripts/smoke.sh --user admin / /admin /admin/surveys /admin/reports
 scripts/container-smoke.sh http://localhost:8080                  # against a running container stack
+cd scripts/browser && npm install && npm run check                # headless-browser checks of the workspace flows
+BASE=http://localhost:8099 npm run buttons                        # GUI check of every button (fresh demo instance only)
 ```
+
+The GUI check changes data, so it refuses to run unless the demo passwords work; its header shows how to start a
+throwaway container of the real image for it.
 
 ## ☕ Support
 

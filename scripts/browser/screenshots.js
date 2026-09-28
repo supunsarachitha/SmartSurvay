@@ -135,6 +135,11 @@ const exists = (page, selector) => page.$(selector).then(Boolean);
     await go(admin, `/admin/reports/${report.id}/edit`); await sleep(1500); await shot(admin, 'report-builder');
     await go(admin, '/admin/users'); await shot(admin, 'users');
 
+    // ----- member: account settings
+    const member = await newPage(browser);
+    await login(member, 'user@smartsurvey.local', 'User123!');
+    await go(member, '/Account/Manage'); await shot(member, 'account-settings');
+
     // ----- super admin
     const sup = await newPage(browser);
     await login(sup, 'superadmin@smartsurvey.local', 'SuperAdmin123!');

@@ -1,4 +1,4 @@
-﻿@page "/Account/Manage/Email"
+@page "/Account/Manage/Email"
 
 @using System.ComponentModel.DataAnnotations
 @using System.Text
@@ -12,46 +12,51 @@
 @inject IdentityUserAccessor UserAccessor
 @inject NavigationManager NavigationManager
 
-<PageTitle>Manage email</PageTitle>
+<PageTitle>E-mail</PageTitle>
 
-<h3>Manage email</h3>
+<StatusMessage Message="@message" />
 
-<StatusMessage Message="@message"/>
-<div class="row">
-    <div class="col-md-6">
-        <form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
-            <AntiforgeryToken />
-        </form>
-        <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post">
-            <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            @if (isEmailConfirmed)
+<form @onsubmit="OnSendEmailVerificationAsync" @formname="send-verification" id="send-verification-form" method="post">
+    <AntiforgeryToken />
+</form>
+
+<SettingsCard Icon="bi-envelope" Title="E-mail address" Description="You sign in with this address, and password resets and confirmations are sent to it.">
+    <Badge>
+        @if (isEmailConfirmed)
+        {
+            <span class="badge badge-status badge-published">Verified</span>
+        }
+        else
+        {
+            <span class="badge badge-status badge-closed">Not verified</span>
+        }
+    </Badge>
+    <ChildContent>
+        <div class="settings-form">
+            <label class="form-label" for="current-email">Current e-mail</label>
+            <input id="current-email" type="email" value="@email" class="form-control" disabled />
+            @if (!isEmailConfirmed)
             {
-                <div class="form-floating mb-3 input-group">
-                    <input type="text" value="@email" class="form-control" placeholder="Please enter your email." disabled />
-                    <div class="input-group-append">
-                        <span class="h-100 input-group-text text-success font-weight-bold">✓</span>
-                    </div>
-                    <label for="email" class="form-label">Email</label>
+                <div class="form-text d-flex flex-wrap align-items-center gap-2">
+                    <span>This address hasn't been verified yet.</span>
+                    <button type="submit" class="btn btn-link btn-sm p-0 align-baseline" form="send-verification-form">Send verification email</button>
                 </div>
             }
-            else
-            {
-                <div class="form-floating mb-3">
-                    <input type="text" value="@email" class="form-control" placeholder="Please enter your email." disabled />
-                    <label for="email" class="form-label">Email</label>
-                    <button type="submit" class="btn btn-link" form="send-verification-form">Send verification email</button>
-                </div>
-            }
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.NewEmail" class="form-control" autocomplete="email" aria-required="true" placeholder="Please enter new email." />
-                <label for="new-email" class="form-label">New email</label>
-                <ValidationMessage For="() => Input.NewEmail" class="text-danger" />
-            </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Change email</button>
-        </EditForm>
-    </div>
-</div>
+        </div>
+    </ChildContent>
+</SettingsCard>
+
+<SettingsCard Icon="bi-pencil-square" Title="Change e-mail" Description="We send a confirmation link to the new address. The change takes effect when you open it.">
+    <EditForm Model="Input" FormName="change-email" OnValidSubmit="OnValidSubmitAsync" method="post" class="settings-form">
+        <DataAnnotationsValidator />
+        <div class="mb-4">
+            <label class="form-label" for="new-email">New e-mail</label>
+            <InputText id="new-email" type="email" @bind-Value="Input.NewEmail" class="form-control" autocomplete="email" aria-required="true" placeholder="name@example.com" />
+            <ValidationMessage For="() => Input.NewEmail" class="text-danger small" />
+        </div>
+        <button type="submit" class="btn btn-primary"><i class="bi bi-send"></i>Change e-mail</button>
+    </EditForm>
+</SettingsCard>
 
 @code {
     private string? message;
@@ -79,7 +84,7 @@
     {
         if (Input.NewEmail is null || Input.NewEmail == email)
         {
-            message = "Your email is unchanged.";
+            message = "That is already your e-mail address.";
             return;
         }
 
@@ -92,7 +97,7 @@
 
         await EmailSender.SendConfirmationLinkAsync(user, Input.NewEmail, HtmlEncoder.Default.Encode(callbackUrl));
 
-        message = "Confirmation link to change email sent. Please check your email.";
+        message = "We sent a confirmation link to the new address. Open it to finish the change.";
     }
 
     private async Task OnSendEmailVerificationAsync()
@@ -111,7 +116,7 @@
 
         await EmailSender.SendConfirmationLinkAsync(user, email, HtmlEncoder.Default.Encode(callbackUrl));
 
-        message = "Verification email sent. Please check your email.";
+        message = "We sent you a verification link. Please check your e-mail.";
     }
 
     private sealed class InputModel

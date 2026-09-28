@@ -25,7 +25,7 @@ version — the migration `AddStarterTemplatesSetting` runs automatically. Self-
   workspace.
 - `scripts/browser/screenshots.js` recaptures every guide and README screenshot from a fresh demo instance.
 - `scripts/browser/buttons.check.js` (`npm run buttons`): GUI check of the buttons — what the key buttons do (Preview,
-  runner, builder, exports, copy/QR/print, dialogs, live previews) and a crawl that clicks every button of every page
+  runner, builder, exports, copy/QR/print, dialogs, live previews, account settings incl. two-factor sign-in) and a crawl that clicks every button of every page
   for each role. `scripts/container-smoke.sh` now also checks that every script the pages load is served.
 
 ### Changed
@@ -38,10 +38,23 @@ version — the migration `AddStarterTemplatesSetting` runs automatically. Self-
   WebSocket compression of the interactive circuit is off, as recommended for pages other sites can frame.
 - PostgreSQL connections no longer try GSS (Kerberos) encryption unless the connection string sets
   `GSS Encryption Mode` — Npgsql 9+ tries it by default, which logged a `libgssapi_krb5.so.2` error in the container.
+- **Account settings redesigned:** a card with your name, e-mail, role and workspace next to the settings menu; the
+  profile page lets you change your display name (shown in the top bar and account lists) and shows the account at a
+  glance — e-mail status, role, workspace, password, two-factor sign-in, member since, last sign-in. Every account page
+  uses the app's layout, with labelled fields, hints and clearer messages. The top navigation no longer wraps its
+  labels at medium widths.
+- User guide and FAQ: account settings (with a screenshot), logging out, two-factor sign-in, a "Your account" FAQ
+  group; the wording matches the buttons ("Log in", "Forgot password?"), and the answer on who can see responses
+  reflects workspaces.
 - All user-guide and README screenshots recaptured for v2 (workspace name in the sidebar, Workspace settings, System
   console, public address in share links); the display-logic caption now matches its picture.
 
 ### Fixed
+- Saving the profile with an empty (optional) phone number was refused as "not a valid phone number".
+- Setting up two-factor sign-in showed no QR code (the page expected a script that wasn't there) and named the account
+  "Microsoft.AspNetCore.Identity.UI" in authenticator apps. The QR code is now generated on the server and the account
+  carries the product name.
+- Form labels on the account pages are linked to their fields (screen readers).
 - Logging out of a page that needs an account (admin area, System console, account pages, My responses) now leads to
   the home page. Before, the sign-in page kept that page as its return address, so the next person who signed in with
   a different account was sent there — e.g. to "Access denied".

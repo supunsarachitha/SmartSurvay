@@ -1,4 +1,4 @@
-﻿@page "/Account/Manage"
+@page "/Account/Manage"
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
@@ -8,35 +8,109 @@
 @inject SignInManager<ApplicationUser> SignInManager
 @inject IdentityUserAccessor UserAccessor
 @inject IdentityRedirectManager RedirectManager
+@inject CurrentWorkspace CurrentWorkspace
+@* Profile: the name others see (and the phone number), plus an overview of the account — e-mail, role, workspace,
+   password, two-factor sign-in and dates — with links to the pages that change them. *@
 
 <PageTitle>Profile</PageTitle>
 
-<h3>Profile</h3>
 <StatusMessage />
 
-<div class="row">
-    <div class="col-md-6">
-        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post">
+@* The first render can happen while the account is still loading (a real database awaits): show the sections
+   once it is there. *@
+@if (user is not null)
+{
+    <SettingsCard Icon="bi-person" Title="Profile" Description="The name shown in the top bar, in account lists and next to responses you submit.">
+        <EditForm Model="Input" FormName="profile" OnValidSubmit="OnValidSubmitAsync" method="post" class="settings-form">
             <DataAnnotationsValidator />
-            <ValidationSummary class="text-danger" role="alert" />
-            <div class="form-floating mb-3">
-                <input type="text" value="@username" class="form-control" placeholder="Please choose your username." disabled />
-                <label for="username" class="form-label">Username</label>
+            <div class="mb-3">
+                <label class="form-label" for="profile-name">Display name</label>
+                <InputText id="profile-name" @bind-Value="Input.DisplayName" class="form-control" autocomplete="name" maxlength="@MaxDisplayNameLength"
+                           placeholder="e.g. Jane Doe" />
+                <div class="form-text">Leave it empty to show your e-mail address instead.</div>
+                <ValidationMessage For="() => Input.DisplayName" class="text-danger small" />
             </div>
-            <div class="form-floating mb-3">
-                <InputText @bind-Value="Input.PhoneNumber" class="form-control" placeholder="Please enter your phone number." />
-                <label for="phone-number" class="form-label">Phone number</label>
-                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger" />
+            <div class="mb-4">
+                <label class="form-label" for="profile-phone">Phone number <span class="text-muted fw-normal">(optional)</span></label>
+                <InputText id="profile-phone" type="tel" @bind-Value="Input.PhoneNumber" class="form-control" autocomplete="tel" />
+                <ValidationMessage For="() => Input.PhoneNumber" class="text-danger small" />
             </div>
-            <button type="submit" class="w-100 btn btn-lg btn-primary">Save</button>
+            <button type="submit" class="btn btn-primary"><i class="bi bi-check2"></i>Save profile</button>
         </EditForm>
-    </div>
-</div>
+    </SettingsCard>
+
+    <SettingsCard Icon="bi-person-badge" Title="Account" Description="How you sign in and what you can do.">
+        <dl class="detail-list">
+            <dt>E-mail</dt>
+            <dd class="d-flex flex-wrap align-items-center gap-2">
+                <span>@email</span>
+                @if (emailConfirmed)
+                {
+                    <span class="badge badge-status badge-published">Verified</span>
+                }
+                else
+                {
+                    <span class="badge badge-status badge-closed">Not verified</span>
+                }
+                <a class="small" href="Account/Manage/Email">Change</a>
+            </dd>
+
+            <dt>Role</dt>
+            <dd><span class="fw-semibold">@roleLabel</span> <span class="text-muted small">— @roleHint</span></dd>
+
+            @if (workspace is not null)
+            {
+                <dt>Workspace</dt>
+                <dd><i class="bi bi-buildings me-1 text-muted"></i>@workspace.Name</dd>
+            }
+
+            <dt>Password</dt>
+            <dd>
+                @if (hasPassword)
+                {
+                    <a href="Account/Manage/ChangePassword">Change password</a>
+                }
+                else
+                {
+                    <span class="text-muted me-2">Not set</span><a href="Account/Manage/SetPassword">Set a password</a>
+                }
+            </dd>
+
+            <dt>Two-factor sign-in</dt>
+            <dd class="d-flex flex-wrap align-items-center gap-2">
+                @if (twoFactorEnabled)
+                {
+                    <span class="badge badge-status badge-published">On</span>
+                    <a class="small" href="Account/Manage/TwoFactorAuthentication">Manage</a>
+                }
+                else
+                {
+                    <span class="badge badge-status badge-draft">Off</span>
+                    <a class="small" href="Account/Manage/TwoFactorAuthentication">Set up</a>
+                }
+            </dd>
+
+            <dt>Member since</dt>
+            <dd>@user.CreatedAt.ToString("d MMMM yyyy", System.Globalization.CultureInfo.InvariantCulture)</dd>
+
+            <dt>Last sign-in</dt>
+            <dd>@UiFormat.Relative(user.LastLoginAt)</dd>
+        </dl>
+    </SettingsCard>
+}
 
 @code {
+    private const int MaxDisplayNameLength = 200; // as for accounts created by admins (UserAdminValidation)
+
     private ApplicationUser user = default!;
-    private string? username;
+    private string? email;
     private string? phoneNumber;
+    private bool emailConfirmed;
+    private bool twoFactorEnabled;
+    private bool hasPassword;
+    private string roleLabel = "Member";
+    private string roleHint = string.Empty;
+    private WorkspaceInfo? workspace;
 
     [CascadingParameter]
     private HttpContext HttpContext { get; set; } = default!;
@@ -46,33 +120,76 @@
 
     protected override async Task OnInitializedAsync()
     {
+        var posted = Input is not null;
         Input ??= new();
         user = await UserAccessor.GetRequiredUserAsync(HttpContext);
-        username = await UserManager.GetUserNameAsync(user);
+        email = await UserManager.GetEmailAsync(user);
         phoneNumber = await UserManager.GetPhoneNumberAsync(user);
+        emailConfirmed = await UserManager.IsEmailConfirmedAsync(user);
+        twoFactorEnabled = await UserManager.GetTwoFactorEnabledAsync(user);
+        hasPassword = await UserManager.HasPasswordAsync(user);
+        var roles = await UserManager.GetRolesAsync(user);
+        (roleLabel, roleHint) = roles.Contains(AppRoles.SuperAdmin)
+            ? ("Super admin", "manages all workspaces, accounts and the system settings")
+            : roles.Contains(AppRoles.Admin)
+                ? ("Admin", "manages the workspace's surveys, reports, members and settings")
+                : ("Member", "answers the workspace's surveys and sees your own responses");
+        workspace = await CurrentWorkspace.GetAsync();
 
-        Input.PhoneNumber ??= phoneNumber;
+        // A posted form keeps what was typed (also an emptied field); otherwise show the saved values.
+        if (!posted)
+        {
+            Input.DisplayName = user.DisplayName;
+            Input.PhoneNumber = phoneNumber;
+        }
     }
 
     private async Task OnValidSubmitAsync()
     {
-        if (Input.PhoneNumber != phoneNumber)
+        var displayName = string.IsNullOrWhiteSpace(Input.DisplayName) ? null : Input.DisplayName.Trim();
+        var phone = string.IsNullOrWhiteSpace(Input.PhoneNumber) ? null : Input.PhoneNumber.Trim();
+
+        if (displayName != user.DisplayName)
         {
-            var setPhoneResult = await UserManager.SetPhoneNumberAsync(user, Input.PhoneNumber);
-            if (!setPhoneResult.Succeeded)
+            user.DisplayName = displayName;
+            var updateResult = await UserManager.UpdateAsync(user);
+            if (!updateResult.Succeeded)
             {
-                RedirectManager.RedirectToCurrentPageWithStatus("Error: Failed to set phone number.", HttpContext);
+                RedirectManager.RedirectToCurrentPageWithStatus("Error: Your name could not be saved.", HttpContext);
             }
         }
 
+        if (phone != phoneNumber)
+        {
+            var setPhoneResult = await UserManager.SetPhoneNumberAsync(user, phone);
+            if (!setPhoneResult.Succeeded)
+            {
+                RedirectManager.RedirectToCurrentPageWithStatus("Error: Your phone number could not be saved.", HttpContext);
+            }
+        }
+
+        // The display name is part of the sign-in cookie (shown in the top bar).
         await SignInManager.RefreshSignInAsync(user);
-        RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated", HttpContext);
+        RedirectManager.RedirectToCurrentPageWithStatus("Your profile has been updated.", HttpContext);
     }
 
     private sealed class InputModel
     {
-        [Phone]
+        [StringLength(MaxDisplayNameLength, ErrorMessage = "The display name must be at most {1} characters.")]
+        [Display(Name = "Display name")]
+        public string? DisplayName { get; set; }
+
+        [OptionalPhone]
         [Display(Name = "Phone number")]
         public string? PhoneNumber { get; set; }
+    }
+
+    /// <summary>A phone number or nothing: the field is optional, and an empty field arrives as an empty string.</summary>
+    private sealed class OptionalPhoneAttribute() : ValidationAttribute("Please enter a valid phone number, e.g. +1 555 0100.")
+    {
+        private static readonly PhoneAttribute Phone = new();
+
+        public override bool IsValid(object? value) =>
+            value is not string text || string.IsNullOrWhiteSpace(text) || Phone.IsValid(text);
     }
 }

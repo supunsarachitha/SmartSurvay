@@ -69,10 +69,11 @@ both behave identically.
 | Responses | Filterable, paged response browser; response detail; deletion; raw export (CSV/XLSX/JSON) |
 | Reports | Saved report definitions per survey; global filters (date range, drafts, answer-based filters with All/Any); 10 widget types (KPIs, question tables, bar/horizontal bar/pie/doughnut charts, responses-over-time line chart, cross-tabulation, text responses, raw grid); numeric statistics incl. NPS; auto-generated default report; live preview builder |
 | Exports | PDF (QuestPDF, charts embedded as SVG), CSV (RFC 4180, Excel-friendly, CSV-injection safe), TXT (ASCII tables + text bar charts), XLSX (ClosedXML, one sheet per widget), JSON |
-| Workspaces | Isolated tenants with their own admins and members; self-service sign-up (optional approval); join link; public workspace page `/w/{slug}` with its public surveys; workspace settings (name, description, contact, join link, public page) |
+| Workspaces | Isolated tenants with their own admins and members; self-service sign-up (optional approval); join link; public workspace page `/w/{slug}` with its public surveys; workspace settings (name, description, contact, join link, public page); starter templates for new workspaces |
+| Accounts | Account settings for everyone: profile (display name, phone) with an account overview, e-mail change with confirmation link, password change, two-factor sign-in with an authenticator app (QR code, recovery codes), personal data download and account deletion |
 | Administration | Per workspace: dashboard (KPIs, 30-day trend, top surveys, recent responses), member management (create, roles, set password, lock/unlock, delete with self- and last-admin protection), audit log, settings |
 | System console | Super admins: overview across workspaces (figures only), workspaces (create with first admin, rename/re-address, approve, disable with a reason, enable, delete), accounts of every workspace and super admins, branding (product name, tagline, icon or logo/favicon), system settings (sign-up, approval, support e-mail), system audit log |
-| Platform | ASP.NET Core Identity (cookie + bearer tokens, lockout, 2FA pages), account e-mails over SMTP, role policies (SuperAdmin, workspace Admin, User), ProblemDetails errors, rate limiting, security headers, **encryption at rest** of respondents' written answers, password-protected surveys, bot/spam protection, health checks, Swagger/OpenAPI, dark mode, responsive UI, Docker, CI |
+| Platform | ASP.NET Core Identity (cookie + bearer tokens, lockout, two-factor sign-in), account e-mails over SMTP, role policies (SuperAdmin, workspace Admin, User), ProblemDetails errors, rate limiting, security headers, **encryption at rest** of respondents' written answers, password-protected surveys, bot/spam protection, health checks, Swagger/OpenAPI, dark mode, responsive UI, Docker, CI |
 | Extras | FAQ page, Buy Me a Coffee support page with QR code |
 
 ## 3. Technology stack
@@ -123,7 +124,7 @@ CREATE DATABASE smartsurvey OWNER smartsurvey;
 ### 4.3 Run
 
 ```bash
-dotnet tool restore                      # installs the local dotnet-ef 8.0.31 tool
+dotnet tool restore                      # installs the local dotnet-ef 10.0.12 tool
 dotnet run --project src/SmartSurvey.Web # https://localhost:7047 · http://localhost:5057
 ```
 
@@ -448,7 +449,8 @@ completed-response quota (`MaxResponses`) is not reached.
 ### 9.4 Templates, duplication, import/export
 
 * *Duplicate* deep-copies the design with new ids (all logic references remapped); responses are not copied.
-* *Templates* appear in the "start from template" gallery.
+* *Templates* appear in the "start from template" gallery. New workspaces start with three templates (customer
+  satisfaction, team pulse check, event feedback) unless *System → Settings* turns this off.
 * *Export* produces a portable `SurveyExportDocument` (JSON, `schemaVersion: 1`); *Import* creates a new
   draft with fresh ids.
 
@@ -670,18 +672,39 @@ its admin — or on a "waiting for approval" page when approval is required.
    applies to the whole site. **Settings** (`/system/settings`) — workspace sign-up on/off, approval of new workspaces,
    starter templates for new workspaces on/off, support e-mail. **Audit log** (`/system/audit`) — super admin actions and sign-ups.
 
-### 15.4 Design system
+### 15.4 Account settings (everyone)
+
+The menu with your name (top right) → **Account settings** (`/Account/Manage`). A card with your name, e-mail, role and
+workspace sits above the settings menu (a wrapping row on phones):
+
+1. **Profile** — the display name shown in the top bar, in account lists and next to your responses (empty = your
+   e-mail address), an optional phone number, and an account overview: e-mail status, role, workspace, password,
+   two-factor sign-in, member since, last sign-in.
+2. **E-mail** (`/Account/Manage/Email`) — the current address and whether it is verified (resend the verification
+   link); a change sends a confirmation link to the new address.
+3. **Password** (`/Account/Manage/ChangePassword`) — needs the current password; accounts without a password (external
+   logins) set one instead.
+4. **Two-factor sign-in** (`/Account/Manage/TwoFactorAuthentication`) — set up an authenticator app (QR code
+   generated on the server, the account named after the product, manual key as a fallback, then a 6-digit code),
+   ten recovery codes shown once, generate new codes, forget this browser, disable 2FA, reset the authenticator key.
+5. **Personal data** (`/Account/Manage/PersonalData`) — download a JSON file of your personal data, or delete your
+   account (with your password).
+
+### 15.5 Design system
 
 The UI uses a custom design layer on top of Bootstrap 5.3 (`wwwroot/app.css`): indigo primary colour,
 slate neutrals, Inter typography, soft shadows, light **and dark themes** (toggle in the top bar,
 remembered per browser). Reusable components live in `Components/Shared` (`PageHeader`, `StatusBadge`,
 `EmptyState`, `LoadingSpinner`, `StatCard`, `Modal`, `ConfirmDialog`, `Pager`, `LocalDateTime`,
-`ChartView`, toasts).
+`ChartView`, toasts); the account pages use `SettingsCard` (icon, title, description, optional status badge) and
+`ManageLayout` in `Components/Account/Shared`.
 
 ## 16. Security
 
 * **Authentication:** ASP.NET Core Identity, PBKDF2 password hashing, account lockout (5 attempts / 15 min),
-  optional e-mail confirmation (`Identity:RequireConfirmedAccount`), 2FA pages included.
+  optional e-mail confirmation (`Identity:RequireConfirmedAccount`), two-factor sign-in with an authenticator app
+  (*Account settings → Two-factor sign-in*: a QR code generated on the server, the account named after the product,
+  ten recovery codes). Logging out goes back to the page only when anyone can open it, otherwise to the home page.
 * **Authorization:** roles `SuperAdmin`, `Admin` and `User`; policies `Admin` (Admin role **and** a workspace claim) and
   `SuperAdmin` for pages, `ApiAdmin`/`ApiSuperAdmin`/`ApiUser` for the API. Services re-check roles (defense in depth)
   and response ownership.
@@ -796,19 +819,22 @@ cd scripts/browser && npm run screenshots                    # recapture every g
   super admin and sign-up services, and every API group over HTTP (`WorkspaceApiTests`: isolation, disable/enable,
   approval, role boundaries) plus the pages (`WorkspacePageTests`, incl. a sign-up through the real form).
 * **Smoke test** (`scripts/smoke.sh`) starts the compiled app with demo data, logs in through the real
-  Identity form and checks that pages render on the server without errors. `scripts/container-smoke.sh` accepts
-  `''` as admin / super admin password to skip those checks on a stack whose passwords were changed.
+  Identity form and checks that pages render on the server without errors. `scripts/container-smoke.sh` also checks
+  that every script the pages load (Blazor's `_framework/blazor.web.js` in particular) is served as JavaScript, and
+  accepts `''` as admin / super admin password to skip the sign-in checks on a stack whose passwords were changed.
 * **Browser check** (`scripts/browser/workspaces.check.js`, puppeteer-core + Chrome) drives the interactive Blazor
   circuits through sign-up, settings, disabling/enabling, the System console and the survey runner against a fresh
   instance, and fails on console errors, failed requests or 5xx responses.
 * **GUI button check** (`scripts/browser/buttons.check.js`) checks what the key buttons do — Preview from the survey
   list, the builder (also with unsaved changes, which are saved first) and the share page, the preview's width toggle
-  and runner buttons, builder editing, exports, copy/QR/print, report live preview, dialogs, branding preview — and then
+  and runner buttons, builder editing, exports, copy/QR/print, report live preview, dialogs, branding preview, account
+  settings (profile, password, two-factor sign-in with a computed authenticator code) — and then
   clicks every visible button and button-styled link on every page for guests, members, admins and super admins
   (dialogs are cancelled; log out and account deletion are never clicked). Clicks that raise errors fail the run; clicks
   without a visible effect are listed for review. It changes data, so run it against a fresh demo instance only —
   preferably a throwaway container of the real image (the script's header has the commands), because Development
-  builds serve Blazor's scripts differently from the published app.
+  builds serve Blazor's scripts differently from the published app, and because SQLite completes "async" queries
+  synchronously: a page that renders before its data is loaded only fails on PostgreSQL.
 
 ## 19. Deployment
 
