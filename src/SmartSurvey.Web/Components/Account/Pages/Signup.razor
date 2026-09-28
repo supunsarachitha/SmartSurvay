@@ -150,8 +150,8 @@
         [StringLength(Workspace.NameMaxLength, ErrorMessage = "Use at most {1} characters.")]
         public string WorkspaceName { get; set; } = "";
 
-        [StringLength(Workspace.SlugMaxLength, MinimumLength = WorkspaceSlugs.MinLength, ErrorMessage = "Use {2}–{1} characters.")]
-        [RegularExpression("^[a-z0-9]+(-[a-z0-9]+)*$", ErrorMessage = "Use lower-case letters, digits and single hyphens.")]
+        // Optional: browsers post an empty string, which RegularExpression (unlike StringLength's minimum) accepts.
+        [RegularExpression("^(?=.{3,60}$)[a-z0-9]+(-[a-z0-9]+)*$", ErrorMessage = "Use 3–60 lower-case letters, digits and single hyphens.")]
         public string? WorkspaceSlug { get; set; }
 
         [StringLength(200, ErrorMessage = "Use at most {1} characters.")]

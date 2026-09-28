@@ -30,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Members of disabled or pending workspaces cannot sign in; existing sessions and API tokens are refused at once
   (pages sign out and show `/workspace-unavailable`), open Blazor circuits within a minute.
 - `RateLimits:AuthPerMinute` setting for the sign-in / sign-up / join rate limit (default 20 per IP and minute).
+- **Workspace pages:** `/signup` (create a workspace and become its admin), join form at
+  `/Account/Register?workspace={slug}`, public workspace page `/w/{slug}` with its public surveys, and
+  `/admin/settings` for workspace admins (name, description, contact, join link, public survey page). Menus show the
+  member's workspace; the survey runner's "Create account" joins the workspace that runs the survey.
 
 ### Changed
 - Branding can only be changed by super admins (it is system-wide); `PUT/POST/DELETE /api/v1/branding*` require the
@@ -37,6 +41,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `POST /api/auth/register` is refused (403): accounts belong to a workspace, so they are created with the workspace
   sign-up and join endpoints. `GET /api/v1/public/surveys` lists the caller's own workspace, or a workspace's public
   surveys with `?workspace={slug}`.
+- `/surveys` shows the signed-in member's workspace; guests are pointed to survey links and workspace pages. The
+  admin sidebar has "Workspace settings" instead of "Branding".
 - **User guide** at `/guide`: plain-language, step-by-step help with screenshots for respondents and administrators
   (linked from the top menu, footer, FAQ and admin sidebar).
 - **GitHub links** in the top menu, admin sidebar, home page and footer (`Support:GitHubUrl`); the Buy Me a Coffee page
