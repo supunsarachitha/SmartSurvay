@@ -1,3 +1,5 @@
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using System.Net;
 using System.Net.Http.Json;
 using SmartSurvey.Application.Common;
@@ -183,5 +185,23 @@ public sealed class PublicApiTests(ApiFactory factory)
         // Signed-in respondents are not challenged.
         var mine = await ReadAsync<SurveySessionDto>(await factory.Respondent().GetAsync($"/api/v1/public/surveys/{survey.Slug}"));
         Assert.Null(mine.Challenge);
+    }
+
+    [Fact]
+    public async Task Typed_answers_are_encrypted_in_the_database_but_readable_through_the_app()
+    {
+        var survey = await CreatePublishedSurveyAsync(_admin, "Encrypted answers survey");
+        const string comment = "Only the admins should read this 4f9c";
+        var result = await ReadAsync<SubmitResponseResult>(await SubmitAnonymouslyAsync(factory.Anonymous(), survey, Answers(survey, comment)));
+
+        var detail = await ReadAsync<ResponseDetailDto>(await _admin.GetAsync($"/api/v1/responses/{result.ResponseId}"));
+        Assert.Contains(detail.Answers, a => a.DisplayValue == comment);
+
+        using var scope = factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<SmartSurvey.Infrastructure.Persistence.AppDbContext>();
+        var raw = await db.Database.SqlQueryRaw<string>(
+            "SELECT \"TextValue\" AS \"Value\" FROM \"Answers\" WHERE \"ResponseId\" = {0} AND \"TextValue\" IS NOT NULL", result.ResponseId).SingleAsync();
+        Assert.StartsWith("enc:v1:", raw);
+        Assert.DoesNotContain("admins", raw);
     }
 }

@@ -11,6 +11,7 @@ using SmartSurvey.Infrastructure.Email;
 using SmartSurvey.Infrastructure.Exports;
 using SmartSurvey.Infrastructure.Identity;
 using SmartSurvey.Infrastructure.Persistence;
+using SmartSurvey.Infrastructure.Persistence.Encryption;
 using SmartSurvey.Infrastructure.Persistence.Seed;
 using SmartSurvey.Infrastructure.Security;
 
@@ -30,6 +31,9 @@ public static class DependencyInjection
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<BrandingOptions>(configuration.GetSection(BrandingOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        services.Configure<FieldEncryptionOptions>(configuration.GetSection(FieldEncryptionOptions.SectionName));
+        services.AddSingleton<IFieldProtector, DataProtectionFieldProtector>();
+        services.AddScoped<FieldEncryptionMigrator>();
 
         services.AddScoped<AuditableEntityInterceptor>();
 
@@ -54,6 +58,12 @@ public static class DependencyInjection
             }
 
             options.AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
+
+            // Encrypt respondents' free-text answers, "Other" texts and browser details at rest (see FieldEncryption).
+            if (sp.GetRequiredService<IOptions<FieldEncryptionOptions>>().Value.Enabled)
+            {
+                options.UseFieldEncryption(sp.GetRequiredService<IFieldProtector>());
+            }
         }, ServiceLifetime.Scoped);
 
         services.AddScoped<IAppDbContextFactory, AppDbContextFactory>();

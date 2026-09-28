@@ -100,6 +100,10 @@
                     <li>On the last page choose <strong>Submit</strong>. A thank-you page confirms that your answers were received.</li>
                 </ol>
                 <div class="guide-tip">
+                    <i class="bi bi-shield-lock"></i>
+                    <div><strong>Your privacy:</strong> everything you type — comments, e-mail addresses, “Other” answers — is stored <strong>encrypted</strong>. Only the survey's administrators — and you, if you answered while signed in — can read your answers.</div>
+                </div>
+                <div class="guide-tip">
                     <i class="bi bi-lightbulb"></i>
                     <div>
                         <strong>How to answer each kind of question:</strong> click a <em>round button</em> to choose one answer, tick <em>boxes</em> to
@@ -249,6 +253,15 @@
                     <li>Click a respondent to see <strong>all their answers</strong>, page by page. From there you can print or delete the response.</li>
                     <li>Choose <strong>Export data</strong> to download all answers as an <strong>Excel</strong> file, <strong>CSV</strong> or <strong>JSON</strong> — one row per response, one column per question.</li>
                 </ol>
+                <div class="guide-tip">
+                    <i class="bi bi-shield-lock"></i>
+                    <div>
+                        Written answers are <strong>stored encrypted</strong> in the database and decrypted only when you view them.
+                        Exported files are readable, so keep them somewhere safe. <em>For IT:</em> the encryption keys are kept outside
+                        the database (the <code>keys</code> Docker volume) — back them up together with the database, otherwise encrypted
+                        answers can't be read after a restore.
+                    </div>
+                </div>
             </GuideSection>
 
             <GuideSection Id="reports" Icon="bi-bar-chart-line" Title="Reports and charts" Audience="admins" Image="report.webp"

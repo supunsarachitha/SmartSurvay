@@ -65,7 +65,7 @@ both behave identically.
 | Reports | Saved report definitions per survey; global filters (date range, drafts, answer-based filters with All/Any); 10 widget types (KPIs, question tables, bar/horizontal bar/pie/doughnut charts, responses-over-time line chart, cross-tabulation, text responses, raw grid); numeric statistics incl. NPS; auto-generated default report; live preview builder |
 | Exports | PDF (QuestPDF, charts embedded as SVG), CSV (RFC 4180, Excel-friendly, CSV-injection safe), TXT (ASCII tables + text bar charts), XLSX (ClosedXML, one sheet per widget), JSON |
 | Administration | Dashboard (KPIs, 30-day trend, top surveys, recent responses), user management (create, roles, set password, lock/unlock, delete with self-protection), audit log, branding (product name, tagline, icon or logo/favicon) |
-| Platform | ASP.NET Core Identity (cookie + bearer tokens, lockout, 2FA pages), account e-mails over SMTP, role policies, ProblemDetails errors, rate limiting, security headers, health checks, Swagger/OpenAPI, dark mode, responsive UI, Docker, CI |
+| Platform | ASP.NET Core Identity (cookie + bearer tokens, lockout, 2FA pages), account e-mails over SMTP, role policies, ProblemDetails errors, rate limiting, security headers, **encryption at rest** of respondents' written answers, password-protected surveys, bot/spam protection, health checks, Swagger/OpenAPI, dark mode, responsive UI, Docker, CI |
 | Extras | FAQ page, Buy Me a Coffee support page with QR code |
 
 ## 3. Technology stack
@@ -281,9 +281,9 @@ erDiagram
 | `Questions` | Questions | `Type`, `Code` (unique per survey, service-enforced), `Settings` (**jsonb**), `IsRequired`, `Order` |
 | `QuestionOptions` | Choice options | `AllowsFreeText` ("Other → text"), `Value`, `Order` |
 | `LogicRules` / `LogicConditions` | Show/hide logic | exactly one of `TargetQuestionId` / `TargetSectionId`; conditions reference `SourceQuestionId`, `Operator`, `OptionId` or `Value` |
-| `Responses` | Submissions & drafts | `RespondentId` (nullable, **SET NULL** on user delete), `Status`, `StartedAt`, `SubmittedAt`, `CurrentSectionIndex` |
-| `Answers` | One per question per response | `TextValue` / `NumberValue` (double) / `DateValue` (date); unique (`ResponseId`,`QuestionId`) |
-| `AnswerSelections` | Selected options | `FreeText`; unique (`AnswerId`,`OptionId`) |
+| `Responses` | Submissions & drafts | `RespondentId` (nullable, **SET NULL** on user delete), `Status`, `StartedAt`, `SubmittedAt`, `CurrentSectionIndex`, `UserAgent` (**encrypted**) |
+| `Answers` | One per question per response | `TextValue` (**encrypted**) / `NumberValue` (double) / `DateValue` (date); unique (`ResponseId`,`QuestionId`) |
+| `AnswerSelections` | Selected options | `FreeText` (**encrypted**); unique (`AnswerId`,`OptionId`) |
 | `Reports` / `ReportWidgets` | Saved report definitions | `Filters` and `Settings` (**jsonb**); widget question FKs **SET NULL** |
 | `AuditLogs` | Audit trail | indexed by `Timestamp` and (`EntityType`,`EntityId`) |
 | `BrandingSettings` | Product branding (single row) | `ProductName`, `Tagline`, `IconName`, `LogoContent` (bytes) + content type, `Version` (cache busting) |
@@ -292,6 +292,18 @@ erDiagram
 Delete behaviour: deleting a survey cascades to its design, responses and reports; deleting a question
 cascades to its answers (the builder warns before doing so); deleting a user keeps their responses
 (anonymised).
+
+**Encryption at rest:** `Answers.TextValue` (text, paragraph and e-mail answers), `AnswerSelections.FreeText` ("Other"
+texts) and `Responses.UserAgent` are encrypted with ASP.NET Core Data Protection (AES-256-CBC + HMAC-SHA256,
+randomised, automatic key rotation) through EF Core value converters (`Persistence/Encryption/FieldEncryption.cs`).
+Stored values look like `enc:v1:…`; the columns are `text` because ciphertext is longer than the answer limits, which the
+application enforces. The keys live in the data-protection key ring (`DataProtection:KeysPath`; the `keys` volume in
+Docker) — **not** in the database — so a database dump or backup alone doesn't reveal what respondents wrote. Choices,
+numbers and dates stay plain because reports aggregate them in the database; survey designs, user accounts (Identity:
+e-mail addresses are needed for sign-in and search; passwords are PBKDF2 hashes) and the audit log are not encrypted.
+Values written before encryption was enabled stay readable and are encrypted once at start-up (`FieldEncryptionMigrator`).
+A value whose key is missing is shown as a placeholder instead of breaking pages. `Encryption:Enabled=false` stops
+encrypting new values (existing ones stay readable).
 
 Conventions (see `AppDbContext`): all `DateTime` values are stored/read as UTC; enums are stored as
 strings (max 40); settings objects use a JSON value converter with value comparers so in-place edits are
@@ -585,6 +597,9 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
   Development, and the "confirm here" shortcut after registering only appears in Development. Delivery errors are logged,
   never shown, so the forms don't reveal whether an address has an account. Administrators can set a new password,
   which signs the user out everywhere.
+* **Encryption at rest:** respondents' written answers, "Other" texts and browser details are encrypted in the
+  database; the keys are kept outside it (details in §7). For full-disk protection also use encrypted storage/volumes
+  for PostgreSQL, and TLS for database connections across networks (`SSL Mode=Require` in the connection string).
 * **Data protection:** keys can be persisted (`DataProtection:KeysPath`) so cookies/tokens survive restarts.
 * **Transport:** HTTPS redirection and HSTS outside Development; forwarded headers support behind proxies.
 * **Secrets:** no production credentials in configuration — set `Seed:AdminPassword` and connection strings
@@ -615,6 +630,7 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 | `Email:Smtp:Port` / `Email:Smtp:Security` | `587` / `Auto` | `Auto` = implicit TLS on 465, otherwise STARTTLS when offered; `StartTls`, `SslOnConnect`, `None` |
 | `Email:Smtp:UserName` / `Email:Smtp:Password` | *(empty)* | SMTP login (set the password via environment variable / secret store) |
 | `Email:Smtp:TimeoutSeconds` | `30` | Connection and command timeout |
+| `Encryption:Enabled` | `true` | Encrypt respondents' written answers, "Other" texts and browser details at rest (§7) |
 | `BotProtection:Enabled` | `true` | Spam/bot checks for anonymous submissions (§11) |
 | `BotProtection:Difficulty` | `50000` | Upper bound of the proof-of-work search (higher = more work per response) |
 | `BotProtection:MinimumSeconds` | `3` | Faster submissions are rejected as automated |
@@ -659,7 +675,8 @@ key encryption (`ProtectKeysWithCertificate`) for stricter environments.
 - [ ] Strong `Seed:AdminPassword` (or create the admin once and set `Seed:CreateAdmin=false`)
 - [ ] `Seed:DemoData=false`
 - [ ] Connection string from a secret store
-- [ ] `DataProtection:KeysPath` on persistent storage (or a shared key ring when scaling out)
+- [ ] `DataProtection:KeysPath` on persistent storage (or a shared key ring when scaling out) — it holds the keys that
+      decrypt stored answers: **back it up together with every database backup** and restore both together
 - [ ] TLS at the proxy + `ReverseProxy:Enabled=true`, or Kestrel HTTPS
 - [ ] Decide on `Swagger:Enabled`
 - [ ] Database backups; apply migrations as part of the release (`dotnet ef migrations script --idempotent`)
@@ -692,6 +709,7 @@ container; builds the Docker image, starts it with docker compose and runs `scri
 | `28P01 password authentication failed` | Create the `smartsurvey` role (§4.2) or fix the password |
 | Admin login fails on a fresh database | `Seed:AdminPassword` was empty — set it and restart |
 | Logged out after every restart (Docker) | Configure `DataProtection:KeysPath` on a volume (compose does this) |
+| Answers show "[encrypted answer — the key to read it is not available]" | The data-protection key ring is missing or from another installation (e.g. a database restored without its `keys` volume). Restore the matching key backup into `DataProtection:KeysPath` and restart |
 | PDF export fails in a custom Linux image | Install `libfontconfig1` and a font package (see Dockerfile) |
 | Docker Desktop "Linux engine" errors on Windows | Enable WSL 2 (`wsl --install`, reboot) or use native PostgreSQL |
 | `409 Conflict` when saving a survey | Someone else saved it — reload the builder and re-apply your changes |

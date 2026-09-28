@@ -32,6 +32,9 @@ public static class DatabaseInitializer
             await db.Database.MigrateAsync(ct);
         }
 
+        // Values stored before field encryption was enabled are encrypted once (idempotent).
+        await provider.GetRequiredService<Encryption.FieldEncryptionMigrator>().EncryptExistingAsync(ct);
+
         await provider.GetRequiredService<DbSeeder>().SeedAsync(ct);
     }
 }

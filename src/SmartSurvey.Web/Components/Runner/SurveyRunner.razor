@@ -6,6 +6,7 @@
 @inject PersistentComponentState ApplicationState
 @inject SubmissionThrottle Throttle
 @inject PasswordAttemptThrottle PasswordThrottle
+@inject IOptions<SmartSurvey.Infrastructure.Persistence.Encryption.FieldEncryptionOptions> Encryption
 @inject Application.Branding.IBrandingService Branding
 @inject ILogger<SurveyRunner> Logger
 @* The respondent experience: multi-page survey with live conditional logic, per-page validation,
@@ -151,6 +152,10 @@ else
                     @if (hasRequired)
                     {
                         <span><span class="text-danger fw-bold">*</span> Required</span>
+                    }
+                    @if (Encryption.Value.Enabled)
+                    {
+                        <span title="The answers you type are encrypted in the database."><i class="bi bi-shield-lock me-1"></i>Written answers are stored encrypted</span>
                     }
                 </div>
             </header>

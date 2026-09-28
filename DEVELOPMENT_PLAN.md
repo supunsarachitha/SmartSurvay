@@ -33,6 +33,7 @@ A full-stack, modular, well-commented **survey application**:
 | XLSX (extra) | **ClosedXML 0.105** | |
 | QR codes (extra) | **QRCoder 1.8** | Share page. |
 | E-mail | **MailKit 4.18** | SMTP delivery of account e-mails (`Email:*` settings). |
+| Encryption at rest | **ASP.NET Core Data Protection** via EF Core value converters | Respondents' written answers, "Other" texts and user agents (`Encryption:Enabled`); keys in the key ring, not the database. |
 | Charts | Home-grown **server-side SVG chart renderer** | Same SVG used in the browser and inside PDFs → consistent, zero JS, fully unit-testable. |
 | Tests | xUnit 2.9, bUnit 2.11, `WebApplicationFactory` + SQLite in-memory (DI scope validation on) | |
 | DevOps | Dockerfile, docker-compose (app + postgres), GitHub Actions CI | |

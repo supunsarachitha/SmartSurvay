@@ -31,6 +31,9 @@ ASP.NET Core 8 · Blazor (Interactive Server) · EF Core 8 · PostgreSQL · Ques
   on the server for opening, saving and submitting).
 - **Bot & spam protection** — invisible proof-of-work challenge, minimum answering time, honeypot field, one-time
   challenges and rate limits; no CAPTCHA, no third-party service.
+- **Encryption at rest** — respondents' written answers, "Other" texts and browser details are encrypted in the
+  database (ASP.NET Core Data Protection, AES-256); the keys are stored outside the database. Passwords are only
+  stored as hashes.
 - **Dynamic reports** — KPIs, distribution tables, bar/pie/doughnut/line charts, cross-tabs, NPS, text answers and raw
   grids with date and answer filters, live preview, and **PDF / CSV / TXT / Excel / JSON** export.
 - **Administration** — dashboard, response browser, user & role management (incl. password reset), audit log and
@@ -101,6 +104,10 @@ every feature step by step.
 > The admin e-mail and password are only used the **first time**, when the database is empty. To change the password
 > later, use *Account settings* in the app (or *Users → Set new password*).
 
+> 🔐 **Keep the `keys` volume safe.** It holds the keys that decrypt respondents' written answers (and keeps people
+> signed in). Back it up **together with** the database — a database backup without its keys contains unreadable
+> answers. `docker compose down -v` deletes both.
+
 ### Everyday commands
 
 | What | Command |
@@ -112,7 +119,9 @@ every feature step by step.
 | Update to the latest code | `git pull && docker compose up -d --build` |
 | Check that everything works | `scripts/container-smoke.sh http://localhost:8080 admin@smartsurvey.local 'ChangeMe123!'` |
 | Back up the database | `docker compose exec -T db pg_dump -U smartsurvey smartsurvey > backup.sql` |
+| Back up the **encryption keys** (always together with the database!) | `docker compose cp web:/app/keys ./keys-backup` |
 | Restore a backup | `docker compose exec -T db psql -U smartsurvey smartsurvey < backup.sql` |
+| Restore the keys (before starting on a new machine) | `docker compose cp ./keys-backup/. web:/app/keys && docker compose restart web` |
 | Remove everything **including all data** | `docker compose down -v` |
 
 ### Settings (`.env`)
@@ -127,6 +136,7 @@ every feature step by step.
 | `SWAGGER_ENABLED` | `true` | API documentation at `/swagger` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM` | *(off)* | E-mail server for password-reset and confirmation e-mails |
 | `BOT_PROTECTION` | `true` | Spam/bot checks for anonymous responses |
+| `ENCRYPTION` | `true` | Encrypt respondents' written answers in the database (keys in the `keys` volume) |
 | `BMC_USERNAME` / `GITHUB_URL` | project defaults | Links on the support page and in the footer |
 
 ### Putting it on a server

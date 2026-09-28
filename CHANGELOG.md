@@ -25,6 +25,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   proof-of-work challenge solved invisibly in a Web Worker while people answer, a minimum answering time, a honeypot
   field, one-time challenges and the existing rate limits (`BotProtection:*`, `BOT_PROTECTION` in Docker). API clients
   submitting anonymously include the solved `challenge`; signed-in callers are not challenged.
+- **Encryption at rest:** respondents' written answers (text, paragraph and e-mail questions), "Other" texts and browser
+  details are encrypted in the database with ASP.NET Core Data Protection (AES-256); the keys stay in the key ring
+  (`DataProtection:KeysPath` / the Docker `keys` volume), not in the database. Existing values are encrypted once at
+  start-up; values without a key show a placeholder instead of an error. `Encryption:Enabled` (`ENCRYPTION` in Docker).
+  Migration `EncryptedAnswerColumns` widens those columns to `text`. Surfaced in the survey intro, response detail,
+  export menu, guide, FAQ, README (including how to back up the keys) and documentation.
 
 ### Fixed
 - The user guide no longer scrolls sideways on phones, and its screenshots scale to the text column and screen height

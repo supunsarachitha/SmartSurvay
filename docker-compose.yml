@@ -41,6 +41,8 @@ services:
       Support__GitHubUrl: ${GITHUB_URL:-https://github.com/supunsarachitha/SmartSurvay}
       # Spam/bot protection for anonymous responses (proof of work, timing, honeypot). Keep it on for public surveys.
       BotProtection__Enabled: ${BOT_PROTECTION:-true}
+      # Encrypt respondents' written answers in the database. The keys live in the "keys" volume — back it up with the database.
+      Encryption__Enabled: ${ENCRYPTION:-true}
       # Account e-mails (password reset, confirmation). Leave SMTP_HOST empty to disable e-mail.
       Email__FromAddress: ${MAIL_FROM:-no-reply@smartsurvey.local}
       Email__Smtp__Host: ${SMTP_HOST:-}
@@ -51,6 +53,8 @@ services:
     ports:
       - "${WEB_PORT:-8080}:8080"
     volumes:
+      # Data-protection key ring: sign-in cookies AND the keys that decrypt stored answers.
+      # Back it up together with the database — without it, encrypted answers cannot be read.
       - keys:/app/keys
 
 volumes:
