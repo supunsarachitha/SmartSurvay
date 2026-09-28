@@ -486,9 +486,9 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 - [x] 13.5 bUnit tests; Phase gate
 
 #### Phase 14 — Verification & release 2.0.0
-- [ ] 14.1 Full build/tests; PostgreSQL run incl. upgrade of a v1.0 database; `scripts/smoke.sh` + `container-smoke.sh` extended (super admin, second workspace)
-- [ ] 14.2 Headless-browser checks: sign-up → own workspace; two workspaces isolated; disable → members locked out, links unavailable; enable; super admin console
-- [ ] 14.3 Security review focused on cross-workspace access (IDOR via ids in URLs/API, filters bypassed, circuits), fixes
+- [x] 14.1 Full build/tests; PostgreSQL run incl. upgrade of a v1.0 database; `scripts/smoke.sh` + `container-smoke.sh` extended (super admin, second workspace)
+- [x] 14.2 Headless-browser checks: sign-up → own workspace; two workspaces isolated; disable → members locked out, links unavailable; enable; super admin console
+- [~] 14.3 Security review focused on cross-workspace access (IDOR via ids in URLs/API, filters bypassed, circuits), fixes
 - [ ] 14.4 Docs: DOCUMENTATION.md (tenancy model, roles, routes, upgrade notes), README, user guide + FAQ, CHANGELOG 2.0.0, § 4–6 of this file
 - [ ] 14.5 Final phase gate (containers running on the release build)
 

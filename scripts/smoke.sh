@@ -3,8 +3,11 @@
 # SmartSurvey smoke test: starts the web app on SQLite with demo data, logs in (optional) and
 # fetches pages, reporting HTTP status and server-side render errors found in the HTML.
 #
-# Usage:  scripts/smoke.sh [--port 5200] [--user admin|user|anon] [--no-build] <path> [<path> ...]
+# Usage:  scripts/smoke.sh [--port 5200] [--user admin|user|superadmin|acme|anon] [--no-build] <path> [<path> ...]
 # Example: scripts/smoke.sh --port 5201 --user admin / /admin /admin/surveys /faq
+#          scripts/smoke.sh --user superadmin /system /system/workspaces /system/accounts
+# Users: admin/user = the "Default workspace" demo accounts, acme = admin of the second demo workspace,
+#        superadmin = the seeded super admin.
 #
 # Blazor prerenders interactive pages on the server, so a 200 response without error markers means
 # OnInitialized(Async) ran successfully against real services and a real (SQLite) database.
@@ -48,6 +51,7 @@ fi
   ConnectionStrings__DefaultConnection="Data Source=$DB_NATIVE" \
   Seed__DemoData=true \
   Seed__AdminPassword='Admin123!' \
+  Seed__SuperAdminPassword='SuperAdmin123!' \
   Https__Redirect=false \
   exec dotnet "bin/Debug/net8.0/SmartSurvey.Web.dll" --urls "$BASE"
 ) >"$LOG" 2>&1 &
@@ -87,6 +91,8 @@ login() { # $1=email $2=password
 case "$USER_KIND" in
   admin) login "admin@smartsurvey.local" "Admin123!" || exit 1 ;;
   user) login "user@smartsurvey.local" "User123!" || exit 1 ;;
+  superadmin) login "superadmin@smartsurvey.local" "SuperAdmin123!" || exit 1 ;;
+  acme) login "admin@acme.local" "Admin123!" || exit 1 ;;
 esac
 
 FAIL=0

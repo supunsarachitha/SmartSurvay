@@ -162,6 +162,7 @@ public sealed class DbSeeder(
         survey.Status = Domain.Enums.SurveyStatus.Published;
         survey.PublishedAt = now.AddDays(-3);
         survey.Title = "Team Offsite Feedback";
+        survey.Description = "Tell us how the team offsite went — it takes about two minutes.";
         survey.Slug = "acme-team-offsite-feedback";
 
         await using var db = (await dbFactory.CreateDbContextAsync(ct)).UseScope(DataScope.ForWorkspace(workspace.Id));
