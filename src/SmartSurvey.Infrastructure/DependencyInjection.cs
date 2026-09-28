@@ -56,7 +56,7 @@ public static class DependencyInjection
             {
                 // No retrying execution strategy: it forbids user-initiated transactions, which the
                 // services use for atomic operations (e.g. quota-checked submissions).
-                options.UseNpgsql(connectionString, npgsql =>
+                options.UseNpgsql(PostgresConnectionString.WithDefaults(connectionString), npgsql =>
                     npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
             }
 

@@ -856,6 +856,8 @@ container; builds the Docker image, starts it with docker compose and runs `scri
 | `403` "Registration happens per workspace" from `/api/auth/register` | Use `POST /api/v1/public/workspaces` (new workspace) or `/api/v1/public/workspaces/{slug}/register` (join) |
 | Logged out after every restart (Docker) | Configure `DataProtection:KeysPath` on a volume (compose does this) |
 | Answers show "[encrypted answer — the key to read it is not available]" | The data-protection key ring is missing or from another installation (e.g. a database restored without its `keys` volume). Restore the matching key backup into `DataProtection:KeysPath` and restart |
+| First start on an empty PostgreSQL database logs `fail: … Failed executing DbCommand … FROM "__EFMigrationsHistory"` | Expected (EF Core 9+): it looks for the history table once before creating it; the migrations are applied right after |
+| `Error: libgssapi_krb5.so.2: cannot open shared object file` in the log | The connection string asks for GSS (Kerberos) encryption on a system without libgssapi — remove `GSS Encryption Mode` (SmartSurvey disables it unless set) or install `libgssapi-krb5-2` |
 | PDF export fails in a custom Linux image | Install `libfontconfig1` and a font package (see Dockerfile) |
 | Docker Desktop "Linux engine" errors on Windows | Enable WSL 2 (`wsl --install`, reboot) or use native PostgreSQL |
 | `409 Conflict` when saving a survey | Someone else saved it — reload the builder and re-apply your changes |

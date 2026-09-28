@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-28
+
+**.NET 10 LTS** (supported until November 2028; .NET 8 support ends on 2026-11-10), a public base URL for every link the
+app hands out, and starter templates for new workspaces. **Upgrading from 2.0:** back up as usual and start the new
+version — the migration `AddStarterTemplatesSetting` runs automatically. Self-hosted installs without Docker need the
+.NET 10 runtime (building needs the .NET 10 SDK).
+
 ### Added
 - `App:PublicBaseUrl` (Docker `PUBLIC_BASE_URL`): the public address used in every link the app hands out — account
   e-mails of every flow (the e-mail sender rewrites them), survey share links, QR codes, embed snippets, join links and
@@ -19,6 +26,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `scripts/browser/screenshots.js` recaptures every guide and README screenshot from a fresh demo instance.
 
 ### Changed
+- **.NET 10 LTS:** `net10.0`, C# 14, ASP.NET Core / EF Core 10.0.12, Npgsql 10.0.3, container images `sdk:10.0` /
+  `aspnet:10.0` (Ubuntu 24.04), `dotnet-ef` 10. No schema changes from the upgrade.
+- The framing headers (`X-Frame-Options` / CSP `frame-ancestors`) come from one place: Blazor's own `frame-ancestors`
+  header is switched off, because a second CSP header would block embedded surveys. While embedding is enabled,
+  WebSocket compression of the interactive circuit is off, as recommended for pages other sites can frame.
+- PostgreSQL connections no longer try GSS (Kerberos) encryption unless the connection string sets
+  `GSS Encryption Mode` — Npgsql 9+ tries it by default, which logged a `libgssapi_krb5.so.2` error in the container.
 - All user-guide and README screenshots recaptured for v2 (workspace name in the sidebar, Workspace settings, System
   console, public address in share links); the display-logic caption now matches its picture.
 
@@ -37,7 +51,7 @@ Breaking changes: branding is managed by super admins (`/system/branding`, API r
 `GET /api/v1/public/surveys` needs `?workspace={slug}` for anonymous callers.
 
 ### Added
-- **Workspaces (multi-tenancy, in progress on `feature/multi-workspace`):** every survey, response, report and audit
+- **Workspaces (multi-tenancy):** every survey, response, report and audit
   entry now belongs to a workspace, and the data layer only ever returns the current workspace's rows (fail-closed
   query filters plus a save guard that stamps and checks `WorkspaceId`). Share links stay `/s/{slug}`; people who are
   not members of a survey's workspace answer as guests, and surveys of disabled workspaces are unavailable.

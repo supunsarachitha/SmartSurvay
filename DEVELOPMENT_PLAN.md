@@ -5,10 +5,9 @@
 > [§ 9 Progress Log](#9-progress-log) and the phase checklists), then `git log --oneline`,
 > and continue with the first unchecked task. Update this file after every completed task/phase.
 
-> **▶ CURRENT WORK (since 2026-09-28): v2 follow-ups on branch `feature/v2-follow-ups`** (from `main` after PR #2
-> merged v2.0.0). Resume with [§ 11](#11-v2-follow-ups--branch-featurev2-follow-ups): same protocol as § 10.0 — check
-> out the branch, `git status`, continue with the first `[~]`/`[ ]` task in § 11.2, commit per task, containers after
-> each phase. Phases 0–8 = v1.0.0, § 10 = v2.0.0 (done).
+> **✔ LATEST WORK (2026-09-28): v2 follow-ups → 2.1.0 on branch `feature/v2-follow-ups` — all phases done**
+> ([§ 11](#11-v2-follow-ups--branch-featurev2-follow-ups)); pushing, PR and tag `v2.1.0` are the user's call. For new work,
+> start a new section with the § 10.0 protocol. Phases 0–8 = v1.0.0, § 10 = v2.0.0, § 11 = v2.1.0 (all done).
 
 ---
 
@@ -567,8 +566,8 @@ As § 10.0 (resume from the last § 11.3 row, `[~]` markers, commit per task, ph
 - [x] 17.1 SDK 10.0.300 (installed) in `global.json`, `net10.0`, Microsoft/EF/Npgsql 10.x, other packages checked for .NET 10, `dotnet-ef` 10
 - [x] 17.2 Fix breaking changes and new warnings; migrations/model snapshot consistent (`has-pending-model-changes`)
 - [x] 17.3 Docker images `10.0`, CI `setup-dotnet` 10, docs/README/plan (tech stack, prerequisites)
-- [~] 17.4 Verification: all tests, `smoke.sh` (all roles), browser check, PostgreSQL via the live compose stack, container smoke
-- [ ] 17.5 Phase gate + CHANGELOG (2.1.0)
+- [x] 17.4 Verification: all tests, `smoke.sh` (all roles), browser check, PostgreSQL via the live compose stack, container smoke
+- [x] 17.5 Phase gate + CHANGELOG (2.1.0)
 
 ### 11.3 Log
 
@@ -577,3 +576,4 @@ As § 10.0 (resume from the last § 11.3 row, `[~]` markers, commit per task, ph
 | 2026-09-28 | Plan | Branch `feature/v2-follow-ups` from `main` (`f6fdc38`, PR #2 merged). .NET SDK 10.0.300 is already installed. Next: 15.1 |
 | 2026-09-28 | **Phase 15 done** | 15.1: scratch DB `smartsurvey_upgrade_test` dropped; pre-upgrade dump copied (byte-identical, `pg_restore --list` OK) to `../backups/` with a README. 15.2: `App:PublicBaseUrl` → `PublicUrls` (origin rewrite; e-mail sender rewrites every link, share/embed/join/slug preview use it; invalid value fails start-up; tests incl. HTML-encoded links and path base). 15.3: `Workspaces:StatusCacheSeconds` (0–3600, 0 = no cache). 15.4: `StarterTemplates` (Customer satisfaction, Team pulse check, Event feedback from the demo designs, `-template-xxxxxx` slugs) on sign-up and super admin create, `PlatformSettings.ProvideStarterTemplates` + migration `AddStarterTemplatesSetting` (default true for existing rows), System → Settings toggle. 858 unit + 76 integration green; containers rebuilt (migration applied live), smoke OK, live check: new workspace gets 3 templates (cleaned up). Next: 16.1 |
 | 2026-09-28 | **Phase 16 done** | `scripts/browser/screenshots.js` (`npm run screenshots`): all 19 guide/README images from a fresh demo instance (API prep: pending workspace; workspace settings; public address `https://surveys.example.com` via `App:PublicBaseUrl`; waits for circuits; phone 390×844@2×). Every image reviewed; display-logic caption fixed to match its picture (the old one showed a different rule). 858 unit + 76 integration green; containers rebuilt, smoke OK. Next: 17.1 (.NET 10) |
+| 2026-09-28 | **Phase 17 done → 2.1.0** | SDK 10.0.300, `net10.0`, C# 14, packages 10.0.12 / Npgsql 10.0.3, `dotnet-ef` 10, images `10.0`; BL0008 (15 account pages: `= default!` + `Input ??= new()`) and ASPDEPR005 (`KnownIPNetworks`) fixed, build 0 warnings; `has-pending-model-changes` clean. .NET 10 adds a Blazor CSP `frame-ancestors` header → switched off (our middleware is the single source), WebSocket compression off while embedding is enabled; verified in a cross-origin iframe (circuit interactive). Npgsql 9+ GSS encryption logged `libgssapi_krb5.so.2` in the container → `PostgresConnectionString.WithDefaults` disables it unless configured. Verification: 862 unit + 76 integration green, `smoke.sh` all roles, browser check 17/17 without browser errors, fresh PostgreSQL (all migrations + full container smoke incl. PDF export on the Ubuntu 24.04 image), live stack rebuilt (no pending migrations, smoke OK), no vulnerable packages. CHANGELOG 2.1.0, `<Version>` 2.1.0. **Follow-ups complete** |

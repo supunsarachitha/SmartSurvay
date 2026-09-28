@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 # ---------------------------------------------------------------------------------------------
-# SmartSurvey — multi-stage container build (ASP.NET Core 8, Linux).
+# SmartSurvey — multi-stage container build (ASP.NET Core 10, Linux).
 #   docker build -t smartsurvey .
 #   docker compose up --build        (app + PostgreSQL, see docker-compose.yml)
 # ---------------------------------------------------------------------------------------------
