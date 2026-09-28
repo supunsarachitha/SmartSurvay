@@ -74,6 +74,11 @@ public static class WebSetup
     public static IServiceCollection AddWebServices(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<SupportOptions>(configuration.GetSection(SupportOptions.SectionName));
+        services.AddOptions<AppOptions>()
+            .Bind(configuration.GetSection(AppOptions.SectionName))
+            .Validate(o => PublicUrls.IsValid(o.PublicBaseUrl), "App:PublicBaseUrl must be an absolute http(s) URL, e.g. https://surveys.example.com")
+            .ValidateOnStart();
+        services.AddSingleton<PublicUrls>();
         services.Configure<EmbeddingOptions>(configuration.GetSection(EmbeddingOptions.SectionName));
 
         // Frame headers are set by SecurityHeadersMiddleware so /embed pages can be allowed in iframes.

@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Hosting;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -9,6 +10,15 @@ namespace SmartSurvey.IntegrationTests;
 [Collection(ApiCollection.Name)]
 public sealed class AuthAndPlatformTests(ApiFactory factory)
 {
+    [Fact]
+    public void An_invalid_public_base_url_stops_the_app_at_start_up()
+    {
+        using var misconfigured = factory.WithWebHostBuilder(b => b.UseSetting("App:PublicBaseUrl", "surveys.example.com"));
+
+        var error = Assert.ThrowsAny<Exception>(() => misconfigured.CreateClient());
+        Assert.Contains("App:PublicBaseUrl must be an absolute http(s) URL", error.ToString());
+    }
+
     [Fact]
     public async Task Health_check_is_public() =>
         await AssertStatusAsync(await factory.Anonymous().GetAsync("/health"), HttpStatusCode.OK);

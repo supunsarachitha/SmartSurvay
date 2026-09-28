@@ -18,6 +18,7 @@ using SmartSurvey.Web.Components.Pages.Admin.Responses;
 using SmartSurvey.Web.Components.Pages.Admin.Surveys;
 using SmartSurvey.Web.Components.Pages.Admin.Users;
 using SmartSurvey.Web.Components.Shared;
+using SmartSurvey.Web.Infrastructure;
 using BrandingPage = SmartSurvey.Web.Components.Pages.SystemConsole.Branding;
 
 namespace SmartSurvey.UnitTests.Ui;
@@ -125,6 +126,28 @@ public sealed class AdminPagesTests : UiTestBase
         Confirm(cut, "Delete response");
         Assert.Equal([rita.Id], Responses.Deleted);
         Assert.Single(cut.FindAll("tbody tr"));
+    }
+
+    [Fact]
+    public void Share_page_links_use_the_public_address_when_configured()
+    {
+        Services.AddSingleton(Microsoft.Extensions.Options.Options.Create(new EmbeddingOptions()));
+        PublicSite.PublicBaseUrl = "https://surveys.example.com";
+
+        var cut = Render<SurveyShare>(p => p.Add(x => x.Id, _s.Definition.Id));
+
+        Assert.Equal($"https://surveys.example.com/s/{_s.Definition.Slug}", cut.Find(".code-box").TextContent.Trim());
+        Assert.Contains($"src=\"https://surveys.example.com/embed/s/{_s.Definition.Slug}\"", cut.Markup.Replace("&quot;", "\""));
+    }
+
+    [Fact]
+    public void Share_page_links_use_the_request_address_by_default()
+    {
+        Services.AddSingleton(Microsoft.Extensions.Options.Options.Create(new EmbeddingOptions()));
+
+        var cut = Render<SurveyShare>(p => p.Add(x => x.Id, _s.Definition.Id));
+
+        Assert.Equal($"http://localhost/s/{_s.Definition.Slug}", cut.Find(".code-box").TextContent.Trim());
     }
 
     [Fact]

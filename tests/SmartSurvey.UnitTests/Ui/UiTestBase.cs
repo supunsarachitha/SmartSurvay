@@ -37,6 +37,7 @@ public abstract class UiTestBase : BunitContext
         Services.AddSingleton<IWorkspaceStatusProvider>(WorkspaceStatuses);
         Services.AddSingleton<IPlatformSettingsService>(PlatformSettings);
         Services.AddScoped<CurrentWorkspace>();
+        Services.AddSingleton(_ => new PublicUrls(Options.Create(PublicSite))); // created on first use, after a test set PublicSite
         Auth = AddAuthorization();
     }
 
@@ -53,6 +54,9 @@ public abstract class UiTestBase : BunitContext
     protected FakeWorkspaceStatusProvider WorkspaceStatuses { get; } = new();
 
     protected FakePlatformSettingsService PlatformSettings { get; } = new();
+
+    /// <summary>App options (set <see cref="AppOptions.PublicBaseUrl"/> before rendering to test public links).</summary>
+    protected AppOptions PublicSite { get; } = new();
 
     protected BunitAuthorizationContext Auth { get; }
 
