@@ -341,7 +341,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 ### Working mode (read when resuming)
 
 * **No multi-agent workflows** (user instruction, 2026-09-27): all remaining work is done directly in the main
-  session, one task at a time, on `main`. Do not use the Workflow tool, subagents, parallel worktree tracks or
+  session, one task at a time, on the current work branch (v2: `feature/multi-workspace`). Do not use the Workflow tool, subagents, parallel worktree tracks or
   separate review/fix agent rounds. Verification = unit/integration tests + `scripts/smoke.sh` + manual checks.
 * Phase 6 "tracks" are now just the order of work: 6A → 6B → 6C → 6D → 6E.
 * Keep reads targeted (grep / line ranges) to limit usage.
