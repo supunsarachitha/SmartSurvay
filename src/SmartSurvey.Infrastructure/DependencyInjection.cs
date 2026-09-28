@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<BrandingOptions>(configuration.GetSection(BrandingOptions.SectionName));
+        services.Configure<WorkspaceOptions>(configuration.GetSection(WorkspaceOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         services.Configure<FieldEncryptionOptions>(configuration.GetSection(FieldEncryptionOptions.SectionName));
         services.AddSingleton<IFieldProtector, DataProtectionFieldProtector>();

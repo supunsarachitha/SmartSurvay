@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SmartSurvey.Application.Audit;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Domain.Entities;
@@ -124,14 +125,31 @@ public static class WorkspaceMapping
     };
 }
 
+/// <summary>"Workspaces" configuration section.</summary>
+public sealed class WorkspaceOptions
+{
+    /// <summary>Configuration section name.</summary>
+    public const string SectionName = "Workspaces";
+
+    /// <summary>Largest allowed <see cref="StatusCacheSeconds"/>.</summary>
+    public const int MaxStatusCacheSeconds = 3600;
+
+    /// <summary>
+    /// How long a workspace's status (and name) is cached per app instance. The instance that changes a status drops
+    /// its entry at once; other instances notice the change after at most this time. 0 = read it on every request.
+    /// </summary>
+    public int StatusCacheSeconds { get; set; } = 30;
+}
+
 /// <summary>
 /// Process-wide cache of workspace status (<see cref="Ttl"/>) backing the per-request "is this
 /// workspace still active?" check. Loads through a system-scoped context in its own DI scope.
 /// </summary>
-public sealed class WorkspaceStatusCache(IServiceScopeFactory scopeFactory, TimeProvider time) : IWorkspaceStatusProvider
+public sealed class WorkspaceStatusCache(IServiceScopeFactory scopeFactory, TimeProvider time, IOptions<WorkspaceOptions>? options = null)
+    : IWorkspaceStatusProvider
 {
-    /// <summary>How long a status is trusted before it is read again.</summary>
-    public static readonly TimeSpan Ttl = TimeSpan.FromSeconds(30);
+    /// <summary>How long an entry is trusted before it is read again (<see cref="WorkspaceOptions.StatusCacheSeconds"/>).</summary>
+    public TimeSpan Ttl { get; } = TimeSpan.FromSeconds(Math.Clamp(options?.Value.StatusCacheSeconds ?? 30, 0, WorkspaceOptions.MaxStatusCacheSeconds));
 
     private readonly ConcurrentDictionary<Guid, (WorkspaceInfo? Info, DateTimeOffset Expires)> _entries = new();
 
@@ -139,7 +157,7 @@ public sealed class WorkspaceStatusCache(IServiceScopeFactory scopeFactory, Time
     public async Task<WorkspaceInfo?> GetAsync(Guid workspaceId, CancellationToken ct = default)
     {
         var now = time.GetUtcNow();
-        if (_entries.TryGetValue(workspaceId, out var entry) && entry.Expires > now)
+        if (Ttl > TimeSpan.Zero && _entries.TryGetValue(workspaceId, out var entry) && entry.Expires > now)
         {
             return entry.Info;
         }

@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 using SmartSurvey.Application.Audit;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Application.Workspaces;
@@ -120,7 +121,8 @@ public sealed class WorkspaceServiceTests : IAsyncLifetime
     public async Task Status_cache_serves_cached_values_until_invalidated_or_expired()
     {
         var services = new ServiceCollection().AddSingleton<IAppDbContextFactory>(_db).BuildServiceProvider();
-        IWorkspaceStatusProvider cache = new WorkspaceStatusCache(services.GetRequiredService<IServiceScopeFactory>(), _db.Time);
+        var concrete = new WorkspaceStatusCache(services.GetRequiredService<IServiceScopeFactory>(), _db.Time);
+        IWorkspaceStatusProvider cache = concrete;
 
         Assert.Equal(WorkspaceStatus.Active, await cache.GetStatusAsync(TestWorkspaces.OtherId));
         Assert.Null(await cache.GetStatusAsync(Guid.NewGuid()));
@@ -132,8 +134,23 @@ public sealed class WorkspaceServiceTests : IAsyncLifetime
         Assert.Equal(WorkspaceStatus.Disabled, await cache.GetStatusAsync(TestWorkspaces.OtherId));
 
         await SetStatusAsync(TestWorkspaces.OtherId, WorkspaceStatus.Active);
-        _db.Time.Advance(WorkspaceStatusCache.Ttl + TimeSpan.FromSeconds(1));
+        _db.Time.Advance(concrete.Ttl + TimeSpan.FromSeconds(1));
         Assert.Equal(WorkspaceStatus.Active, await cache.GetStatusAsync(TestWorkspaces.OtherId)); // expired → reloaded
+    }
+
+    [Fact]
+    public async Task Status_cache_time_is_configurable_and_zero_disables_it()
+    {
+        var services = new ServiceCollection().AddSingleton<IAppDbContextFactory>(_db).BuildServiceProvider();
+        var scopes = services.GetRequiredService<IServiceScopeFactory>();
+        IWorkspaceStatusProvider uncached = new WorkspaceStatusCache(scopes, _db.Time, Options.Create(new WorkspaceOptions { StatusCacheSeconds = 0 }));
+
+        Assert.Equal(TimeSpan.FromSeconds(5), new WorkspaceStatusCache(scopes, _db.Time, Options.Create(new WorkspaceOptions { StatusCacheSeconds = 5 })).Ttl);
+        Assert.Equal(TimeSpan.FromHours(1), new WorkspaceStatusCache(scopes, _db.Time, Options.Create(new WorkspaceOptions { StatusCacheSeconds = 99999 })).Ttl);
+
+        Assert.Equal(WorkspaceStatus.Active, await uncached.GetStatusAsync(TestWorkspaces.OtherId));
+        await SetStatusAsync(TestWorkspaces.OtherId, WorkspaceStatus.Disabled);
+        Assert.Equal(WorkspaceStatus.Disabled, await uncached.GetStatusAsync(TestWorkspaces.OtherId)); // no waiting at all
     }
 
     [Theory]

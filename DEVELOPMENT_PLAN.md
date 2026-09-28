@@ -554,8 +554,8 @@ As § 10.0 (resume from the last § 11.3 row, `[~]` markers, commit per task, ph
 #### Phase 15 — Settings, starter templates, housekeeping
 - [x] 15.1 Housekeeping: drop the scratch database `smartsurvey_upgrade_test`; move the pre-upgrade backup out of the session scratchpad to `../backups/` (outside the repository)
 - [x] 15.2 `App:PublicBaseUrl` (Docker `PUBLIC_BASE_URL`): e-mail links (confirmation, reset, change e-mail — every flow, via the e-mail sender) and the join link use it when set
-- [~] 15.3 `Workspaces:StatusCacheSeconds` (default 30) — how quickly other app instances notice a disabled workspace
-- [ ] 15.4 Starter templates for new workspaces (sign-up and super admin create): system setting "Give new workspaces starter templates" (migration), templates built from the demo designs with unique links; tests
+- [x] 15.3 `Workspaces:StatusCacheSeconds` (default 30) — how quickly other app instances notice a disabled workspace
+- [~] 15.4 Starter templates for new workspaces (sign-up and super admin create): system setting "Give new workspaces starter templates" (migration), templates built from the demo designs with unique links; tests
 - [ ] 15.5 Docs + Phase gate
 
 #### Phase 16 — Guide screenshots
