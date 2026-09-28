@@ -415,6 +415,8 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
 .choice-item.disabled:hover { border-color: var(--ss-border); background: var(--ss-surface); }
 .thank-you-message { max-width: 36rem; background: var(--ss-surface-2); border-radius: var(--ss-radius-sm); padding: 1rem 1.25rem; }
 .text-pre-line { white-space: pre-line; }
+/* Spam-bot honeypot: kept in the layout for bots, moved out of sight for people. */
+.hp-field { position: absolute; left: -10000px; top: auto; width: 1px; height: 1px; overflow: hidden; }
 /* Embedded runner (iframe on another site) */
 .embed-main { min-height: 100vh; display: flex; flex-direction: column; }
 .embed-main .survey-shell { padding-top: 1rem; padding-bottom: 1.5rem; width: 100%; }

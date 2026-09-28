@@ -21,6 +21,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   are hidden from the public list, show their thank-you message in place, and are marked with a lock in the admin list.
   API: `POST /api/v1/public/surveys/{slug}/unlock`, header `X-Survey-Access-Key`, `accessKey` in submissions.
   Migration `AddSurveyAccessPassword`.
+- **Bot and spam protection** for anonymous responses, without CAPTCHAs or third-party services: an ALTCHA-style
+  proof-of-work challenge solved invisibly in a Web Worker while people answer, a minimum answering time, a honeypot
+  field, one-time challenges and the existing rate limits (`BotProtection:*`, `BOT_PROTECTION` in Docker). API clients
+  submitting anonymously include the solved `challenge`; signed-in callers are not challenged.
 
 ### Fixed
 - The user guide no longer scrolls sideways on phones, and its screenshots scale to the text column and screen height

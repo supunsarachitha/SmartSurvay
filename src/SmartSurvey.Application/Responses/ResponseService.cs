@@ -27,6 +27,7 @@ namespace SmartSurvey.Application.Responses;
 /// <param name="requestValidator">Structural validation of draft/submission payloads.</param>
 /// <param name="queryValidator">Validation of the admin list filters.</param>
 /// <param name="accessKeys">Access keys of password-protected surveys.</param>
+/// <param name="botProtection">Spam and bot checks for anonymous submissions.</param>
 /// <param name="logger">Logger.</param>
 public sealed class ResponseService(
     IAppDbContextFactory dbFactory,
@@ -36,6 +37,7 @@ public sealed class ResponseService(
     IValidator<SaveResponseRequest> requestValidator,
     IValidator<ResponseQuery> queryValidator,
     ISurveyAccessKeys accessKeys,
+    IBotProtection botProtection,
     ILogger<ResponseService> logger) : IResponseService
 {
     /// <summary>Maximum stored user-agent length (matches the database column).</summary>
@@ -45,6 +47,8 @@ public sealed class ResponseService(
     public const int SecondsPerQuestion = 20;
 
     private const string AnonymousName = "Anonymous";
+    private const string BotRejectedMessage =
+        "We couldn't confirm that this response was sent by a person. Please reload the page and submit it again.";
     private const string PasswordRequiredMessage = "This survey is protected with a password. Please enter the password to continue.";
     private const string ResponseEntity = "Response";
     private const string SurveyEntity = "Survey";
@@ -132,6 +136,10 @@ public sealed class ResponseService(
         }
 
         session.SurveyTitle = survey.Title;
+        if (UserId is null && botProtection.IsEnabled)
+        {
+            session.Challenge = botProtection.CreateChallenge(survey.Id); // anonymous submissions must solve it
+        }
 
         var definition = survey.ToDefinitionDto();
         session.Survey = definition;
@@ -204,9 +212,24 @@ public sealed class ResponseService(
 
         await using var db = await dbFactory.CreateAsync(ct);
         var survey = await LoadEligibleSurveyAsync(db, surveyId, request.AccessKey, ct);
+
+        // Anonymous submissions must look human (proof of work, timing, honeypot); signed-in accounts are accountable.
+        var isGuest = UserId is null;
+        if (isGuest && botProtection.Check(surveyId, request.Challenge, request.Website) is { Passed: false } bot)
+        {
+            logger.LogInformation("Anonymous submission for survey {SurveyId} rejected by bot protection: {Reason}", surveyId, bot.Message);
+            throw new BusinessRuleException(bot.Message ?? BotRejectedMessage);
+        }
+
         var definition = survey.ToDefinitionDto();
         var questions = IndexQuestions(definition);
         var answers = SanitizeAndValidateSubmission(definition, questions, request.Answers);
+
+        // A challenge counts once — consumed only now, so fixing validation errors doesn't need a new one.
+        if (isGuest && botProtection.IsEnabled && (request.Challenge is null || !botProtection.TryConsume(request.Challenge)))
+        {
+            throw new BusinessRuleException(BotRejectedMessage);
+        }
 
         // Logged-in respondents complete their draft (keeping its StartedAt); everyone else starts fresh.
         // Guests cannot own drafts, so a ResponseId sent by a guest is ignored.

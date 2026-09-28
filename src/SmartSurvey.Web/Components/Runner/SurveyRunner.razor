@@ -223,6 +223,12 @@ else
         }
         <ErrorAlert Message="@submitError" OnDismiss="() => submitError = null" Class="mt-3" />
 
+        @* Honeypot for spam bots: invisible to people (and screen readers), often filled in by bots. *@
+        <div class="hp-field" aria-hidden="true">
+            <label for="survey-website">Website</label>
+            <input id="survey-website" type="text" name="website" tabindex="-1" autocomplete="off" @bind="honeypot" />
+        </div>
+
         <div class="survey-nav">
             <div>
                 @if (!run.IsFirstPage)
@@ -298,6 +304,8 @@ else
     private string? accessKey;
     private string passwordInput = string.Empty;
     private string? passwordError;
+    private string? honeypot;
+    private Task<long?>? challengeTask;
 
     /// <summary>Slug of the survey to answer (live and embedded mode).</summary>
     [Parameter] public string? Slug { get; set; }
@@ -392,6 +400,12 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Bot protection: solve the proof-of-work challenge in the background while the person answers.
+        if (interactive && challengeTask is null && run is not null && !IsPreview && session?.Challenge is { } challenge)
+        {
+            challengeTask = Browser.SolveChallengeAsync(challenge);
+        }
+
         if (firstRender)
         {
             interactive = true; // enables the password form (a prerendered form must not submit)
@@ -432,6 +446,7 @@ else
 
     private void Start(RunnerSnapshot snapshot)
     {
+        challengeTask = null; // a new session brings a new challenge
         session = snapshot.Session;
         seed = snapshot.Seed;
         responseId = session.DraftResponseId;
@@ -533,7 +548,21 @@ else
         try
         {
             userAgent ??= await Browser.GetUserAgentAsync();
-            await Responses.SubmitAsync(session!.Survey!.Id, BuildRequest());
+            var request = BuildRequest();
+            request.Website = honeypot;
+            if (session!.Challenge is { } challenge)
+            {
+                challengeTask ??= Browser.SolveChallengeAsync(challenge);
+                if (await challengeTask is { } number)
+                {
+                    request.Challenge = new BotChallengeSolution
+                    {
+                        Salt = challenge.Salt, Challenge = challenge.Challenge, Signature = challenge.Signature, Number = number,
+                    };
+                }
+            }
+
+            await Responses.SubmitAsync(session.Survey!.Id, request);
             submitted = true;
             if (run.Survey.PasswordProtected)
             {

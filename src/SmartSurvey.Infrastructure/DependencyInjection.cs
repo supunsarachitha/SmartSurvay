@@ -5,6 +5,7 @@ using Microsoft.Extensions.Options;
 using SmartSurvey.Application.Branding;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Application.Exports;
+using SmartSurvey.Application.Responses;
 using SmartSurvey.Application.Users;
 using SmartSurvey.Infrastructure.Email;
 using SmartSurvey.Infrastructure.Exports;
@@ -68,6 +69,8 @@ public static class DependencyInjection
 
         services.AddSingleton<IEmailTransport, SmtpEmailTransport>();
         services.AddSingleton<ISurveyAccessKeys, DataProtectionSurveyAccessKeys>();
+        services.Configure<BotProtectionOptions>(configuration.GetSection(BotProtectionOptions.SectionName));
+        services.AddSingleton<IBotProtection, ProofOfWorkBotProtection>();
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<DbSeeder>();
 

@@ -43,6 +43,9 @@ GET {{baseUrl}}/api/v1/public/surveys
 GET {{baseUrl}}/api/v1/public/surveys/{{slug}}
 
 ### 6. Submit a response (anonymous allowed by this survey; validated with the conditional logic)
+# Anonymous submissions must include the solved bot-protection challenge from step 5 ("challenge": salt, challenge,
+# signature and the number n with sha256(salt + n) == challenge) — see DOCUMENTATION.md § Bot and spam protection.
+# Signed-in callers (bearer token) are not challenged.
 POST {{baseUrl}}/api/v1/public/surveys/{{surveyId}}/responses
 Content-Type: application/json
 

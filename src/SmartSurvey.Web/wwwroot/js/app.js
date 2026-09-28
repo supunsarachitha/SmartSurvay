@@ -74,6 +74,20 @@ window.SmartSurvey = (function () {
 
     function print() { window.print(); }
 
+    // Bot protection: solves the survey's proof-of-work challenge in a background thread (js/pow-worker.js).
+    // Resolves with the number, or null when it can't be solved (the server then asks the person to reload).
+    function solveChallenge(salt, challenge, max) {
+        return new Promise(resolve => {
+            let worker;
+            try { worker = new Worker("js/pow-worker.js"); } catch { resolve(null); return; }
+            const done = value => { clearTimeout(timer); worker.terminate(); resolve(value); };
+            const timer = setTimeout(() => done(null), 60000);
+            worker.onmessage = e => done(typeof e.data === "number" ? e.data : null);
+            worker.onerror = () => done(null);
+            worker.postMessage({ salt, challenge, max });
+        });
+    }
+
     function scrollToTop() { window.scrollTo({ top: 0, behavior: "smooth" }); }
 
     function scrollIntoView(selector) {
@@ -110,5 +124,5 @@ window.SmartSurvey = (function () {
         if (document.documentElement.getAttribute("data-bs-theme") !== wanted) applyTheme(wanted);
     }).observe(document.documentElement, { attributes: true, attributeFilter: ["data-bs-theme"] });
 
-    return { applyTheme, toggleTheme, toggleSidebar, downloadFile, copyText, getTimeZone, getUserAgent, print, scrollToTop, scrollIntoView, focus };
+    return { applyTheme, toggleTheme, toggleSidebar, downloadFile, copyText, getTimeZone, getUserAgent, print, solveChallenge, scrollToTop, scrollIntoView, focus };
 })();

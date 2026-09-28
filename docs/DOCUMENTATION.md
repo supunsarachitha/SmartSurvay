@@ -422,6 +422,23 @@ refused (403). Wrong guesses are limited per connection (10 per 5 minutes) and p
 not listed publicly and show their thank-you message inside the survey page. Duplicates keep the password; exported
 definitions never contain it.
 
+**Bot and spam protection** (anonymous submissions; signed-in respondents are accountable and not challenged):
+
+1. **Proof of work** — the session (`StartOrResumeAsync`, `GET /api/v1/public/surveys/{slug}`) contains a `challenge`
+   (ALTCHA-style: `salt`, `challenge`, `maxNumber`, `signature`). The browser searches the number `n`
+   (0 ≤ n ≤ maxNumber) with `sha256(salt + n)` = `challenge` (lower-case hex) in a Web Worker (`wwwroot/js/pow-worker.js`)
+   while the person answers, and sends `{ salt, challenge, signature, number }` as `challenge` with the submission.
+   ~25,000 hashes on average (`BotProtection:Difficulty` 50,000): a fraction of a second for a person, a real cost at spam
+   scale. The signature (Data Protection) makes challenges unforgeable; the salt contains the survey and issue time.
+2. **Minimum time** — submissions less than `BotProtection:MinimumSeconds` (3) after the challenge was issued are rejected.
+3. **Honeypot** — a visually hidden `website` field; submissions that fill it are rejected.
+4. **One-time use** — a challenge is consumed by a successful submission (replays are rejected; validation errors don't
+   consume it). Challenges expire after `BotProtection:ChallengeLifetimeHours` (24).
+5. **Rate limits** — per IP on the API (30 submissions/min) and per connection in the runner (5/min).
+
+Rejected submissions get a friendly 422 message ("please reload the page…"). API integrators submitting anonymously
+must solve the challenge (a loop over SHA-256, see `tests/…/ApiTestData.Solve`) or submit with a bearer token.
+
 **Option order:** choice questions with *Randomise options* are shuffled once per respondent (the order stays
 the same while they answer); "Other → free text" options always stay last.
 
@@ -552,6 +569,8 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
   authentication (20/min/IP) and submissions (30/min/IP). Submissions from the interactive survey runner are limited
   per connection (5 per minute) — not per IP, because many respondents can share one address. For very public
   surveys that attract spam, put a WAF / bot protection in front of the site.
+* **Bot and spam protection:** invisible proof-of-work challenge, minimum answering time, honeypot and one-time
+  challenges for anonymous submissions, plus rate limits — no CAPTCHA and no third-party service (details in §11).
 * **Password-protected surveys:** salted PBKDF2-SHA256 hashes (100,000 iterations), constant-time comparison,
   signed time-limited access keys checked on every open/save/submit, brute-force limits per connection and per IP.
 * **Headers:** `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` and
@@ -596,6 +615,10 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 | `Email:Smtp:Port` / `Email:Smtp:Security` | `587` / `Auto` | `Auto` = implicit TLS on 465, otherwise STARTTLS when offered; `StartTls`, `SslOnConnect`, `None` |
 | `Email:Smtp:UserName` / `Email:Smtp:Password` | *(empty)* | SMTP login (set the password via environment variable / secret store) |
 | `Email:Smtp:TimeoutSeconds` | `30` | Connection and command timeout |
+| `BotProtection:Enabled` | `true` | Spam/bot checks for anonymous submissions (§11) |
+| `BotProtection:Difficulty` | `50000` | Upper bound of the proof-of-work search (higher = more work per response) |
+| `BotProtection:MinimumSeconds` | `3` | Faster submissions are rejected as automated |
+| `BotProtection:ChallengeLifetimeHours` | `24` | How long a survey page stays valid for submitting |
 | `Embedding:Enabled` | `true` | Allow `/embed/s/{slug}` survey pages in iframes on other sites (share-page snippet) |
 | `Embedding:AllowedOrigins` | *(empty = any site)* | Origins allowed to embed surveys, e.g. `["https://www.example.com"]` |
 | `Swagger:Enabled` | `false` (`true` in Development) | Expose `/swagger` |

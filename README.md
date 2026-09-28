@@ -29,6 +29,8 @@ ASP.NET Core 8 · Blazor (Interactive Server) · EF Core 8 · PostgreSQL · Ques
   resume, anonymous links, QR codes and embedding in any website.
 - **Password-protected links** — optionally require a password to open a survey (stored as a salted hash, enforced
   on the server for opening, saving and submitting).
+- **Bot & spam protection** — invisible proof-of-work challenge, minimum answering time, honeypot field, one-time
+  challenges and rate limits; no CAPTCHA, no third-party service.
 - **Dynamic reports** — KPIs, distribution tables, bar/pie/doughnut/line charts, cross-tabs, NPS, text answers and raw
   grids with date and answer filters, live preview, and **PDF / CSV / TXT / Excel / JSON** export.
 - **Administration** — dashboard, response browser, user & role management (incl. password reset), audit log and
@@ -124,6 +126,7 @@ every feature step by step.
 | `DEMO_DATA` | `true` | Example surveys, responses and a report — set `false` for real use |
 | `SWAGGER_ENABLED` | `true` | API documentation at `/swagger` |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURITY`, `SMTP_USERNAME`, `SMTP_PASSWORD`, `MAIL_FROM` | *(off)* | E-mail server for password-reset and confirmation e-mails |
+| `BOT_PROTECTION` | `true` | Spam/bot checks for anonymous responses |
 | `BMC_USERNAME` / `GITHUB_URL` | project defaults | Links on the support page and in the footer |
 
 ### Putting it on a server

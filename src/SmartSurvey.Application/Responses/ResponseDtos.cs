@@ -121,6 +121,12 @@ public sealed class SaveResponseRequest
 
     /// <summary>Access key from <c>UnlockAsync</c> (required for password-protected surveys).</summary>
     public string? AccessKey { get; set; }
+
+    /// <summary>Solved bot challenge from the session (required for anonymous submissions when bot protection is on).</summary>
+    public BotChallengeSolution? Challenge { get; set; }
+
+    /// <summary>Honeypot: a field people never see and bots tend to fill. Must stay empty.</summary>
+    public string? Website { get; set; }
 }
 
 /// <summary>Password entered to open a protected survey.</summary>
@@ -195,6 +201,9 @@ public sealed class SurveySessionDto
 
     /// <summary>Survey title — also set when a password is required, so the prompt can name the survey.</summary>
     public string? SurveyTitle { get; set; }
+
+    /// <summary>Proof-of-work challenge to solve before submitting (anonymous respondents, bot protection on).</summary>
+    public BotChallengeDto? Challenge { get; set; }
 
     /// <summary>Existing draft id when resuming.</summary>
     public Guid? DraftResponseId { get; set; }

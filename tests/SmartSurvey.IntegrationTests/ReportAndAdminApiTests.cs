@@ -22,8 +22,7 @@ public sealed class ReportAndAdminApiTests(ApiFactory factory)
     public async Task Default_report_is_generated_saved_run_and_exported()
     {
         var survey = await CreatePublishedSurveyAsync(_admin, "Reported survey");
-        await ReadAsync<SubmitResponseResult>(
-            await factory.Anonymous().PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", Answers(survey), ApiFactory.Json));
+        await ReadAsync<SubmitResponseResult>(await SubmitAnonymouslyAsync(factory.Anonymous(), survey, Answers(survey)));
 
         var suggestion = await ReadAsync<ReportDefinitionDto>(await _admin.PostAsync($"/api/v1/reports/default/{survey.Id}", null));
         Assert.Equal(Guid.Empty, suggestion.Id);

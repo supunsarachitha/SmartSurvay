@@ -30,7 +30,7 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
 
     private int _surveyCounter;
 
-    private ResponseTestHarness()
+    private ResponseTestHarness(IBotProtection? botProtection)
     {
         Service = new ResponseService(
             Db,
@@ -40,6 +40,7 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
             new SaveResponseRequestValidator(),
             new ResponseQueryValidator(),
             AccessKeys,
+            botProtection ?? new DisabledBotProtection(),
             NullLogger<ResponseService>.Instance);
     }
 
@@ -59,9 +60,9 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
     public DateTime Now => Db.UtcNow;
 
     /// <summary>Creates the harness and seeds the users.</summary>
-    public static async Task<ResponseTestHarness> CreateAsync()
+    public static async Task<ResponseTestHarness> CreateAsync(IBotProtection? botProtection = null)
     {
-        var harness = new ResponseTestHarness();
+        var harness = new ResponseTestHarness(botProtection);
         await harness.Db.SeedAsync(
             NewUser(TestCurrentUser.AdminId, AdminEmail, AdminName),
             NewUser(TestCurrentUser.RespondentId, RespondentEmail, RespondentName),

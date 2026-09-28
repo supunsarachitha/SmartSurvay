@@ -39,6 +39,8 @@ services:
       Swagger__Enabled: ${SWAGGER_ENABLED:-true}
       Support__BuyMeACoffeeUsername: ${BMC_USERNAME:-jkhy9gtjs}
       Support__GitHubUrl: ${GITHUB_URL:-https://github.com/supunsarachitha/SmartSurvay}
+      # Spam/bot protection for anonymous responses (proof of work, timing, honeypot). Keep it on for public surveys.
+      BotProtection__Enabled: ${BOT_PROTECTION:-true}
       # Account e-mails (password reset, confirmation). Leave SMTP_HOST empty to disable e-mail.
       Email__FromAddress: ${MAIL_FROM:-no-reply@smartsurvey.local}
       Email__Smtp__Host: ${SMTP_HOST:-}

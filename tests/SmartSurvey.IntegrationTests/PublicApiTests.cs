@@ -28,7 +28,7 @@ public sealed class PublicApiTests(ApiFactory factory)
         Assert.Equal(survey.Id, session.Survey!.Id);
 
         var result = await ReadAsync<SubmitResponseResult>(
-            await anonymous.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", Answers(survey), ApiFactory.Json));
+            await SubmitAnonymouslyAsync(anonymous, survey, Answers(survey)));
         Assert.NotEqual(Guid.Empty, result.ResponseId);
 
         var detail = await ReadAsync<ResponseDetailDto>(await _admin.GetAsync($"/api/v1/responses/{result.ResponseId}"));
@@ -42,9 +42,7 @@ public sealed class PublicApiTests(ApiFactory factory)
         var request = Answers(survey);
         request.Answers.RemoveAt(0);
 
-        await ProblemAsync(
-            await factory.Anonymous().PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", request, ApiFactory.Json),
-            HttpStatusCode.BadRequest);
+        await ProblemAsync(await SubmitAnonymouslyAsync(factory.Anonymous(), survey, request), HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -84,7 +82,7 @@ public sealed class PublicApiTests(ApiFactory factory)
     {
         var survey = await CreatePublishedSurveyAsync(_admin, "Export survey");
         var submitted = await ReadAsync<SubmitResponseResult>(
-            await factory.Anonymous().PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", Answers(survey, "Exported, \"quoted\""), ApiFactory.Json));
+            await SubmitAnonymouslyAsync(factory.Anonymous(), survey, Answers(survey, "Exported, \"quoted\"")));
 
         var page = await ReadAsync<PagedResult<ResponseSummaryDto>>(await _admin.GetAsync($"/api/v1/surveys/{survey.Id}/responses"));
         Assert.Equal(submitted.ResponseId, Assert.Single(page.Items).Id);
@@ -149,11 +147,41 @@ public sealed class PublicApiTests(ApiFactory factory)
         var open = await ReadAsync<SurveySessionDto>(await anonymous.SendAsync(withKey));
         Assert.Equal(SurveyEligibility.Eligible, open.Eligibility);
 
-        var request = Answers(survey);
-        request.AccessKey = unlock.AccessKey;
-        await ReadAsync<SubmitResponseResult>(await anonymous.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", request, ApiFactory.Json));
+        await ReadAsync<SubmitResponseResult>(await SubmitAnonymouslyAsync(anonymous, survey, Answers(survey), unlock.AccessKey));
 
         var listed = await ReadAsync<List<AvailableSurveyDto>>(await anonymous.GetAsync("/api/v1/public/surveys"));
         Assert.DoesNotContain(listed, s => s.SurveyId == survey.Id);
+    }
+
+    [Fact]
+    public async Task Anonymous_submissions_must_pass_the_bot_checks()
+    {
+        var survey = await CreatePublishedSurveyAsync(_admin, "Bot protected survey");
+        var anonymous = factory.Anonymous();
+
+        var session = await ReadAsync<SurveySessionDto>(await anonymous.GetAsync($"/api/v1/public/surveys/{survey.Slug}"));
+        Assert.Equal("SHA-256", session.Challenge!.Algorithm);
+
+        // No proof of work → rejected as automated.
+        await ProblemAsync(await anonymous.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", Answers(survey), ApiFactory.Json),
+            HttpStatusCode.UnprocessableEntity);
+
+        // Honeypot filled in → rejected even with a valid solution.
+        var trapped = Answers(survey);
+        trapped.Challenge = Solve(session.Challenge);
+        trapped.Website = "http://spam.example";
+        await ProblemAsync(await anonymous.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", trapped, ApiFactory.Json),
+            HttpStatusCode.UnprocessableEntity);
+
+        // A valid solution works once; replaying it is refused.
+        var request = Answers(survey);
+        request.Challenge = Solve(session.Challenge);
+        await ReadAsync<SubmitResponseResult>(await anonymous.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", request, ApiFactory.Json));
+        await ProblemAsync(await anonymous.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", request, ApiFactory.Json),
+            HttpStatusCode.UnprocessableEntity);
+
+        // Signed-in respondents are not challenged.
+        var mine = await ReadAsync<SurveySessionDto>(await factory.Respondent().GetAsync($"/api/v1/public/surveys/{survey.Slug}"));
+        Assert.Null(mine.Challenge);
     }
 }

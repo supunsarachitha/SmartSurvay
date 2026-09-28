@@ -86,6 +86,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Swagger:Enabled", "true");
         builder.UseSetting("Https:Redirect", "false");
         builder.UseSetting("DataProtection:KeysPath", _keysPath);
+        // Real bot protection, tuned for speed: tiny proof of work, no minimum answering time.
+        builder.UseSetting("BotProtection:Difficulty", "2000");
+        builder.UseSetting("BotProtection:MinimumSeconds", "0");
     }
 
     private HttpClient WithToken(string token)
