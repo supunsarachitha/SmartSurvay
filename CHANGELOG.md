@@ -41,6 +41,11 @@ version — the migration `AddStarterTemplatesSetting` runs automatically. Self-
 - All user-guide and README screenshots recaptured for v2 (workspace name in the sidebar, Workspace settings, System
   console, public address in share links); the display-logic caption now matches its picture.
 
+### Fixed
+- Logging out of a page that needs an account (admin area, System console, account pages, My responses) now leads to
+  the home page. Before, the sign-in page kept that page as its return address, so the next person who signed in with
+  a different account was sent there — e.g. to "Access denied".
+
 ## [2.0.0] - 2026-09-28
 
 **Workspaces.** One installation now hosts many fully isolated workspaces with their own admins and members, a

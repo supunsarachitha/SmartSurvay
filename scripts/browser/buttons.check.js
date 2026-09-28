@@ -8,6 +8,7 @@
 //     delete account, 2FA resets) are never clicked; dialogs a click opens are cancelled.
 // Collects console errors, failed requests, 5xx responses and Blazor's error bar.
 //
+// It refuses to run unless the demo admin password works, so a real installation is never touched.
 // Run against a FRESH instance with demo data (it creates, edits and deletes data), preferably a throwaway container of
 // the real image — Development builds serve Blazor's scripts differently from the published app:
 //   docker compose build web && docker network create ss-gui && \
@@ -214,11 +215,29 @@ async function closeModal(page) {
   if (await page.$('.ss-modal')) { await page.keyboard.press('Escape'); await sleep(400); }
   return !(await page.$('.ss-modal'));
 }
+// Prepares a click: closes open menus that don't contain the element, scrolls it to the middle and checks that nothing
+// (an open menu, a toast) covers it. Returns 'ok', 'toast' or what covers it.
+const hitTest = (page, i) => page.evaluate((selector, i) => {
+  const e = document.querySelectorAll(selector)[i];
+  if (!e) return 'gone';
+  for (const t of document.querySelectorAll('[data-bs-toggle=dropdown][aria-expanded=true]')) {
+    if (!t.parentElement.contains(e) && window.bootstrap) window.bootstrap.Dropdown.getOrCreateInstance(t).hide();
+  }
+  e.scrollIntoView({ block: 'center', inline: 'center' });
+  const r = e.getBoundingClientRect();
+  const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
+  if (!top || top === e || e.contains(top)) return 'ok';
+  return top.closest('.toast-stack') ? 'toast' : `covered by ${top.tagName.toLowerCase()}${top.className ? '.' + String(top.className).trim().replace(/\s+/g, '.') : ''}`;
+}, CLICKABLE, i);
 const signature = c => `${c.tag}|${c.text}|${c.label.replace(/ (for|of) .*/, ' …')}|${c.href.replace(GUID, ':id').replace(/\?.*/, '')}`;
 
 async function crawl(page, path, seenLinks, maxClicks = 70) {
   await go(page, path);
   const start = page.url();
+  if (new URL(start).pathname.toLowerCase() !== path.split('?')[0].toLowerCase()) {
+    check(`[${page.role}] crawl ${path}`, false, `landed on ${start.replace(BASE, '')}`);
+    return;
+  }
   const seen = new Set(); let clicks = 0, noEffect = [], failed = 0, last = '';
   const back = async () => { await page.goto(start, { waitUntil: 'networkidle0' }); await sleep(1200); };
   // Blazor's error bar can show up a moment after the click that caused it.
@@ -251,17 +270,21 @@ async function crawl(page, path, seenLinks, maxClicks = 70) {
         continue;
       }
     }
-    clicks++;
-    let before = await page.evaluate(snapshotPage);
+    let before;
     try {
       if (next.hiddenInMenu) {
         const toggle = (await page.$$(CLICKABLE))[next.toggle];
         if (await toggle.evaluate(e => e.getAttribute('aria-expanded') !== 'true')) { await toggle.click(); await sleep(350); }
-        before = await page.evaluate(snapshotPage); // the item's own effect, not the menu opening
       }
+      let hit = await hitTest(page, next.i);
+      if (hit === 'toast') { await waitFor(async () => !(await page.$('.toast-item')), 8000); hit = await hitTest(page, next.i); }
+      await sleep(150); // closed menus finish their transition
+      if (hit !== 'ok') { notes.push(`cover [${page.role}] ${path} "${name}" not clicked: ${hit}`); continue; }
       const handle = (await page.$$(CLICKABLE))[next.i];
       const matches = handle && await handle.evaluate((e, t) => (e.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 60) === t, next.text);
       if (!matches) { notes.push(`moved [${page.role}] ${path} "${name}" (page changed before the click)`); continue; }
+      before = await page.evaluate(snapshotPage); // after menus opened/closed: only the click's own effect counts
+      clicks++;
       await handle.click();
       last = name;
     } catch (e) { failed++; check(`[${page.role}] ${path}: click "${name}"`, false, e.message.split('\n')[0]); continue; }
@@ -302,6 +325,14 @@ async function step(name, fn) {
   try {
     const admin = await newPage(browser, 'admin');
     await login(admin, ADMIN);
+    // Safety: this check creates, edits and deletes data and submits a response. It only runs where the demo admin
+    // password works — a fresh demo instance; a real installation has its own passwords and is left untouched.
+    if (new URL(admin.url()).pathname.toLowerCase().startsWith('/account/login')) {
+      console.error(`Refusing to run: the demo admin password does not work on ${BASE}. This check changes data — ` +
+        'run it against a fresh demo instance (see the top of this script).');
+      await browser.close();
+      process.exit(2);
+    }
     await go(admin, '/admin/surveys');
     const surveys = await admin.$$eval('a[href$="/edit"][href*="admin/surveys/"]', as => as.map(a => ({
       id: a.getAttribute('href').split('/')[2], title: a.closest('tr')?.querySelector('a:not(.btn)')?.innerText.trim() || '',
