@@ -861,7 +861,7 @@ key encryption (`ProtectKeysWithCertificate`) for stricter environments.
 - [ ] `Email:Smtp:*` for account e-mails (confirmation, password reset) — or reset passwords from the Users page
 - [ ] `Embedding:AllowedOrigins` (or `Embedding:Enabled=false`) if surveys should only be embedded by your own sites
 
-**CI:** `.github/workflows/ci.yml` builds and tests on every push/PR and fails on known vulnerable packages;
+**CI:** `.github/workflows/ci.yml` builds and tests on pushes to `main` and on pull requests and fails on known vulnerable packages;
 checks that the model has no changes without a migration and applies the migrations to a PostgreSQL service
 container; builds the Docker image, starts it with docker compose and runs `scripts/container-smoke.sh`.
 

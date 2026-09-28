@@ -61,12 +61,16 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet tool restore
+      # dotnet-ef (10.x) reads the project metadata through MSBuild, which needs the restored assets file,
+      # so restore and build first; the ef commands then use that build (--no-build).
+      - name: Build
+        run: dotnet build src/SmartSurvey.Web/SmartSurvey.Web.csproj
       - name: No model changes without a migration
-        run: dotnet ef migrations has-pending-model-changes --project src/SmartSurvey.Infrastructure --startup-project src/SmartSurvey.Web
+        run: dotnet ef migrations has-pending-model-changes --project src/SmartSurvey.Infrastructure --startup-project src/SmartSurvey.Web --no-build
       - name: Apply EF Core migrations
         env:
           SMARTSURVEY_MIGRATIONS_CONNECTION: Host=localhost;Port=5432;Database=smartsurvey;Username=smartsurvey;Password=smartsurvey
-        run: dotnet ef database update --project src/SmartSurvey.Infrastructure --startup-project src/SmartSurvey.Web
+        run: dotnet ef database update --project src/SmartSurvey.Infrastructure --startup-project src/SmartSurvey.Web --no-build
 
   docker:
     name: Docker image
