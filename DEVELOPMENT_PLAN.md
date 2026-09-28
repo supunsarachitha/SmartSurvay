@@ -342,8 +342,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   separate review/fix agent rounds. Verification = unit/integration tests + `scripts/smoke.sh` + manual checks.
 * Phase 6 "tracks" are now just the order of work: 6A → 6B → 6C → 6D → 6E.
 * Keep reads targeted (grep / line ranges) to limit usage.
-* History: Phases 4A/4B were built by parallel agents in worktrees under `../SmartSurvay-worktrees/`; the saved
-  scripts in `.claude/workflows/` are kept for reference only and are no longer run.
+* History: Phases 4A/4B were built by parallel agents in worktrees under `../SmartSurvay-worktrees/`; the
+  workflow scripts they used were removed from the repository (2026-09-28).
 * `scripts/smoke.sh` boots the app on SQLite with demo data and checks pages (admin login included).
 
 ### Log
@@ -355,7 +355,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Phases 1–3 | Solution scaffolded (6 projects, CPM, dotnet-ef 8.0.31 local tool); domain model, AppDbContext + configurations, InitialCreate migration (applied to PostgreSQL); application contracts, LogicEvaluator, ResponseValidator; web host (auth cookie+bearer, policies, ProblemDetails, rate limiting, health, Swagger); design system + layouts + shared components; stubs for Phase 4 services; test support + 72 passing core tests; app boots against PostgreSQL |
 | 2026-09-27 | Phase 4 (run 1) | Parallel worktrees (harness worktree isolation failed → manual `git worktree add` under `../SmartSurvay-worktrees`). 4A + 4B implemented (285/222 tests) and merged; 4C/4D interrupted by a usage limit (partial work kept in their worktrees) |
 | 2026-09-27 | Branding | New user request: admin-customisable product name/tagline/icon/logo. Entity + `AddBrandingSettings` migration, cached `IBrandingService`, `/branding/logo` + `/branding/favicon`, `BrandMark` component; 457 unit tests green. Admin page + API assigned to Phase 5/6 (tracks 5-api, 6E) |
-| 2026-09-27 | Phase 4 (run 2) | Workflow `phase4-complete`: finish 4C/4D, independent review+fix of 4A–4D (incl. PostgreSQL query checks). Workflow scripts saved in `.claude/workflows/` (`phase4-complete.js`, next `phase56-api-and-ui.js`; args documented at the top of §9) |
+| 2026-09-27 | Phase 4 (run 2) | Workflow `phase4-complete`: finish 4C/4D, independent review+fix of 4A–4D (incl. PostgreSQL query checks). Workflow scripts were kept in `.claude/workflows/` until they were removed on 2026-09-28 |
 | 2026-09-27 | Working mode | User asked to stop multi-agent workflows (usage). Workflow run 2 stopped mid-4C/4D; partial files kept. Remaining work continues directly on `main`, sequentially (see "Working mode" above). Login page fix: internal CookieOrBearer scheme hidden from external-login list |
 | 2026-09-27 | Phase 4 done | 4C finished directly: ReportService, PDF/CSV/TXT/XLSX/JSON exporters, raw response export (QuestPDF configured by the PDF exporter). Tests added for 4C (79) and 4D (28: audit, dashboard, users with real Identity, seeder). 564 unit tests green; seeder verified on PostgreSQL (admin login + demo data). Next: Phase 5 (REST API) |
 | 2026-09-27 | Phase 5 done | REST API: 8 groups + branding under `/api/v1` (Api/*Endpoints.cs), optional query records for list endpoints (`ApiQueries.cs`), logo upload as base64 JSON (CSRF-safe without antiforgery), `docs/examples` (.http walkthrough + survey/response/report JSON). 35 integration tests (auth 401/403, ProblemDetails, lifecycle, public flow, exports, reports, admin, branding, OpenAPI, examples). Next: Phase 6A |
