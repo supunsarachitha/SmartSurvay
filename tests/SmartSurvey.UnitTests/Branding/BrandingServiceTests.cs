@@ -26,6 +26,7 @@ public sealed class BrandingServiceTests : IAsyncLifetime
             _provider.GetRequiredService<IServiceScopeFactory>(),
             _db.Time,
             Options.Create(new BrandingOptions { ProductName = "Acme Surveys", Tagline = "Ask better", IconName = "bi-star" }));
+        _db.CurrentUser.ActAsSuperAdmin(); // branding is system-wide: super admins manage it
         _service = new BrandingService(_cache, _db, _db.CurrentUser, _audit);
         return Task.CompletedTask;
     }
@@ -82,6 +83,17 @@ public sealed class BrandingServiceTests : IAsyncLifetime
             _service.UpdateAsync(new UpdateBrandingRequest { ProductName = new string('x', 81), IconName = "bi-star" }));
     }
 
+
+    [Fact]
+    public async Task Workspace_admins_cannot_change_the_system_wide_branding()
+    {
+        _db.CurrentUser.ActAsAdmin();
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.UpdateAsync(new UpdateBrandingRequest { ProductName = "X", IconName = "bi-star" }));
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.SetLogoAsync(Png, "logo.png"));
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.RemoveLogoAsync());
+        await Assert.ThrowsAsync<ForbiddenException>(() => _service.ResetAsync());
+    }
     [Fact]
     public async Task Non_admins_cannot_change_branding()
     {

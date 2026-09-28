@@ -456,8 +456,8 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 - [x] 9.6 Phase gate (§ 10.0 step 5) — verify the v1.0 compose database upgrades (data lands in Default workspace, admin still signs in)
 
 #### Phase 10 — Workspace-aware services + platform services
-- [ ] 10.1 Review/adjust every service for scoping: surveys (duplicate/templates/import), responses (D9, my responses), reports + engine, exports, dashboard, audit (workspace vs system events)
-- [ ] 10.2 `UserAdminService` scope rules: workspace admin → own workspace, roles ⊆ {Admin, User}, last-admin protection; super admin → all accounts, create super admins / workspace members
+- [~] 10.1 Review/adjust every service for scoping: surveys (duplicate/templates/import), responses (D9, my responses), reports + engine, exports, dashboard, audit (workspace vs system events)
+- [x] 10.2 `UserAdminService` scope rules: workspace admin → own workspace, roles ⊆ {Admin, User}, last-admin protection; super admin → all accounts, create super admins / workspace members
 - [ ] 10.3 `IWorkspaceService` (own settings, public lookup by slug) + `IWorkspaceStatusProvider` (cached status, invalidated on change)
 - [ ] 10.4 `IPlatformWorkspaceService` (list with counts, create with admin account, update, enable/disable/approve, delete disabled) + `IPlatformSettingsService` + overview stats
 - [ ] 10.5 `IWorkspaceSignupService`: sign-up (workspace + owner admin, approval setting) and join (member registration when allowed)

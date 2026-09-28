@@ -31,6 +31,12 @@ public sealed record UserDto
 
     /// <summary>Completed responses submitted by the user.</summary>
     public int ResponseCount { get; init; }
+
+    /// <summary>Workspace of the account; null for super admins.</summary>
+    public Guid? WorkspaceId { get; init; }
+
+    /// <summary>Name of that workspace (filled for super admins, who see every workspace).</summary>
+    public string? WorkspaceName { get; init; }
 }
 
 /// <summary>User list filters.</summary>
@@ -41,6 +47,12 @@ public sealed class UserQuery : PageRequest
 
     /// <summary>Only users in this role.</summary>
     public string? Role { get; set; }
+
+    /// <summary>
+    /// Super admins only: only accounts of this workspace. Workspace admins always see their own
+    /// workspace, whatever this says.
+    /// </summary>
+    public Guid? WorkspaceId { get; set; }
 }
 
 /// <summary>Admin request to create a user.</summary>
@@ -55,8 +67,14 @@ public sealed class CreateUserRequest
     /// <summary>Initial password (must satisfy the Identity password policy).</summary>
     public string Password { get; set; } = string.Empty;
 
-    /// <summary>Roles to assign (default: User).</summary>
+    /// <summary>Roles to assign (default: User; for a super admin account: SuperAdmin).</summary>
     public List<string> Roles { get; set; } = [];
+
+    /// <summary>
+    /// Super admins only: workspace of the new member, or null to create another super admin.
+    /// Workspace admins always create members of their own workspace.
+    /// </summary>
+    public Guid? WorkspaceId { get; set; }
 }
 
 /// <summary>Request to replace a user's roles.</summary>
@@ -73,7 +91,11 @@ public sealed class SetUserPasswordRequest
     public string Password { get; set; } = string.Empty;
 }
 
-/// <summary>User administration (admin only). Implemented with ASP.NET Core Identity.</summary>
+/// <summary>
+/// Account administration. Workspace admins manage the members of their own workspace (roles Admin and
+/// User); super admins manage every account, including other super admins. Implemented with ASP.NET
+/// Core Identity.
+/// </summary>
 public interface IUserAdminService
 {
     /// <summary>Paged user list.</summary>
