@@ -9,12 +9,34 @@ namespace SmartSurvey.UnitTests.Ui;
 public sealed class HomePageTests : UiTestBase
 {
     [Fact]
-    public void Uses_the_branded_product_name_and_invites_guests_to_sign_up()
+    public void Uses_the_branded_product_name_and_invites_guests_to_create_a_workspace()
     {
         var page = Render<Home>();
 
         Assert.Contains($"{ProductName} helps you build surveys", page.Markup);
-        Assert.NotNull(page.Find("a[href='Account/Register']"));
+        Assert.NotEmpty(page.FindAll("a[href='signup']"));
+        Assert.Empty(page.FindAll("a[href='admin/surveys']"));
+    }
+
+    [Fact]
+    public void Without_self_service_sign_up_guests_are_only_invited_to_sign_in()
+    {
+        PlatformSettings.Settings = new() { AllowWorkspaceSignup = false };
+
+        var page = Render<Home>();
+
+        Assert.Empty(page.FindAll("a[href='signup']"));
+        Assert.NotNull(page.Find("a[href='Account/Login']"));
+    }
+
+    [Fact]
+    public void Super_admins_get_a_shortcut_to_the_system_console()
+    {
+        SignInAsSuperAdmin();
+
+        var page = Render<Home>();
+
+        Assert.NotNull(page.Find("a[href='system']"));
         Assert.Empty(page.FindAll("a[href='admin/surveys']"));
     }
 
@@ -26,7 +48,7 @@ public sealed class HomePageTests : UiTestBase
         var page = Render<Home>();
 
         Assert.NotNull(page.Find("a[href='admin/surveys']"));
-        Assert.Empty(page.FindAll("a[href='Account/Register']"));
+        Assert.Empty(page.FindAll("a[href='signup']"));
     }
 }
 
@@ -115,12 +137,37 @@ public sealed class BuyMeACoffeePageTests : UiTestBase
 public sealed class SurveysPageTests : UiTestBase
 {
     [Fact]
-    public void Guests_see_a_sign_in_prompt_and_an_empty_state()
+    public void Guests_are_pointed_to_survey_links_and_workspace_pages()
     {
         var page = Render<SurveysPage>();
 
-        Assert.Contains("Some surveys are for members only", page.Markup);
-        Assert.Contains("No open surveys right now", page.Markup);
+        Assert.Contains("Got a survey link?", page.Markup);
+        Assert.NotNull(page.Find("form[action='surveys'] input[name='workspace']"));
+        Assert.NotNull(page.Find("a[href='signup']"));
+        Assert.DoesNotContain("No open surveys right now", page.Markup);
+    }
+
+    [Fact]
+    public void Members_see_their_workspace_name_and_its_surveys()
+    {
+        SignInAsRespondent();
+        Responses.Available.Add(Survey("Team pulse", "pulse", canRespond: true));
+
+        var page = Render<SurveysPage>();
+
+        Assert.Contains("Surveys of Test workspace", page.Markup);
+        Assert.NotNull(page.Find("a[href='s/pulse']"));
+    }
+
+    [Fact]
+    public void Super_admins_are_sent_to_the_system_console()
+    {
+        SignInAsSuperAdmin();
+
+        var page = Render<SurveysPage>();
+
+        Assert.Contains("Super admins do not answer surveys", page.Markup);
+        Assert.NotNull(page.Find("a[href='system']"));
     }
 
     [Fact]
@@ -136,7 +183,6 @@ public sealed class SurveysPageTests : UiTestBase
 
         var page = Render<SurveysPage>();
 
-        Assert.DoesNotContain("Some surveys are for members only", page.Markup);
         Assert.Contains("Start survey", page.Find("a[href='s/new']").TextContent);
         Assert.Contains("Continue", page.Find("a[href='s/half']").TextContent);
         Assert.Empty(page.FindAll("a[href='s/done']"));
@@ -146,6 +192,7 @@ public sealed class SurveysPageTests : UiTestBase
     [Fact]
     public void Search_filters_by_title_and_description()
     {
+        SignInAsRespondent();
         Responses.Available.AddRange([Survey("Customer feedback", "cf", canRespond: true), Survey("Team pulse", "tp", canRespond: true)]);
         NavigateTo("surveys?q=pulse");
 

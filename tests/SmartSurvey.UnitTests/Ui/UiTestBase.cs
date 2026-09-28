@@ -7,6 +7,7 @@ using SmartSurvey.Application.Branding;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Application.Reports.Charts;
 using SmartSurvey.Application.Responses;
+using SmartSurvey.Application.Workspaces;
 using SmartSurvey.UnitTests.TestSupport;
 using SmartSurvey.Web.Infrastructure;
 
@@ -32,6 +33,10 @@ public abstract class UiTestBase : BunitContext
         Services.AddSingleton(TimeProvider.System);
         Services.AddScoped<SubmissionThrottle>();
         Services.AddScoped<PasswordAttemptThrottle>();
+        Services.AddSingleton<IWorkspaceService>(Workspaces);
+        Services.AddSingleton<IWorkspaceStatusProvider>(WorkspaceStatuses);
+        Services.AddSingleton<IPlatformSettingsService>(PlatformSettings);
+        Services.AddScoped<CurrentWorkspace>();
         Auth = AddAuthorization();
     }
 
@@ -43,6 +48,12 @@ public abstract class UiTestBase : BunitContext
 
     protected FakeResponseService Responses { get; } = new();
 
+    protected FakeWorkspaceService Workspaces { get; } = new();
+
+    protected FakeWorkspaceStatusProvider WorkspaceStatuses { get; } = new();
+
+    protected FakePlatformSettingsService PlatformSettings { get; } = new();
+
     protected BunitAuthorizationContext Auth { get; }
 
     /// <summary>Signs in as a respondent (current user and authorization state).</summary>
@@ -50,6 +61,7 @@ public abstract class UiTestBase : BunitContext
     {
         User.ActAsRespondent();
         Auth.SetAuthorized("user@test.local");
+        Auth.SetClaims(new System.Security.Claims.Claim(Domain.Identity.AppClaimTypes.WorkspaceId, TestWorkspaces.DefaultId.ToString()));
     }
 
     /// <summary>Signs in as an administrator (current user and authorization state).</summary>
@@ -58,6 +70,17 @@ public abstract class UiTestBase : BunitContext
         User.ActAsAdmin();
         Auth.SetAuthorized("admin@test.local");
         Auth.SetRoles(Domain.Identity.AppRoles.Admin);
+        Auth.SetClaims(new System.Security.Claims.Claim(Domain.Identity.AppClaimTypes.WorkspaceId, TestWorkspaces.DefaultId.ToString()));
+        Auth.SetPolicies(AuthPolicies.Admin);
+    }
+
+    /// <summary>Signs in as a super admin (no workspace).</summary>
+    protected void SignInAsSuperAdmin()
+    {
+        User.ActAsSuperAdmin();
+        Auth.SetAuthorized("super@test.local");
+        Auth.SetRoles(Domain.Identity.AppRoles.SuperAdmin);
+        Auth.SetPolicies(AuthPolicies.SuperAdmin);
     }
 
     /// <summary>Sets the current URL (for <c>[SupplyParameterFromQuery]</c> parameters).</summary>

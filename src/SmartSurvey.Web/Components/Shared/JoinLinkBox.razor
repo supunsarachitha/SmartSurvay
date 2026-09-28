@@ -1,0 +1,29 @@
+@inject BrowserInterop Browser
+@inject NavigationManager Navigation
+@* The workspace's join link with a copy button (interactive admin pages). *@
+
+<div class="input-group">
+    <input class="form-control font-monospace small" readonly value="@Link" aria-label="Join link" />
+    <button type="button" class="btn btn-soft-primary" @onclick="CopyAsync" aria-live="polite">
+        @if (copied)
+        {
+            <i class="bi bi-check2"></i><span>Copied</span>
+        }
+        else
+        {
+            <i class="bi bi-clipboard"></i><span>Copy link</span>
+        }
+    </button>
+</div>
+
+@code {
+    /// <summary>Workspace address.</summary>
+    [Parameter, EditorRequired] public string Slug { get; set; } = string.Empty;
+
+    private bool copied;
+
+    /// <summary>Absolute join link: the register page with the workspace preselected.</summary>
+    private string Link => Navigation.ToAbsoluteUri($"Account/Register?workspace={Uri.EscapeDataString(Slug)}").AbsoluteUri;
+
+    private async Task CopyAsync() => copied = await Browser.CopyTextAsync(Link);
+}

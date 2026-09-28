@@ -1,12 +1,14 @@
 @page "/admin/users"
 @rendermode InteractiveServer
 @inject IUserAdminService Users
+@inject IWorkspaceService Workspaces
 @inject ICurrentUser CurrentUser
 @inject ToastService Toasts
-@* User management: search and role filter, create accounts, grant/revoke the administrator role, set a new
-   password, lock, unlock and delete. The service protects the acting admin and the last administrator. *@
+@* Members of the admin's workspace: search and role filter, create accounts, grant/revoke the administrator
+   role, set a new password, lock, unlock and delete; the join link when self-registration is on. The service
+   protects the acting admin and the workspace's last administrator. *@
 
-<PageHeader Title="Users" Subtitle="Accounts, roles and access.">
+<PageHeader Title="Users" Subtitle="The members of your workspace, their roles and access.">
     <Breadcrumb><li class="breadcrumb-item"><a href="admin">Admin</a></li><li class="breadcrumb-item active" aria-current="page">Users</li></Breadcrumb>
     <Actions>
         <button class="btn btn-primary" @onclick="OpenCreate"><i class="bi bi-person-plus"></i>New user</button>
@@ -26,7 +28,7 @@
             <div class="col-md-4">
                 <select class="form-select" aria-label="Filter by role" @bind="roleFilter" @bind:after="ReloadFromFirstPageAsync">
                     <option value="">All roles</option>
-                    @foreach (var role in AppRoles.All)
+                    @foreach (var role in AppRoles.WorkspaceRoles)
                     {
                         <option value="@role">@(role == AppRoles.Admin ? "Administrators" : "Users")</option>
                     }
@@ -35,6 +37,17 @@
         </div>
     </div>
 </div>
+
+@if (workspace is { AllowSelfRegistration: true })
+{
+    <div class="card mb-3">
+        <div class="card-body py-3 d-flex flex-column flex-lg-row gap-2 align-items-lg-center">
+            <span class="small fw-semibold text-nowrap"><i class="bi bi-person-plus me-1"></i>Join link</span>
+            <div class="flex-grow-1"><JoinLinkBox Slug="@workspace.Slug" /></div>
+            <a class="small text-nowrap" href="admin/settings">Change in settings</a>
+        </div>
+    </div>
+}
 
 <ErrorAlert Message="@error" OnDismiss="() => error = null" Class="mb-3" />
 
@@ -255,7 +268,21 @@ else
     private IReadOnlyList<string> passwordErrors = [];
     private bool settingPassword;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    private WorkspaceDto? workspace;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            workspace = await Workspaces.GetCurrentAsync();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            workspace = null; // the list still works; only the join link is missing
+        }
+
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {

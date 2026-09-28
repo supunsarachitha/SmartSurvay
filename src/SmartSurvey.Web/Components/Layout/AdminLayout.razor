@@ -1,5 +1,6 @@
 @inherits LayoutComponentBase
 @inject IOptions<SupportOptions> Support
+@inject CurrentWorkspace CurrentWorkspace
 @* Admin layout: dark sidebar + top bar. Used by every page under Pages/Admin (see _Imports.razor there).
    The layout is static; the ToastHost is an interactive island that shares the page's circuit, so
    interactive admin pages can raise toasts through the scoped ToastService. *@
@@ -10,6 +11,12 @@
             <BrandMark />
             <span class="badge badge-soft-primary ms-auto" style="font-size:.65rem">ADMIN</span>
         </a>
+        @if (workspace is not null)
+        {
+            <a class="sidebar-workspace" href="admin/settings" title="Workspace settings">
+                <i class="bi bi-buildings"></i><span class="text-truncate">@workspace.Name</span>
+            </a>
+        }
         <nav class="sidebar-nav">
             <div class="sidebar-heading">Overview</div>
             <NavLink class="nav-link" href="admin" Match="NavLinkMatch.All"><i class="bi bi-grid-1x2"></i> Dashboard</NavLink>
@@ -23,7 +30,7 @@
             <div class="sidebar-heading">Administration</div>
             <NavLink class="nav-link" href="admin/users"><i class="bi bi-people"></i> Users</NavLink>
             <NavLink class="nav-link" href="admin/audit"><i class="bi bi-journal-text"></i> Audit log</NavLink>
-            <NavLink class="nav-link" href="admin/branding"><i class="bi bi-palette"></i> Branding</NavLink>
+            <NavLink class="nav-link" href="admin/settings"><i class="bi bi-sliders"></i> Workspace settings</NavLink>
             <a class="nav-link" href="swagger" target="_blank" rel="noopener"><i class="bi bi-braces"></i> API docs</a>
 
             <div class="sidebar-heading">Help</div>
@@ -66,3 +73,9 @@
     <a href="" class="reload fw-semibold ms-2">Reload</a>
     <a class="dismiss" aria-label="Dismiss"><i class="bi bi-x-lg"></i></a>
 </div>
+
+@code {
+    private WorkspaceInfo? workspace;
+
+    protected override async Task OnInitializedAsync() => workspace = await CurrentWorkspace.GetAsync();
+}
