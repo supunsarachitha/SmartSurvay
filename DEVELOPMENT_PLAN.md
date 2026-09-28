@@ -5,10 +5,9 @@
 > [§ 9 Progress Log](#9-progress-log) and the phase checklists), then `git log --oneline`,
 > and continue with the first unchecked task. Update this file after every completed task/phase.
 
-> **▶ CURRENT WORK (since 2026-09-28): multi-workspace, v2.0, on branch `feature/multi-workspace`.**
-> Resume with [§ 10.0 Resume protocol](#100-resume-protocol-read-first-after-any-interruption):
-> check out the branch, run `git status`, then continue with the first `[~]`/`[ ]` task in § 10.4.
-> Phases 0–8 below are finished (v1.0.0).
+> **✅ Multi-workspace v2.0.0 is complete (2026-09-28) on branch `feature/multi-workspace`** — all phases 9–14 done,
+> not yet pushed or merged. Next steps are the user's: review, push, open a PR to `main`, tag `v2.0.0` after merging.
+> Open follow-ups: § 7 Backlog (.NET 10 before 2026-11-10) and § 10.6. Phases 0–8 below are v1.0.0.
 
 ---
 
@@ -507,7 +506,7 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 - [x] 14.2 Headless-browser checks: sign-up → own workspace; two workspaces isolated; disable → members locked out, links unavailable; enable; super admin console
 - [x] 14.3 Security review focused on cross-workspace access (IDOR via ids in URLs/API, filters bypassed, circuits), fixes
 - [x] 14.4 Docs: DOCUMENTATION.md (tenancy model, roles, routes, upgrade notes), README, user guide + FAQ, CHANGELOG 2.0.0, § 4–6 of this file
-- [~] 14.5 Final phase gate (containers running on the release build)
+- [x] 14.5 Final phase gate (containers running on the release build)
 
 ### 10.5 Log
 
@@ -525,3 +524,12 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 | 2026-09-28 | **Phase 13 done** | System console (`Pages/SystemConsole` — a folder named `System` shadows the `System` namespace): `SystemLayout` (tinted sidebar, "New workspace"), `/system` overview (KPIs, approve pending in place, newest workspaces), `/system/workspaces` (search/status, `WorkspaceTable`), `/system/workspaces/new`, `/system/workspaces/{id}` (figures, approve / disable with reason / enable, details incl. address, admins, delete only when disabled + typed name), `/system/accounts`, `/system/branding` (moved), `/system/settings`, `/system/audit`. Shared components instead of copies: `AccountManager` (Users page + Accounts, `SystemMode`: workspace column/filter, super admin accounts, create member-of-workspace or super admin) and `AuditLogView` (`SystemMode` → `ListSystemAsync`). Tests found a real bug: a bool-bound `<select>` never switched → string-bound account type. 12 bUnit + 5 HTTP tests (guests → login, workspace admin → AccessDenied on /system, super admin → AccessDenied on /admin, /admin/branding 404). 841 unit + 74 integration green; containers rebuilt; live cookie sign-in as super admin, all /system pages 200. Next: 14.1 |
 | 2026-09-28 | 14.1–14.3 | Verification: `scripts/smoke.sh` gained `--user superadmin|acme` (all pages of all five roles render on SQLite without errors); `container-smoke.sh` checks sign-up/join/workspace pages, public settings, super admin sign-in, system overview, super admin ↛ survey data (optional 4th/5th args, '' skips). Headless browser (`scripts/browser/workspaces.check.js`, puppeteer-core + Chrome, fresh SQLite instance): 17 checks green, no console/request/5xx errors — sign-up → own empty workspace, settings save, join link, super admin disables (reason) → member redirected + login explains + workspace page gone, enable → sign-in again, super admin account via dialog, admin ↛ /system, runner across workspaces. Security review of every filter bypass (system scope only in seeding/startup, super-admin services, id/status/public-field lookups for share links, slugs and public workspace pages); fixes: `DisableAsync` checks the role before validating; `/signup` and `/Account/Register` rate limited like the API (test); `ALLOWED_HOSTS` in compose/.env (confirmation links use the request host — pre-existing, now documented). No vulnerable packages. Demo Acme survey got its own description. Next: 14.4 docs |
 | 2026-09-28 | 14.4 | Docs: DOCUMENTATION.md (§5.3 tenancy model/roles/enforcement, data model, upgrade notes, API, UI guide incl. System console, security, configuration, testing, deployment, troubleshooting), README (highlights, accounts table, upgrade note, settings, dev credentials, gallery), user guide (Workspaces, Workspace settings, System console, super admin branding; new audience badge), FAQ (Workspaces group, admin answers), CHANGELOG `[2.0.0]` (restructured: main's post-1.0 items had landed under Changed), `Version` 2.0.0, plan §2/4/5/6/8. New screenshots (dashboard light/dark, users, branding, system-overview, workspace-settings) captured with puppeteer — reviewing them found a **real leak**: the workspace dashboard counted every account of the site (Users table unfiltered) → accounts now filtered inside a workspace scope (Identity keeps global look-ups on unscoped contexts), seeder's cross-workspace address check uses `IgnoreQueryFilters`; tests added. 842 unit + 75 integration green. Next: 14.5 final gate |
+| 2026-09-28 | **Phase 14 done — v2.0.0** | Final gate: clean build 0 warnings, 842 unit + 75 integration green, no pending model changes; browser check on the final build 17/17, no browser errors; `docker compose up -d --build` on the live stack, container smoke incl. super admin checks all OK, no warnings in the log; dashboard fix verified on PostgreSQL (Acme admin: 1 user). Branch ready for review; not pushed. |
+
+### 10.6 Follow-ups (not blocking v2.0)
+
+- Merge: push `feature/multi-workspace`, PR into `main`, tag `v2.0.0` after merging (user decision).
+- Guide screenshots other than dashboard/users/branding/settings/system still show the 1.x admin sidebar (a "Branding" link, no workspace name) — recapture with `scripts/browser` when convenient.
+- Optional: a canonical public base URL setting for e-mail links (today: request host + `AllowedHosts`).
+- Optional: starter survey templates for new workspaces (new workspaces start empty).
+- Multi-instance deployments: workspace status changes reach other instances within the 30 s cache TTL.
