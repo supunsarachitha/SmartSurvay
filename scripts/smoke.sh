@@ -53,7 +53,7 @@ fi
   Seed__AdminPassword='Admin123!' \
   Seed__SuperAdminPassword='SuperAdmin123!' \
   Https__Redirect=false \
-  exec dotnet "bin/Debug/net8.0/SmartSurvey.Web.dll" --urls "$BASE"
+  exec dotnet "bin/Debug/net10.0/SmartSurvey.Web.dll" --urls "$BASE"
 ) >"$LOG" 2>&1 &
 APP_PID=$!
 

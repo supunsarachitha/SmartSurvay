@@ -27,10 +27,10 @@ A full-stack, modular, well-commented **survey application**:
 
 | Concern | Choice | Notes |
 |---|---|---|
-| Runtime | **.NET 8 / ASP.NET Core 8** (`net8.0`) | Pinned via `global.json` (SDK 8.0.4xx). TFM centralised in `Directory.Build.props` → upgrading to .NET 10 LTS is a one-line change. ⚠ .NET 8 support ends **2026-11-10**. |
+| Runtime | **.NET 10 LTS / ASP.NET Core 10** (`net10.0`, C# 14) | Pinned via `global.json` (SDK 10.0.3xx). TFM centralised in `Directory.Build.props`. Upgraded from .NET 8 in § 11 Phase 17 (2026-09-28); .NET 10 is supported until November 2028. |
 | Frontend | **Blazor Web App, Interactive Server** render mode (per-page interactivity) | Static SSR for public/marketing pages + Identity pages; `@rendermode InteractiveServer` for builder, runner, reports, admin. |
-| ORM | **EF Core 8.0.31** | Code-first, migrations in Infrastructure. `IDbContextFactory` pattern (Blazor Server safe). |
-| Database | **PostgreSQL 16** (Npgsql EF 8.0.11) | Alternative provider **SQLite** (config switch) for demos/tests (uses `EnsureCreated`). |
+| ORM | **EF Core 10.0.12** | Code-first, migrations in Infrastructure. `IDbContextFactory` pattern (Blazor Server safe). |
+| Database | **PostgreSQL 16** (Npgsql EF 10.0.3) | Alternative provider **SQLite** (config switch) for demos/tests (uses `EnsureCreated`). |
 | Auth | **ASP.NET Core Identity** (Guid keys) — cookie for UI, **Identity bearer tokens** for REST API (`MapIdentityApi`) | Roles: `SuperAdmin` (no workspace), `Admin`, `User` (per workspace); claim `workspace_id`. |
 | API | **Minimal APIs** grouped under `/api/v1`, **Swagger** (Swashbuckle 10) | ProblemDetails error contract. |
 | Validation | **FluentValidation 12** | Request DTO validation inside services. |
@@ -299,8 +299,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] README, CHANGELOG release entry — `[1.0.0] - 2026-09-27`
 
 ### Backlog (after 1.0)
-- [ ] **Move to .NET 10 LTS before .NET 8 support ends on 2026-11-10**: `TargetFramework` in `Directory.Build.props`, SDK in `global.json`, `8.0.*` Microsoft/EF packages and Npgsql → `10.0.*` in `Directory.Packages.props`, Docker base images `8.0` → `10.0`; then run all tests, the smoke scripts and a PostgreSQL run
-- [ ] Optional: keep the headless-browser checks used during Phases 6–8 in the repository (Node + puppeteer-core; currently run ad hoc)
+- [x] **Move to .NET 10 LTS before .NET 8 support ends on 2026-11-10** — done in § 11 Phase 17 (branch `feature/v2-follow-ups`)
+- [x] Optional: keep the headless-browser checks in the repository — `scripts/browser` (workspace flows + screenshots)
 - [ ] Optional: bot protection (CAPTCHA / WAF) for very public surveys — interactive submissions are throttled per connection, the API per IP
 
 ## 8. Conventions (for humans and agents)
@@ -565,9 +565,9 @@ As § 10.0 (resume from the last § 11.3 row, `[~]` markers, commit per task, ph
 
 #### Phase 17 — .NET 10 LTS
 - [x] 17.1 SDK 10.0.300 (installed) in `global.json`, `net10.0`, Microsoft/EF/Npgsql 10.x, other packages checked for .NET 10, `dotnet-ef` 10
-- [~] 17.2 Fix breaking changes and new warnings; migrations/model snapshot consistent (`has-pending-model-changes`)
-- [ ] 17.3 Docker images `10.0`, CI `setup-dotnet` 10, docs/README/plan (tech stack, prerequisites)
-- [ ] 17.4 Verification: all tests, `smoke.sh` (all roles), browser check, PostgreSQL via the live compose stack, container smoke
+- [x] 17.2 Fix breaking changes and new warnings; migrations/model snapshot consistent (`has-pending-model-changes`)
+- [x] 17.3 Docker images `10.0`, CI `setup-dotnet` 10, docs/README/plan (tech stack, prerequisites)
+- [~] 17.4 Verification: all tests, `smoke.sh` (all roles), browser check, PostgreSQL via the live compose stack, container smoke
 - [ ] 17.5 Phase gate + CHANGELOG (2.1.0)
 
 ### 11.3 Log

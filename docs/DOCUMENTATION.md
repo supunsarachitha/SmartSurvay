@@ -1,6 +1,6 @@
 # SmartSurvey — Technical & User Documentation
 
-> Version 1.0 · ASP.NET Core 8 · Blazor (Interactive Server) · EF Core 8 · PostgreSQL 16
+> Version 2.1 · ASP.NET Core 10 · Blazor (Interactive Server) · EF Core 10 · PostgreSQL 16
 >
 > This is the single reference document for SmartSurvey: what it does, how it is built, how to run,
 > configure, extend, test and deploy it. The development history lives in
@@ -79,11 +79,11 @@ both behave identically.
 
 | Concern | Technology |
 |---|---|
-| Runtime | .NET 8 (LTS) / ASP.NET Core 8 — `net8.0`, SDK pinned in `global.json` |
+| Runtime | .NET 10 (LTS, supported until November 2028) / ASP.NET Core 10 — `net10.0`, C# 14, SDK pinned in `global.json` |
 | UI | Blazor Web App: static SSR by default, **Interactive Server** for rich pages |
 | Styling | Bootstrap 5.3.8, Bootstrap Icons 1.13.1, Inter variable font — all self-hosted in `wwwroot/lib` |
-| ORM | Entity Framework Core 8.0.31 |
-| Database | PostgreSQL 16 via Npgsql 8.0.11 (primary); SQLite (demos & tests) |
+| ORM | Entity Framework Core 10.0.12 |
+| Database | PostgreSQL 16 via Npgsql 10.0.3 (primary); SQLite (demos & tests) |
 | Identity | ASP.NET Core Identity with GUID keys; cookie auth (UI) + Identity bearer tokens (API) |
 | Validation | FluentValidation 12 |
 | PDF | QuestPDF 2026.9 (Community license) |
@@ -94,17 +94,16 @@ both behave identically.
 | Tests | xUnit 2.9, bUnit 2.11, `WebApplicationFactory` (DI scope validation on), SQLite in-memory |
 | DevOps | Dockerfile, docker-compose, GitHub Actions |
 
-> ⚠️ **.NET 8 support ends on 10 November 2026.** The target framework is defined once in
-> `Directory.Build.props` (and the SDK in `global.json`), so moving to .NET 10 LTS is a small change:
-> update both, bump the `8.0.*` Microsoft packages in `Directory.Packages.props` to `10.0.*`, rebuild and
-> run the tests.
+> The target framework is defined once in `Directory.Build.props` and the SDK in `global.json`; Microsoft/EF Core
+> packages are versioned centrally in `Directory.Packages.props` (all `10.0.*`). Moving to the next LTS means updating
+> those three files and the Docker base images, then running the tests, `scripts/smoke.sh` and the browser check.
 
 ## 4. Getting started
 
 ### 4.1 Prerequisites
 
-* .NET 8 SDK (8.0.4xx) — <https://dotnet.microsoft.com/download>, `winget install Microsoft.DotNet.SDK.8` (Windows),
-  `brew install --cask dotnet-sdk@8` (macOS) or your Linux distribution's `dotnet-sdk-8.0` package
+* .NET 10 SDK (10.0.3xx) — <https://dotnet.microsoft.com/download>, `winget install Microsoft.DotNet.SDK.10` (Windows),
+  `brew install --cask dotnet-sdk` (macOS) or your Linux distribution's `dotnet-sdk-10.0` package
 * PostgreSQL 16 — native install **or** Docker (easiest: `docker compose up -d db`)
 * (optional) Docker Desktop / Docker Engine for the container stack
 
@@ -707,7 +706,10 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
   injection.
 * **Clickjacking:** every page sends `X-Frame-Options: SAMEORIGIN` and `Content-Security-Policy:
   frame-ancestors 'self'`, except the embeddable `/embed/*` survey pages (any site by default, or only
-  `Embedding:AllowedOrigins`; `Embedding:Enabled=false` turns embedding off).
+  `Embedding:AllowedOrigins`; `Embedding:Enabled=false` turns embedding off). `SecurityHeadersMiddleware` is the only
+  source of these headers (Blazor's own `frame-ancestors` header is switched off, since a second CSP header would block
+  embedding); while embedding is enabled, WebSocket compression of interactive circuits is off, as recommended for
+  pages other sites can frame.
 * **Account e-mails:** reset and confirmation links are only sent by e-mail; without SMTP they are never logged outside
   Development, and the "confirm here" shortcut after registering only appears in Development. Delivery errors are logged,
   never shown, so the forms don't reveal whether an address has an account. Administrators can set a new password,

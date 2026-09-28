@@ -5,13 +5,13 @@
 **Design smart surveys with conditional logic, collect responses anywhere, and turn them into beautiful, exportable reports.**
 
 [![CI](https://github.com/supunsarachitha/SmartSurvay/actions/workflows/ci.yml/badge.svg)](https://github.com/supunsarachitha/SmartSurvay/actions/workflows/ci.yml)
-![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)
+![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)
 ![Blazor](https://img.shields.io/badge/Blazor-Interactive%20Server-5C2D91?logo=blazor)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-orange)](LICENSE.md)
 
-ASP.NET Core 8 · Blazor (Interactive Server) · EF Core 8 · PostgreSQL · QuestPDF
+ASP.NET Core 10 · Blazor (Interactive Server) · EF Core 10 · PostgreSQL · QuestPDF
 
 <img src="src/SmartSurvey.Web/wwwroot/img/guide/dashboard.webp" alt="SmartSurvey admin dashboard with key numbers, a 30-day chart, top surveys and the latest responses" width="900" />
 
@@ -168,7 +168,7 @@ more in [DOCUMENTATION.md § Troubleshooting](docs/DOCUMENTATION.md#21-troublesh
 ## 💻 Run for development (without Docker)
 
 ```bash
-# Prerequisites: .NET 8 SDK + PostgreSQL 16 (native, or just the database: `docker compose up -d db`)
+# Prerequisites: .NET 10 SDK + PostgreSQL 16 (native, or just the database: `docker compose up -d db`)
 dotnet tool restore
 dotnet run --project src/SmartSurvey.Web
 ```

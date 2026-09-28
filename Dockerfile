@@ -32,7 +32,7 @@ COPY --from=build /app/publish .
 # logins survive container restarts.
 RUN mkdir -p /app/keys && chown app:app /app/keys
 
-# ASPNETCORE_HTTP_PORTS (not ASPNETCORE_URLS) is the .NET 8 image convention; setting both logs a warning.
+# ASPNETCORE_HTTP_PORTS (not ASPNETCORE_URLS) is the .NET 8+ image convention; setting both logs a warning.
 ENV ASPNETCORE_HTTP_PORTS=8080 \
     ASPNETCORE_ENVIRONMENT=Production \
     DataProtection__KeysPath=/app/keys \
