@@ -1,11 +1,14 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Domain.Common;
 using SmartSurvey.Domain.Entities;
 using SmartSurvey.Domain.Identity;
 using SmartSurvey.Infrastructure.Persistence.Converters;
+using SmartSurvey.Infrastructure.Persistence.Encryption;
 
 namespace SmartSurvey.Infrastructure.Persistence;
 
@@ -62,6 +65,17 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         base.OnModelCreating(builder);
 
         builder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
+
+        // Respondents' own words and browser details are encrypted at rest when a protector is configured
+        // (FieldEncryption); choices, numbers and dates stay plain because reports aggregate them in the database.
+        if (this.GetService<IDbContextOptions>().FindExtension<FieldEncryptionExtension>() is { } encryption)
+        {
+            // EF never passes nulls to converters, so one string converter serves the nullable columns.
+            ValueConverter converter = new EncryptedStringConverter(encryption.Protector);
+            builder.Entity<Answer>().Property(a => a.TextValue).HasConversion(converter);
+            builder.Entity<AnswerSelection>().Property(s => s.FreeText).HasConversion(converter);
+            builder.Entity<SurveyResponse>().Property(r => r.UserAgent).HasConversion(converter);
+        }
 
         foreach (var entityType in builder.Model.GetEntityTypes())
         {

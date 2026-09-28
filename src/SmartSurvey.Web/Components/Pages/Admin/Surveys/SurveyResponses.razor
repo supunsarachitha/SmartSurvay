@@ -48,6 +48,9 @@ else
                     <li><button class="dropdown-item" type="button" @onclick="() => ExportAsync(ExportFormat.Csv)"><i class="bi bi-filetype-csv"></i>CSV</button></li>
                     <li><button class="dropdown-item" type="button" @onclick="() => ExportAsync(ExportFormat.Json)"><i class="bi bi-filetype-json"></i>JSON</button></li>
                     <li><hr class="dropdown-divider" /></li>
+                    <li class="px-3 pb-2 small text-muted" style="max-width:17rem">
+                        <i class="bi bi-shield-exclamation me-1"></i>Answers are encrypted in the database, but exported files are readable — store them securely.
+                    </li>
                     <li class="px-3 py-1">
                         <div class="form-check form-switch mb-0 small">
                             <input class="form-check-input" type="checkbox" id="export-drafts" @bind="exportDrafts" />

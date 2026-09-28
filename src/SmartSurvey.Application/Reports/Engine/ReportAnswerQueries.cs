@@ -38,7 +38,8 @@ internal static class ReportAnswerQueries
             _ when type.IsChoice() => answers.Where(a => a.Selections.Any()),
             _ when type.IsNumeric() => answers.Where(a => a.NumberValue != null),
             _ when type.IsDate() => answers.Where(a => a.DateValue != null),
-            _ => answers.Where(a => a.TextValue != null && a.TextValue != ""),
+            // Empty texts are never stored (answers are sanitised), and the column may be encrypted: compare with null only.
+            _ => answers.Where(a => a.TextValue != null),
         };
         return answers.CountAsync(ctx.CancellationToken);
     }
@@ -71,7 +72,7 @@ internal static class ReportAnswerQueries
     /// <summary>Latest non-empty text answers of a text question.</summary>
     public static async Task<TextPage> LatestTextAnswersAsync(ReportRunContext ctx, Guid questionId, int maxRows)
     {
-        var answers = AnswersOf(ctx, questionId).Where(a => a.TextValue != null && a.TextValue != "");
+        var answers = AnswersOf(ctx, questionId).Where(a => a.TextValue != null);
         var total = await answers.CountAsync(ctx.CancellationToken);
         var items = await answers
             .Select(a => new { Submitted = a.Response!.SubmittedAt ?? a.Response.StartedAt, a.TextValue, a.Id })
@@ -115,7 +116,7 @@ internal static class ReportAnswerQueries
         var ids = optionIds.ToList();
         var selections = AnswersOf(ctx, questionId)
             .SelectMany(a => a.Selections, (a, s) => new { a.ResponseId, s.Id, s.OptionId, s.FreeText })
-            .Where(s => ids.Contains(s.OptionId) && s.FreeText != null && s.FreeText != "");
+            .Where(s => ids.Contains(s.OptionId) && s.FreeText != null);
         var total = await selections.CountAsync(ctx.CancellationToken);
         var items = await selections
             .Join(

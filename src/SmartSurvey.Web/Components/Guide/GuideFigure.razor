@@ -1,0 +1,28 @@
+@* A screenshot in the user guide: scales with the page, never wider than the text column or taller than most of the
+   screen; click it to open the full-size image in a new tab. *@
+
+<figure class="guide-figure @(Phone ? "guide-figure-phone" : null)">
+    <a href="@Src" target="_blank" rel="noopener" title="Open the full-size image" aria-label="@($"{Alt} (open full-size image)")">
+        <img src="@Src" alt="@Alt" loading="lazy" width="@(Phone ? 390 : 1280)" height="@(Phone ? 844 : 800)" />
+    </a>
+    @if (!string.IsNullOrWhiteSpace(Caption))
+    {
+        <figcaption>@Caption <span class="guide-zoom-hint"><i class="bi bi-arrows-angle-expand" aria-hidden="true"></i> Click to enlarge</span></figcaption>
+    }
+</figure>
+
+@code {
+    /// <summary>File name in <c>wwwroot/img/guide</c>.</summary>
+    [Parameter, EditorRequired] public string Image { get; set; } = string.Empty;
+
+    /// <summary>Description for screen readers.</summary>
+    [Parameter, EditorRequired] public string Alt { get; set; } = string.Empty;
+
+    /// <summary>Caption under the image.</summary>
+    [Parameter] public string? Caption { get; set; }
+
+    /// <summary>The screenshot is a phone screen (narrow).</summary>
+    [Parameter] public bool Phone { get; set; }
+
+    private string Src => $"img/guide/{Image}";
+}

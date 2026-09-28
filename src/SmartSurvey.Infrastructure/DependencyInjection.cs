@@ -5,12 +5,15 @@ using Microsoft.Extensions.Options;
 using SmartSurvey.Application.Branding;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Application.Exports;
+using SmartSurvey.Application.Responses;
 using SmartSurvey.Application.Users;
 using SmartSurvey.Infrastructure.Email;
 using SmartSurvey.Infrastructure.Exports;
 using SmartSurvey.Infrastructure.Identity;
 using SmartSurvey.Infrastructure.Persistence;
+using SmartSurvey.Infrastructure.Persistence.Encryption;
 using SmartSurvey.Infrastructure.Persistence.Seed;
+using SmartSurvey.Infrastructure.Security;
 
 namespace SmartSurvey.Infrastructure;
 
@@ -28,6 +31,9 @@ public static class DependencyInjection
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<BrandingOptions>(configuration.GetSection(BrandingOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
+        services.Configure<FieldEncryptionOptions>(configuration.GetSection(FieldEncryptionOptions.SectionName));
+        services.AddSingleton<IFieldProtector, DataProtectionFieldProtector>();
+        services.AddScoped<FieldEncryptionMigrator>();
 
         services.AddScoped<AuditableEntityInterceptor>();
 
@@ -52,6 +58,12 @@ public static class DependencyInjection
             }
 
             options.AddInterceptors(sp.GetRequiredService<AuditableEntityInterceptor>());
+
+            // Encrypt respondents' free-text answers, "Other" texts and browser details at rest (see FieldEncryption).
+            if (sp.GetRequiredService<IOptions<FieldEncryptionOptions>>().Value.Enabled)
+            {
+                options.UseFieldEncryption(sp.GetRequiredService<IFieldProtector>());
+            }
         }, ServiceLifetime.Scoped);
 
         services.AddScoped<IAppDbContextFactory, AppDbContextFactory>();
@@ -66,6 +78,9 @@ public static class DependencyInjection
         services.AddScoped<IResponseExportService, ResponseExportService>();
 
         services.AddSingleton<IEmailTransport, SmtpEmailTransport>();
+        services.AddSingleton<ISurveyAccessKeys, DataProtectionSurveyAccessKeys>();
+        services.Configure<BotProtectionOptions>(configuration.GetSection(BotProtectionOptions.SectionName));
+        services.AddSingleton<IBotProtection, ProofOfWorkBotProtection>();
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<DbSeeder>();
 

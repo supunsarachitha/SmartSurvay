@@ -110,3 +110,20 @@ public interface IEmailTransport
     /// <summary>Sends the message. Throws when the server rejects it or cannot be reached.</summary>
     Task SendAsync(EmailMessage message, CancellationToken ct = default);
 }
+
+/// <summary>
+/// Access keys for password-protected surveys: after a respondent enters the correct password they receive a
+/// signed, time-limited key that proves it for that survey — until it expires or the password changes. The key
+/// accompanies every later request (opening, saving and submitting), so the password isn't re-checked each time.
+/// </summary>
+public interface ISurveyAccessKeys
+{
+    /// <summary>How long an access key stays valid.</summary>
+    TimeSpan Lifetime { get; }
+
+    /// <summary>Issues a key for <paramref name="surveyId"/> bound to its current password hash.</summary>
+    string Issue(Guid surveyId, string passwordHash);
+
+    /// <summary>True when <paramref name="key"/> was issued for this survey and password and hasn't expired.</summary>
+    bool IsValid(string? key, Guid surveyId, string passwordHash);
+}

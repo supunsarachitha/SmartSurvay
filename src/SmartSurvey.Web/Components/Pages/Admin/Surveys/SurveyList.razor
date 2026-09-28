@@ -107,6 +107,10 @@ else
                         <tr @key="survey.Id">
                             <td class="min-w-0">
                                 <a class="fw-semibold text-body text-decoration-none" href="admin/surveys/@survey.Id/edit">@survey.Title</a>
+                                @if (survey.IsPasswordProtected)
+                                {
+                                    <i class="bi bi-lock-fill text-warning ms-1" title="Password protected" aria-label="Password protected"></i>
+                                }
                                 <div class="small text-muted text-truncate" style="max-width:26rem">/s/@survey.Slug</div>
                             </td>
                             <td>

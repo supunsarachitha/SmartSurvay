@@ -62,6 +62,7 @@ public sealed class SurveyService(
         CreatedAt = s.CreatedAt,
         UpdatedAt = s.UpdatedAt,
         LastResponseAt = s.Responses.Where(r => r.Status == ResponseStatus.Completed).Max(r => r.SubmittedAt),
+        IsPasswordProtected = s.AccessPasswordHash != null,
     };
 
     /// <summary>How a requested slug that cannot be used is handled for new surveys.</summary>
@@ -184,6 +185,7 @@ public sealed class SurveyService(
         }
 
         await ValidateAsync(design, ct);
+        survey.AccessPasswordHash = ResolveAccessPasswordHash(design, survey.AccessPasswordHash);
         survey.Slug = await ResolveUpdatedSlugAsync(db, survey, design.Slug, ct);
 
         SurveyDesignReconciler.Apply(db, survey, design);
@@ -266,7 +268,14 @@ public sealed class SurveyService(
         copy.IsTemplate = request.AsTemplate;
         copy.Slug = null;
 
-        var survey = await AddNewSurveyAsync(copy, SlugConflictPolicy.Replace, ct);
+        // The copy keeps the source's password (same hash); the password itself is never known here.
+        string? passwordHash;
+        await using (var db = await dbFactory.CreateAsync(ct))
+        {
+            passwordHash = await db.Surveys.Where(s => s.Id == id).Select(s => s.AccessPasswordHash).FirstOrDefaultAsync(ct);
+        }
+
+        var survey = await AddNewSurveyAsync(copy, SlugConflictPolicy.Replace, ct, passwordHash);
         await LogAsync(AuditActions.SurveyDuplicated, survey.Id, $"Created '{survey.Title}' as a copy of '{source.Title}' ({source.Id}).", ct);
 
         return await GetAsync(survey.Id, ct);
@@ -278,6 +287,10 @@ public sealed class SurveyService(
         EnsureAdmin();
 
         var survey = await GetAsync(id, ct);
+
+        // Passwords are not part of a portable definition: set a new one after importing.
+        survey.PasswordProtected = false;
+        survey.AccessPassword = null;
         var document = new SurveyExportDocument
         {
             SchemaVersion = ExportSchemaVersion,
@@ -302,6 +315,11 @@ public sealed class SurveyService(
         EnsureImportable(document);
 
         var design = SurveyDefinitionCloner.CopyWithNewIds(document.Survey);
+        if (string.IsNullOrEmpty(design.AccessPassword))
+        {
+            design.PasswordProtected = false; // a file can't carry a password hash; protect it again after importing
+        }
+
         var survey = await AddNewSurveyAsync(design, SlugConflictPolicy.Replace, ct);
         await LogAsync(AuditActions.SurveyImported, survey.Id, $"Imported survey '{survey.Title}' ({DescribeSize(survey)}).", ct);
 
@@ -334,7 +352,8 @@ public sealed class SurveyService(
     }
 
     /// <summary>Normalises, validates and inserts a new Draft survey built from a private design copy.</summary>
-    private async Task<Survey> AddNewSurveyAsync(SurveyDefinitionDto design, SlugConflictPolicy slugPolicy, CancellationToken ct)
+    private async Task<Survey> AddNewSurveyAsync(
+        SurveyDefinitionDto design, SlugConflictPolicy slugPolicy, CancellationToken ct, string? existingPasswordHash = null)
     {
         SurveyNormalizer.Normalize(design);
         if (slugPolicy == SlugConflictPolicy.Replace && !SlugGenerator.IsValid(design.Slug))
@@ -343,6 +362,7 @@ public sealed class SurveyService(
         }
 
         await ValidateAsync(design, ct);
+        var passwordHash = ResolveAccessPasswordHash(design, existingPasswordHash);
 
         await using var db = await dbFactory.CreateAsync(ct);
         if (await db.Surveys.AnyAsync(s => s.Id == design.Id, ct))
@@ -352,10 +372,31 @@ public sealed class SurveyService(
 
         var slug = await ResolveNewSlugAsync(db, design, slugPolicy, ct);
         var survey = SurveyEntityMapper.ToNewSurvey(design, slug);
+        survey.AccessPasswordHash = passwordHash;
         db.Surveys.Add(survey);
         await SaveChangesAsync(db, survey.Id, ct);
 
         return survey;
+    }
+
+    /// <summary>
+    /// The access-password hash to store: none when protection is off; a new hash when a password is supplied;
+    /// otherwise the current one. Switching protection on without any password is a validation error.
+    /// </summary>
+    private static string? ResolveAccessPasswordHash(SurveyDefinitionDto design, string? currentHash)
+    {
+        if (!design.PasswordProtected)
+        {
+            return null;
+        }
+
+        if (!string.IsNullOrEmpty(design.AccessPassword))
+        {
+            return SurveyPasswordHasher.Hash(design.AccessPassword);
+        }
+
+        return currentHash ?? throw new AppValidationException(
+            nameof(SurveyDefinitionDto.AccessPassword), "Please enter the password respondents need to open the survey.");
     }
 
     private async Task ValidateAsync(SurveyDefinitionDto design, CancellationToken ct) =>

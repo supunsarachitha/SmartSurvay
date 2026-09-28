@@ -20,7 +20,8 @@
 </section>
 
 <div class="container pb-5">
-    <div class="row g-5">
+    @* g-4 on phones: Bootstrap's g-5 gutter is wider than the container padding and makes narrow screens scroll sideways. *@
+    <div class="row g-4 g-lg-5">
         <aside class="col-lg-3 d-none d-lg-block">
             <nav class="guide-toc" aria-label="Guide contents">
                 @foreach (var (group, items) in Contents)
@@ -83,6 +84,7 @@
                     <li>Most people receive a <strong>link</strong> (by e-mail or chat) or scan a <strong>QR code</strong> with their phone camera — it opens the survey directly.</li>
                     <li>The <strong>Surveys</strong> page lists every survey that is open right now. Surveys marked <em>Members</em> need you to sign in first.</li>
                     <li>Some websites show a survey <strong>inside their own page</strong> — you answer it right there.</li>
+                    <li>Some surveys are <strong>protected with a password</strong> <i class="bi bi-lock"></i>. Type the password you received from the organiser and choose <em>Open survey</em>. Don't have it? Ask the person who sent you the link.</li>
                     <li>If a survey says it is <em>closed</em>, <em>not open yet</em> or <em>full</em>, the organiser has stopped (or not yet started) collecting answers.</li>
                 </ul>
             </GuideSection>
@@ -97,6 +99,10 @@
                     <li>If something is missing, the question is outlined in red with a short explanation. The message disappears as soon as you fix the answer.</li>
                     <li>On the last page choose <strong>Submit</strong>. A thank-you page confirms that your answers were received.</li>
                 </ol>
+                <div class="guide-tip">
+                    <i class="bi bi-shield-lock"></i>
+                    <div><strong>Your privacy:</strong> everything you type — comments, e-mail addresses, “Other” answers — is stored <strong>encrypted</strong>. Only the survey's administrators — and you, if you answered while signed in — can read your answers.</div>
+                </div>
                 <div class="guide-tip">
                     <i class="bi bi-lightbulb"></i>
                     <div>
@@ -198,6 +204,7 @@
                     <li><strong>Welcome and thank-you messages</strong> — shown at the start and after submitting.</li>
                     <li><strong>Allow anonymous responses</strong> — anyone with the link may answer. Switch it off to require signing in.</li>
                     <li><strong>Allow multiple responses</strong> — signed-in people may answer more than once (useful for a tablet at a reception desk).</li>
+                    <li><strong>Require a password</strong> <i class="bi bi-lock"></i> — only people who know the password can open the survey. Choose a password (at least 4 characters) and share it with your respondents. It is stored securely and can't be shown again, so note it down; enter a new one to change it, or switch the option off to remove it. Password-protected surveys don't appear on the public Surveys page.</li>
                     <li><strong>Progress bar and question numbers</strong> — show or hide them.</li>
                     <li><strong>Opens / closes at</strong> — the survey is only available between these times.</li>
                     <li><strong>Response limit</strong> — stop automatically after a number of responses.</li>
@@ -230,7 +237,11 @@
                     <li><strong>Invitation text</strong> — a ready-made message you can adjust and copy.</li>
                     <li><strong>Embed on a website</strong> — copy the code and give it to whoever manages your website; the survey then appears inside your page.</li>
                 </ul>
-                <p>The survey must be <em>published</em> before respondents can open the link.</p>
+                <p>The survey must be <em>published</em> before respondents can open the link. If it is <strong>password-protected</strong>, send the password separately — for example in a different message than the link.</p>
+                <div class="guide-tip">
+                    <i class="bi bi-shield-check"></i>
+                    <div><strong>Spam protection is built in.</strong> Public surveys are automatically protected against spam robots with invisible checks — respondents don't have to click “I'm not a robot”, and there is nothing to set up.</div>
+                </div>
             </GuideSection>
 
             @* ------------------------------------------------------------------ Results *@
@@ -242,6 +253,15 @@
                     <li>Click a respondent to see <strong>all their answers</strong>, page by page. From there you can print or delete the response.</li>
                     <li>Choose <strong>Export data</strong> to download all answers as an <strong>Excel</strong> file, <strong>CSV</strong> or <strong>JSON</strong> — one row per response, one column per question.</li>
                 </ol>
+                <div class="guide-tip">
+                    <i class="bi bi-shield-lock"></i>
+                    <div>
+                        Written answers are <strong>stored encrypted</strong> in the database and decrypted only when you view them.
+                        Exported files are readable, so keep them somewhere safe. <em>For IT:</em> the encryption keys are kept outside
+                        the database (the <code>keys</code> Docker volume) — back them up together with the database, otherwise encrypted
+                        answers can't be read after a restore.
+                    </div>
+                </div>
             </GuideSection>
 
             <GuideSection Id="reports" Icon="bi-bar-chart-line" Title="Reports and charts" Audience="admins" Image="report.webp"
@@ -255,10 +275,8 @@
                     <li>The <strong>live preview</strong> on the right updates as you make changes. When you are happy, choose <strong>Create report</strong>.</li>
                     <li>Open the report and choose <strong>Export</strong> to download it as a <strong>PDF</strong>, <strong>Excel</strong>, CSV, text or JSON file — or <strong>Print</strong> it.</li>
                 </ol>
-                <figure class="guide-figure">
-                    <img src="img/guide/report-builder.webp" alt="The report builder with widgets on the left and the live preview on the right" loading="lazy" width="1280" height="800" />
-                    <figcaption>The report builder: settings and widgets on the left, live preview on the right.</figcaption>
-                </figure>
+                <GuideFigure Image="report-builder.webp" Alt="The report builder with widgets on the left and the live preview on the right"
+                             Caption="The report builder: settings and widgets on the left, live preview on the right." />
             </GuideSection>
 
             @* ------------------------------------------------------------------ Administration *@

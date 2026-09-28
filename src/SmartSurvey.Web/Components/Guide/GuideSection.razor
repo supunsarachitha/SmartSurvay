@@ -13,13 +13,7 @@
     </div>
     @if (!string.IsNullOrWhiteSpace(Image))
     {
-        <figure class="guide-figure @(Phone ? "guide-figure-phone" : null)">
-            <img src="@($"img/guide/{Image}")" alt="@ImageAlt" loading="lazy" width="@(Phone ? 390 : 1280)" height="@(Phone ? 844 : 800)" />
-            @if (!string.IsNullOrWhiteSpace(Caption))
-            {
-                <figcaption>@Caption</figcaption>
-            }
-        </figure>
+        <GuideFigure Image="@Image" Alt="@(ImageAlt ?? Title)" Caption="@Caption" Phone="Phone" />
     }
 </section>
 

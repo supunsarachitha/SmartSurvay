@@ -11,7 +11,8 @@ internal sealed class SurveyResponseConfiguration : IEntityTypeConfiguration<Sur
     public void Configure(EntityTypeBuilder<SurveyResponse> b)
     {
         b.ToTable("Responses");
-        b.Property(x => x.UserAgent).HasMaxLength(512);
+        // No database length limit: the value may be stored encrypted (longer than the 512-character input limit).
+        b.Property(x => x.UserAgent);
         b.Ignore(x => x.Duration);
 
         // Deleting a user keeps their responses (anonymised).
@@ -30,7 +31,9 @@ internal sealed class AnswerConfiguration : IEntityTypeConfiguration<Answer>
     public void Configure(EntityTypeBuilder<Answer> b)
     {
         b.ToTable("Answers");
-        b.Property(x => x.TextValue).HasMaxLength(10_000);
+        // Stored encrypted (see FieldEncryption) — ciphertext is longer than the 10,000-character answer limit,
+        // which ResponseValidator enforces.
+        b.Property(x => x.TextValue);
 
         // Deleting a question from a survey design deletes its answers.
         b.HasOne(x => x.Question).WithMany().HasForeignKey(x => x.QuestionId).OnDelete(DeleteBehavior.Cascade);
@@ -48,7 +51,7 @@ internal sealed class AnswerSelectionConfiguration : IEntityTypeConfiguration<An
     public void Configure(EntityTypeBuilder<AnswerSelection> b)
     {
         b.ToTable("AnswerSelections");
-        b.Property(x => x.FreeText).HasMaxLength(1000);
+        b.Property(x => x.FreeText); // encrypted; the 1,000-character limit is enforced by ResponseValidator
         b.HasOne(x => x.Option).WithMany().HasForeignKey(x => x.OptionId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(x => new { x.AnswerId, x.OptionId }).IsUnique();
         b.HasIndex(x => x.OptionId);

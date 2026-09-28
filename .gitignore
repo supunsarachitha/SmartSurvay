@@ -485,6 +485,6 @@ $RECYCLE.BIN/
 *.db
 *.db-shm
 *.db-wal
-.claude/scheduled_tasks.lock
-.claude/worktrees/
+# Local AI-assistant state (settings, workflows, worktrees)
+.claude/
 .smoke/

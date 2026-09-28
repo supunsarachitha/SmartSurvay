@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Text;
 using SmartSurvey.Application.Reports;
 using SmartSurvey.Application.Responses;
@@ -21,8 +22,8 @@ public sealed class DocumentedExampleTests(ApiFactory factory)
         Assert.Single(survey.LogicRules);
         await AssertStatusAsync(await admin.PostAsync($"/api/v1/surveys/{survey.Id}/status", Json("""{ "status": "Published" }""")), HttpStatusCode.OK);
 
-        var submitted = await ReadAsync<SubmitResponseResult>(
-            await factory.Anonymous().PostAsync($"/api/v1/public/surveys/{survey.Id}/responses", Example("submit-response.json")));
+        var example = await Example("submit-response.json").ReadFromJsonAsync<SaveResponseRequest>(ApiFactory.Json);
+        var submitted = await ReadAsync<SubmitResponseResult>(await SubmitAnonymouslyAsync(factory.Anonymous(), survey, example!));
         var detail = await ReadAsync<ResponseDetailDto>(await admin.GetAsync($"/api/v1/responses/{submitted.ResponseId}"));
         Assert.Equal(Domain.Enums.ResponseStatus.Completed, detail.Status);
 

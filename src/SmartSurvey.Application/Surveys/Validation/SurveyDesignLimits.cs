@@ -19,6 +19,12 @@ public static class SurveyDesignLimits
     /// <summary>Maximum length of the welcome and thank-you messages.</summary>
     public const int MessageMaxLength = 4000;
 
+    /// <summary>Shortest survey access password.</summary>
+    public const int AccessPasswordMinLength = 4;
+
+    /// <summary>Longest survey access password.</summary>
+    public const int AccessPasswordMaxLength = 128;
+
     /// <summary>Maximum length of the share-link slug.</summary>
     public const int SlugMaxLength = SlugGenerator.MaxLength;
 

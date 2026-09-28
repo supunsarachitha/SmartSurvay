@@ -44,6 +44,11 @@ public sealed class SurveyDefinitionValidator : AbstractValidator<SurveyDefiniti
             .Must((x, closesAt) => closesAt is null || x.OpensAt is null || x.OpensAt < closesAt)
             .WithMessage("The closing date must be after the opening date.");
 
+        RuleFor(x => x.AccessPassword)
+            .Length(L.AccessPasswordMinLength, L.AccessPasswordMaxLength)
+            .When(x => x.PasswordProtected && !string.IsNullOrEmpty(x.AccessPassword))
+            .WithMessage($"The survey password must be {L.AccessPasswordMinLength} to {L.AccessPasswordMaxLength} characters long.");
+
         RuleFor(x => x.MaxResponses)
             .GreaterThan(0).WithMessage("The response limit must be at least 1 (leave it empty for no limit).");
 
