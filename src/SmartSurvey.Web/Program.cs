@@ -62,7 +62,7 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddRoles<IdentityRole<Guid>>()
     .AddClaimsPrincipalFactory<AppClaimsPrincipalFactory>()
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddSignInManager()
+    .AddSignInManager<AppSignInManager>() // refuses members of disabled / pending workspaces
     .AddDefaultTokenProviders()
     .AddApiEndpoints();
 
@@ -133,6 +133,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<CurrentUserMiddleware>();
+app.UseMiddleware<WorkspaceAccessMiddleware>();
 app.UseAntiforgery();
 
 if (app.Environment.IsDevelopment() || app.Configuration.GetValue("Swagger:Enabled", false))
@@ -154,6 +155,7 @@ app.MapAdditionalIdentityEndpoints();
 app.MapGroup("/api/auth")
     .WithTags("Auth")
     .RequireRateLimiting(RateLimitPolicies.Auth)
+    .AddEndpointFilter(WorkspaceEndpoints.RefuseIdentityRegister) // accounts are created per workspace
     .MapIdentityApi<ApplicationUser>();
 
 app.MapApiEndpoints();

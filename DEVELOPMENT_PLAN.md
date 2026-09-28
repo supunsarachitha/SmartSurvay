@@ -466,9 +466,9 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 - [x] 10.8 Phase gate
 
 #### Phase 11 — Web host, authentication, REST API
-- [ ] 11.1 Claims (`workspace_id`), policies (`Admin` requires a workspace, `SuperAdmin`), `AppSignInManager.CanSignInAsync` (disabled/pending workspace), access middleware for open cookies/bearer tokens, circuit revalidation (1 min, cached)
-- [ ] 11.2 Disable Identity `/api/auth/register`; public workspace endpoints (info, sign-up, join; rate limited)
-- [ ] 11.3 `/api/v1/workspace`, `/api/v1/system/*`; branding writes → super admin; public surveys `?workspace=`
+- [x] 11.1 Claims (`workspace_id`), policies (`Admin` requires a workspace, `SuperAdmin`), `AppSignInManager.CanSignInAsync` (disabled/pending workspace), access middleware for open cookies/bearer tokens, circuit revalidation (1 min, cached)
+- [x] 11.2 Disable Identity `/api/auth/register`; public workspace endpoints (info, sign-up, join; rate limited)
+- [x] 11.3 `/api/v1/workspace`, `/api/v1/system/*`; branding writes → super admin; public surveys `?workspace=`
 - [ ] 11.4 `docs/examples` (.http) for the new endpoints; integration tests: two workspaces can't see each other (every endpoint group), disabled workspace (login, existing token, public link), role boundaries (admin ↛ system/branding, super admin ↛ survey data)
 - [ ] 11.5 Phase gate
 

@@ -83,6 +83,7 @@ public static class WebSetup
         services.AddScoped<ICurrentUser>(sp => sp.GetRequiredService<CurrentUser>());
         services.TryAddEnumerable(ServiceDescriptor.Scoped<CircuitHandler, UserCircuitHandler>());
 
+        services.AddScoped<AccountEmails>();
         services.AddScoped<ToastService>();
         services.AddScoped<BrowserInterop>();
         services.AddScoped<SubmissionThrottle>();

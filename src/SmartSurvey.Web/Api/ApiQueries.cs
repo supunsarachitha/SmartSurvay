@@ -4,6 +4,8 @@ using SmartSurvey.Application.Reports;
 using SmartSurvey.Application.Responses;
 using SmartSurvey.Application.Surveys;
 using SmartSurvey.Application.Users;
+using SmartSurvey.Application.Workspaces;
+using SmartSurvey.Domain.Entities;
 using SmartSurvey.Domain.Enums;
 
 namespace SmartSurvey.Web.Api;
@@ -56,6 +58,20 @@ public sealed record UserListParameters(int? Page, int? PageSize, string? Search
 {
     /// <summary>The service query.</summary>
     public UserQuery ToQuery() => new UserQuery { Search = Search, Role = Role }.WithPaging(this);
+}
+
+/// <summary><c>GET /api/v1/system/accounts</c> parameters.</summary>
+public sealed record AccountListParameters(int? Page, int? PageSize, string? Search, string? Role, Guid? WorkspaceId) : IPagingParameters
+{
+    /// <summary>The service query.</summary>
+    public UserQuery ToQuery() => new UserQuery { Search = Search, Role = Role, WorkspaceId = WorkspaceId }.WithPaging(this);
+}
+
+/// <summary><c>GET /api/v1/system/workspaces</c> parameters.</summary>
+public sealed record WorkspaceListParameters(int? Page, int? PageSize, string? Search, WorkspaceStatus? Status) : IPagingParameters
+{
+    /// <summary>The service query.</summary>
+    public WorkspaceListQuery ToQuery() => new WorkspaceListQuery { Search = Search, Status = Status }.WithPaging(this);
 }
 
 /// <summary><c>GET /api/v1/audit</c> parameters.</summary>

@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using SmartSurvey.Application.Common;
+using SmartSurvey.Application.Workspaces;
+using SmartSurvey.Domain.Entities;
 using SmartSurvey.Domain.Common;
 
 namespace SmartSurvey.Infrastructure.Persistence;
@@ -60,13 +62,27 @@ public sealed class AuditableEntityInterceptor(TimeProvider timeProvider, ICurre
 
 /// <summary>
 /// Adapts EF Core's <see cref="IDbContextFactory{TContext}"/> to the Application abstraction and binds
-/// every context to a <see cref="DataScope"/>.
+/// every context to a <see cref="DataScope"/>. Members of a workspace that is no longer active get no
+/// context at all (defence in depth behind the sign-in and request checks).
 /// </summary>
-internal sealed class AppDbContextFactory(IDbContextFactory<AppDbContext> factory, ICurrentUser currentUser) : IAppDbContextFactory
+internal sealed class AppDbContextFactory(
+    IDbContextFactory<AppDbContext> factory, ICurrentUser currentUser, IWorkspaceStatusProvider workspaces) : IAppDbContextFactory
 {
     /// <inheritdoc />
-    public Task<IAppDbContext> CreateAsync(CancellationToken cancellationToken = default) =>
-        CreateAsync(currentUser.WorkspaceId is { } id ? DataScope.ForWorkspace(id) : DataScope.None, cancellationToken);
+    public async Task<IAppDbContext> CreateAsync(CancellationToken cancellationToken = default)
+    {
+        if (currentUser.WorkspaceId is not { } id)
+        {
+            return await CreateAsync(DataScope.None, cancellationToken);
+        }
+
+        if (await workspaces.GetStatusAsync(id, cancellationToken) != WorkspaceStatus.Active)
+        {
+            throw new ForbiddenException("Your workspace is currently unavailable.");
+        }
+
+        return await CreateAsync(DataScope.ForWorkspace(id), cancellationToken);
+    }
 
     /// <inheritdoc />
     public Task<IAppDbContext> CreateForWorkspaceAsync(Guid workspaceId, CancellationToken cancellationToken = default) =>
