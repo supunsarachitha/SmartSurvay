@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using SmartSurvey.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using SmartSurvey.Infrastructure.Persistence;
 namespace SmartSurvey.Infrastructure.Persistence.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260928023006_AddSurveyAccessPassword")]
+    partial class AddSurveyAccessPassword
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -170,10 +173,8 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("TextValue")
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
+                        .HasMaxLength(10000)
+                        .HasColumnType("character varying(10000)");
 
                     b.HasKey("Id");
 
@@ -194,12 +195,10 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("FreeText")
-                        .HasColumnType("text");
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
 
                     b.Property<Guid>("OptionId")
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
 
                     b.HasKey("Id");
@@ -245,16 +244,11 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<Guid?>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("Timestamp");
 
                     b.HasIndex("EntityType", "EntityId");
-
-                    b.HasIndex("WorkspaceId", "Timestamp");
 
                     b.ToTable("AuditLogs", (string)null);
                 });
@@ -329,9 +323,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("LogicRuleId");
@@ -367,9 +358,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("TargetSectionId")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("SurveyId");
@@ -379,38 +367,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                     b.HasIndex("TargetSectionId");
 
                     b.ToTable("LogicRules", (string)null);
-                });
-
-            modelBuilder.Entity("SmartSurvey.Domain.Entities.PlatformSettings", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("AllowWorkspaceSignup")
-                        .HasColumnType("boolean");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("CreatedById")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("RequireWorkspaceApproval")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("SupportEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UpdatedById")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.ToTable("PlatformSettings", (string)null);
                 });
 
             modelBuilder.Entity("SmartSurvey.Domain.Entities.Question", b =>
@@ -453,9 +409,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("SectionId", "Order");
@@ -491,9 +444,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                     b.Property<string>("Value")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -535,14 +485,9 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                     b.Property<Guid?>("UpdatedById")
                         .HasColumnType("uuid");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("SurveyId");
-
-                    b.HasIndex("WorkspaceId");
 
                     b.ToTable("Reports", (string)null);
                 });
@@ -577,9 +522,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .IsRequired()
                         .HasMaxLength(40)
                         .HasColumnType("character varying(40)");
-
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
 
                     b.HasKey("Id");
 
@@ -674,17 +616,12 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasMaxLength(4000)
                         .HasColumnType("character varying(4000)");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("CreatedAt");
 
                     b.HasIndex("Slug")
                         .IsUnique();
-
-                    b.HasIndex("WorkspaceId");
 
                     b.HasIndex("Status", "IsTemplate");
 
@@ -720,14 +657,10 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserAgent")
-                        .HasColumnType("text");
-
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("WorkspaceId");
 
                     b.HasIndex("RespondentId", "SurveyId");
 
@@ -756,80 +689,11 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<Guid>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("SurveyId", "Order");
 
                     b.ToTable("SurveySections", (string)null);
-                });
-
-            modelBuilder.Entity("SmartSurvey.Domain.Entities.Workspace", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("AllowSelfRegistration")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("ContactEmail")
-                        .HasMaxLength(256)
-                        .HasColumnType("character varying(256)");
-
-                    b.Property<DateTime>("CreatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("CreatedById")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("Description")
-                        .HasMaxLength(2000)
-                        .HasColumnType("character varying(2000)");
-
-                    b.Property<string>("Name")
-                        .IsRequired()
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<Guid?>("OwnerId")
-                        .HasColumnType("uuid");
-
-                    b.Property<bool>("ShowPublicSurveyList")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Slug")
-                        .IsRequired()
-                        .HasMaxLength(60)
-                        .HasColumnType("character varying(60)");
-
-                    b.Property<string>("Status")
-                        .IsRequired()
-                        .HasMaxLength(40)
-                        .HasColumnType("character varying(40)");
-
-                    b.Property<DateTime?>("StatusChangedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("StatusReason")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<DateTime?>("UpdatedAt")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UpdatedById")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("Slug")
-                        .IsUnique();
-
-                    b.HasIndex("Status");
-
-                    b.ToTable("Workspaces", (string)null);
                 });
 
             modelBuilder.Entity("SmartSurvey.Domain.Identity.ApplicationUser", b =>
@@ -898,9 +762,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
-                    b.Property<Guid?>("WorkspaceId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
 
                     b.HasIndex("NormalizedEmail")
@@ -909,8 +770,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                     b.HasIndex("NormalizedUserName")
                         .IsUnique()
                         .HasDatabaseName("UserNameIndex");
-
-                    b.HasIndex("WorkspaceId");
 
                     b.ToTable("AspNetUsers", (string)null);
                 });
@@ -1004,14 +863,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                     b.Navigation("Option");
                 });
 
-            modelBuilder.Entity("SmartSurvey.Domain.Entities.AuditLogEntry", b =>
-                {
-                    b.HasOne("SmartSurvey.Domain.Entities.Workspace", null)
-                        .WithMany()
-                        .HasForeignKey("WorkspaceId")
-                        .OnDelete(DeleteBehavior.Restrict);
-                });
-
             modelBuilder.Entity("SmartSurvey.Domain.Entities.LogicCondition", b =>
                 {
                     b.HasOne("SmartSurvey.Domain.Entities.LogicRule", "LogicRule")
@@ -1101,12 +952,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
-                    b.HasOne("SmartSurvey.Domain.Entities.Workspace", null)
-                        .WithMany()
-                        .HasForeignKey("WorkspaceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("Survey");
                 });
 
@@ -1135,15 +980,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                     b.Navigation("SecondaryQuestion");
                 });
 
-            modelBuilder.Entity("SmartSurvey.Domain.Entities.Survey", b =>
-                {
-                    b.HasOne("SmartSurvey.Domain.Entities.Workspace", null)
-                        .WithMany()
-                        .HasForeignKey("WorkspaceId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-                });
-
             modelBuilder.Entity("SmartSurvey.Domain.Entities.SurveyResponse", b =>
                 {
                     b.HasOne("SmartSurvey.Domain.Identity.ApplicationUser", "Respondent")
@@ -1155,12 +991,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .WithMany("Responses")
                         .HasForeignKey("SurveyId")
                         .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("SmartSurvey.Domain.Entities.Workspace", null)
-                        .WithMany()
-                        .HasForeignKey("WorkspaceId")
-                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Respondent");
@@ -1177,14 +1007,6 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .IsRequired();
 
                     b.Navigation("Survey");
-                });
-
-            modelBuilder.Entity("SmartSurvey.Domain.Identity.ApplicationUser", b =>
-                {
-                    b.HasOne("SmartSurvey.Domain.Entities.Workspace", null)
-                        .WithMany()
-                        .HasForeignKey("WorkspaceId")
-                        .OnDelete(DeleteBehavior.Restrict);
                 });
 
             modelBuilder.Entity("SmartSurvey.Domain.Entities.Answer", b =>

@@ -42,6 +42,7 @@ public static class SurveyMapper
             MaxResponses = survey.MaxResponses,
             WelcomeMessage = survey.WelcomeMessage,
             ThankYouMessage = survey.ThankYouMessage,
+            PasswordProtected = survey.AccessPasswordHash is not null, // the hash never leaves the service
             Version = survey.Version,
             CreatedAt = survey.CreatedAt,
             UpdatedAt = survey.UpdatedAt,

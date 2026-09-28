@@ -43,10 +43,40 @@
             <input class="form-check-input" type="checkbox" id="s-anon" disabled="@ReadOnly" @bind="Survey.AllowAnonymous" @bind:after="ChangedAsync" />
             <label class="form-check-label" for="s-anon">Allow anonymous responses <span class="text-muted small">(no account needed)</span></label>
         </div>
-        <div class="form-check form-switch mb-3">
+        <div class="form-check form-switch mb-2">
             <input class="form-check-input" type="checkbox" id="s-multi" disabled="@ReadOnly" @bind="Survey.AllowMultipleResponses" @bind:after="ChangedAsync" />
             <label class="form-check-label" for="s-multi">Allow signed-in users to respond more than once</label>
         </div>
+        <div class="form-check form-switch mb-2">
+            <input class="form-check-input" type="checkbox" id="s-password" disabled="@ReadOnly" checked="@Survey.PasswordProtected" @onchange="SetPasswordProtectedAsync" />
+            <label class="form-check-label" for="s-password"><i class="bi bi-lock me-1"></i>Require a password to open the survey</label>
+        </div>
+        @if (Survey.PasswordProtected)
+        {
+            <div class="password-setting mb-3">
+                <label class="form-label small" for="s-password-value">@(hadPassword ? "New password (optional)" : "Password")</label>
+                <div class="input-group" style="max-width:26rem">
+                    <input id="s-password-value" type="@(showPassword ? "text" : "password")" class="form-control @Invalid("AccessPassword")"
+                           autocomplete="new-password" maxlength="@Application.Surveys.Validation.SurveyDesignLimits.AccessPasswordMaxLength" disabled="@ReadOnly"
+                           placeholder="@(hadPassword ? "Leave empty to keep the current password" : $"At least {Application.Surveys.Validation.SurveyDesignLimits.AccessPasswordMinLength} characters")"
+                           @bind="Survey.AccessPassword" @bind:event="oninput" @bind:after="ChangedAsync" />
+                    <button class="btn btn-light" type="button" title="@(showPassword ? "Hide password" : "Show password")"
+                            aria-label="@(showPassword ? "Hide password" : "Show password")" @onclick="() => showPassword = !showPassword">
+                        <i class="bi @(showPassword ? "bi-eye-slash" : "bi-eye")"></i>
+                    </button>
+                </div>
+                <FieldErrors Messages="@For("AccessPassword")" />
+                <div class="form-text">
+                    @if (hadPassword)
+                    {
+                        <span class="text-success"><i class="bi bi-check-circle me-1"></i>A password is set.</span>
+                    }
+                    Share the password with your respondents together with the link. It is stored as a secure hash and can't be shown
+                    again — enter a new one to change it. Password-protected surveys are not listed on the public Surveys page.
+                </div>
+            </div>
+        }
+        <div class="mb-3"></div>
         <div class="row g-3">
             <div class="col-md-4">
                 <label class="form-label small" for="s-max">Response limit</label>
@@ -114,9 +144,12 @@
 }
 
 @code {
-    private static readonly string[] KnownKeys = ["Title", "Description", "Slug", "MaxResponses", "OpensAt", "ClosesAt", "WelcomeMessage", "ThankYouMessage"];
+    private static readonly string[] KnownKeys = ["Title", "Description", "Slug", "MaxResponses", "OpensAt", "ClosesAt", "WelcomeMessage", "ThankYouMessage", "AccessPassword"];
     private TimeZoneInfo? timeZone;
     private bool? slugAvailable;
+    private SurveyDefinitionDto? loadedSurvey;
+    private bool hadPassword;
+    private bool showPassword;
 
     [Inject] private NavigationManager Navigation { get; set; } = default!;
 
@@ -144,6 +177,28 @@
     }
 
     private string[] For(string key) => Errors.TryGetValue(key, out var messages) ? messages : [];
+
+    protected override void OnParametersSet()
+    {
+        // A freshly loaded (or saved) survey tells whether a password is already stored on the server.
+        if (!ReferenceEquals(loadedSurvey, Survey))
+        {
+            loadedSurvey = Survey;
+            hadPassword = Survey.PasswordProtected && string.IsNullOrEmpty(Survey.AccessPassword);
+            showPassword = false;
+        }
+    }
+
+    private Task SetPasswordProtectedAsync(ChangeEventArgs e)
+    {
+        Survey.PasswordProtected = e.Value is true;
+        if (!Survey.PasswordProtected)
+        {
+            Survey.AccessPassword = null;
+        }
+
+        return ChangedAsync();
+    }
 
     private string Invalid(string key) => Errors.ContainsKey(key) ? "is-invalid" : string.Empty;
 

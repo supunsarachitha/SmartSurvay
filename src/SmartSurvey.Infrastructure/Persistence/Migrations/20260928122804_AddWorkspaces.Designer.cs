@@ -173,8 +173,7 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("TextValue")
-                        .HasMaxLength(10000)
-                        .HasColumnType("character varying(10000)");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");
@@ -198,8 +197,7 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<string>("FreeText")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("OptionId")
                         .HasColumnType("uuid");
@@ -602,6 +600,10 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                     b.Property<Guid>("Id")
                         .HasColumnType("uuid");
 
+                    b.Property<string>("AccessPasswordHash")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
                     b.Property<bool>("AllowAnonymous")
                         .HasColumnType("boolean");
 
@@ -721,8 +723,7 @@ namespace SmartSurvey.Infrastructure.Persistence.Migrations
                         .HasColumnType("timestamp with time zone");
 
                     b.Property<string>("UserAgent")
-                        .HasMaxLength(512)
-                        .HasColumnType("character varying(512)");
+                        .HasColumnType("text");
 
                     b.Property<Guid>("WorkspaceId")
                         .HasColumnType("uuid");

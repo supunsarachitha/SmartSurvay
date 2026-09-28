@@ -38,6 +38,7 @@ A full-stack, modular, well-commented **survey application**:
 | XLSX (extra) | **ClosedXML 0.105** | |
 | QR codes (extra) | **QRCoder 1.8** | Share page. |
 | E-mail | **MailKit 4.18** | SMTP delivery of account e-mails (`Email:*` settings). |
+| Encryption at rest | **ASP.NET Core Data Protection** via EF Core value converters | Respondents' written answers, "Other" texts and user agents (`Encryption:Enabled`); keys in the key ring, not the database. |
 | Charts | Home-grown **server-side SVG chart renderer** | Same SVG used in the browser and inside PDFs → consistent, zero JS, fully unit-testable. |
 | Tests | xUnit 2.9, bUnit 2.11, `WebApplicationFactory` + SQLite in-memory (DI scope validation on) | |
 | DevOps | Dockerfile, docker-compose (app + postgres), GitHub Actions CI | |
@@ -199,7 +200,8 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 | `GET /api/v1/responses/{id}` | admin/owner | Response detail |
 | `DELETE /api/v1/responses/{id}` | admin | Delete response |
 | `GET /api/v1/public/surveys` | public/user | Available surveys |
-| `GET /api/v1/public/surveys/{slug}` | per survey | Survey session (definition + draft + eligibility) |
+| `GET /api/v1/public/surveys/{slug}` | per survey | Survey session (definition + draft + eligibility); header `X-Survey-Access-Key` for password-protected surveys |
+| `POST /api/v1/public/surveys/{slug}/unlock` | per survey | Check a survey password → access key (rate-limited) |
 | `POST /api/v1/public/surveys/{surveyId}/responses` | per survey | Submit response |
 | `PUT /api/v1/public/surveys/{surveyId}/draft` | user | Save draft |
 | `GET /api/v1/me/responses` | user | My responses |
@@ -345,8 +347,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
   separate review/fix agent rounds. Verification = unit/integration tests + `scripts/smoke.sh` + manual checks.
 * Phase 6 "tracks" are now just the order of work: 6A → 6B → 6C → 6D → 6E.
 * Keep reads targeted (grep / line ranges) to limit usage.
-* History: Phases 4A/4B were built by parallel agents in worktrees under `../SmartSurvay-worktrees/`; the saved
-  scripts in `.claude/workflows/` are kept for reference only and are no longer run.
+* History: Phases 4A/4B were built by parallel agents in worktrees under `../SmartSurvay-worktrees/`; the
+  workflow scripts they used were removed from the repository (2026-09-28).
 * `scripts/smoke.sh` boots the app on SQLite with demo data and checks pages (admin login included).
 
 ### Log
@@ -358,7 +360,7 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Phases 1–3 | Solution scaffolded (6 projects, CPM, dotnet-ef 8.0.31 local tool); domain model, AppDbContext + configurations, InitialCreate migration (applied to PostgreSQL); application contracts, LogicEvaluator, ResponseValidator; web host (auth cookie+bearer, policies, ProblemDetails, rate limiting, health, Swagger); design system + layouts + shared components; stubs for Phase 4 services; test support + 72 passing core tests; app boots against PostgreSQL |
 | 2026-09-27 | Phase 4 (run 1) | Parallel worktrees (harness worktree isolation failed → manual `git worktree add` under `../SmartSurvay-worktrees`). 4A + 4B implemented (285/222 tests) and merged; 4C/4D interrupted by a usage limit (partial work kept in their worktrees) |
 | 2026-09-27 | Branding | New user request: admin-customisable product name/tagline/icon/logo. Entity + `AddBrandingSettings` migration, cached `IBrandingService`, `/branding/logo` + `/branding/favicon`, `BrandMark` component; 457 unit tests green. Admin page + API assigned to Phase 5/6 (tracks 5-api, 6E) |
-| 2026-09-27 | Phase 4 (run 2) | Workflow `phase4-complete`: finish 4C/4D, independent review+fix of 4A–4D (incl. PostgreSQL query checks). Workflow scripts saved in `.claude/workflows/` (`phase4-complete.js`, next `phase56-api-and-ui.js`; args documented at the top of §9) |
+| 2026-09-27 | Phase 4 (run 2) | Workflow `phase4-complete`: finish 4C/4D, independent review+fix of 4A–4D (incl. PostgreSQL query checks). Workflow scripts were kept in `.claude/workflows/` until they were removed on 2026-09-28 |
 | 2026-09-27 | Working mode | User asked to stop multi-agent workflows (usage). Workflow run 2 stopped mid-4C/4D; partial files kept. Remaining work continues directly on `main`, sequentially (see "Working mode" above). Login page fix: internal CookieOrBearer scheme hidden from external-login list |
 | 2026-09-27 | Phase 4 done | 4C finished directly: ReportService, PDF/CSV/TXT/XLSX/JSON exporters, raw response export (QuestPDF configured by the PDF exporter). Tests added for 4C (79) and 4D (28: audit, dashboard, users with real Identity, seeder). 564 unit tests green; seeder verified on PostgreSQL (admin login + demo data). Next: Phase 5 (REST API) |
 | 2026-09-27 | Phase 5 done | REST API: 8 groups + branding under `/api/v1` (Api/*Endpoints.cs), optional query records for list endpoints (`ApiQueries.cs`), logo upload as base64 JSON (CSRF-safe without antiforgery), `docs/examples` (.http walkthrough + survey/response/report JSON). 35 integration tests (auth 401/403, ProblemDetails, lifecycle, public flow, exports, reports, admin, branding, OpenAPI, examples). Next: Phase 6A |
@@ -451,7 +453,7 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 - [x] 9.3 Keep existing behaviour working inside one workspace: public survey flows open the survey's workspace, slug check system-wide, seeder puts admin/demo data into a default workspace
 - [x] 9.4 Migration `AddWorkspaces` with data backfill into "Default workspace" (PostgreSQL); `has-pending-model-changes` clean
 - [x] 9.5 Test support (default test workspace, scoped seeding, `TestCurrentUser.WorkspaceId`); existing suite green; new data-layer isolation tests (filters, write guard, fail-closed `None` scope)
-- [~] 9.6 Phase gate **BLOCKED — see last § 10.5 row** (§ 10.0 step 5) — verify the v1.0 compose database upgrades (data lands in Default workspace, admin still signs in)
+- [~] 9.6 Phase gate (§ 10.0 step 5) — verify the v1.0 compose database upgrades (data lands in Default workspace, admin still signs in)
 
 #### Phase 10 — Workspace-aware services + platform services
 - [ ] 10.1 Review/adjust every service for scoping: surveys (duplicate/templates/import), responses (D9, my responses), reports + engine, exports, dashboard, audit (workspace vs system events)
@@ -498,3 +500,4 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 | 2026-09-28 | 9.1–9.3 | Domain (`Workspace`, `PlatformSettings`, `IWorkspaceOwned` on 11 entities, nullable on audit/users, `SuperAdmin` role); `DataScope` + global filters + save guard in `AppDbContext`; factory `CreateAsync/CreateForWorkspaceAsync/CreateSystemAsync`; `ICurrentUser.WorkspaceId/IsSuperAdmin` (claim `workspace_id`). Respondent flow resolves the survey's workspace (D9 + `OtherWorkspace`/`Unavailable` verdicts), `ListAvailableAsync(workspaceSlug)`, audit `LogInWorkspaceAsync`, system-wide slug check, seeder default workspace (`Seed:WorkspaceName/Slug`). 719 unit + 42 integration green. Next: 9.4 migration |
 | 2026-09-28 | 9.4–9.5 | `AddWorkspaces` migration + v1.0 backfill, verified on a copy of the compose database (`smartsurvey_upgrade_test`: 4 surveys, 1915 answers, 48 users, 44 audit rows → Default workspace, FKs created) and on an empty database (no workspace created); no pending model changes. 11 isolation tests (`Core/WorkspaceIsolationTests`). 730 unit + 42 integration green, 0 warnings. |
 | 2026-09-28 | **9.6 BLOCKED — needs the user** | The running compose stack was built from `feature/password-protected-surveys`: its database has that branch's migrations (`AddSurveyAccessPassword`, `EncryptedAnswerColumns`) and **encrypted** answer text. An image of this branch (based on `main`) would show ciphertext and write plaintext → do **not** run `docker compose up --build` from this branch yet. Proposed fix: rebase this branch onto `feature/password-protected-surveys` and regenerate `AddWorkspaces` on top (the agent's rebase was refused by the permission check, so the user decides). Next: user's decision → then 9.6 |
+| 2026-09-28 | Merge `main` | Blocker resolved: the user merged PR #1 (password-protected surveys, bot protection, encryption at rest) into `main` and asked to merge `main` here. Conflicts resolved (eligibility enum: `PasswordRequired = 8`, `OtherWorkspace = 9`, `Unavailable = 10`; encryption + workspace filters both in `AppDbContext`; access keys + workspace targets in `ResponseService`). Fixed on top: `UnlockAsync` resolves the survey's workspace (guests could not unlock otherwise) and bot challenges go to everyone answering as a guest, incl. members of other workspaces. `AddWorkspaces` still sorts after main's migrations; its Designer synced to the merged snapshot; no pending model changes. 757 unit + 45 integration green. Next: 9.6 phase gate (back up the compose DB first) |

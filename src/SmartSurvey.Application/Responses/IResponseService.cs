@@ -22,9 +22,18 @@ public interface IResponseService
 
     /// <summary>
     /// Determines eligibility for <paramref name="slug"/> and returns the survey plus, for logged-in
-    /// users, the latest draft to resume.
+    /// users, the latest draft to resume. Password-protected surveys need a valid
+    /// <paramref name="accessKey"/> (from <see cref="UnlockAsync"/>); without one the result is
+    /// <see cref="SurveyEligibility.PasswordRequired"/> and the design is withheld.
     /// </summary>
-    Task<SurveySessionDto> StartOrResumeAsync(string slug, CancellationToken ct = default);
+    Task<SurveySessionDto> StartOrResumeAsync(string slug, string? accessKey = null, CancellationToken ct = default);
+
+    /// <summary>
+    /// Checks the password of a protected survey and returns an access key. Throws
+    /// <see cref="AppValidationException"/> (key "Password") when the password is wrong and
+    /// <see cref="NotFoundException"/> for unknown surveys.
+    /// </summary>
+    Task<SurveyUnlockResult> UnlockAsync(string slug, string password, CancellationToken ct = default);
 
     /// <summary>
     /// Saves (creates or updates) the current user's draft. Logged-in users only; answers are stored

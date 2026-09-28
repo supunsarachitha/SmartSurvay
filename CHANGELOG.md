@@ -15,6 +15,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Docker instructions** in the README (install, start, everyday commands, backup/restore, settings, troubleshooting),
   a documented `.env.example`, and optional SMTP settings in `docker-compose.yml`.
 - README screenshots gallery and badges.
+- **Password-protected surveys:** an optional survey password (Settings → "Require a password to open the survey").
+  Only a salted PBKDF2 hash is stored; respondents enter the password once and receive a signed, time-limited access
+  key that the server checks when the survey is opened, a draft is saved and a response is submitted. Protected surveys
+  are hidden from the public list, show their thank-you message in place, and are marked with a lock in the admin list.
+  API: `POST /api/v1/public/surveys/{slug}/unlock`, header `X-Survey-Access-Key`, `accessKey` in submissions.
+  Migration `AddSurveyAccessPassword`.
+- **Bot and spam protection** for anonymous responses, without CAPTCHAs or third-party services: an ALTCHA-style
+  proof-of-work challenge solved invisibly in a Web Worker while people answer, a minimum answering time, a honeypot
+  field, one-time challenges and the existing rate limits (`BotProtection:*`, `BOT_PROTECTION` in Docker). API clients
+  submitting anonymously include the solved `challenge`; signed-in callers are not challenged.
+- **Encryption at rest:** respondents' written answers (text, paragraph and e-mail questions), "Other" texts and browser
+  details are encrypted in the database with ASP.NET Core Data Protection (AES-256); the keys stay in the key ring
+  (`DataProtection:KeysPath` / the Docker `keys` volume), not in the database. Existing values are encrypted once at
+  start-up; values without a key show a placeholder instead of an error. `Encryption:Enabled` (`ENCRYPTION` in Docker).
+  Migration `EncryptedAnswerColumns` widens those columns to `text`. Surfaced in the survey intro, response detail,
+  export menu, guide, FAQ, README (including how to back up the keys) and documentation.
+
+### Fixed
+- The user guide no longer scrolls sideways on phones, and its screenshots scale to the text column and screen height
+  (click to enlarge).
 
 ### Changed
 - **License:** SmartSurvey is now source-available under the PolyForm Noncommercial License 1.0.0 (`LICENSE.md`);

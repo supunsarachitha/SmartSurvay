@@ -210,6 +210,62 @@ public sealed class SurveyRunnerTests : UiTestBase
         Assert.Contains("sending responses very quickly", cut.Find(".alert-danger").TextContent);
     }
 
+    [Fact]
+    public void Password_prompt_opens_the_survey_with_the_right_password()
+    {
+        Responses.Password = "secret";
+        var cut = RenderRunner();
+
+        Assert.Equal("Customer feedback", cut.Find("h1").TextContent.Trim());
+        Assert.Empty(cut.FindAll(".question-card"));
+
+        cut.Find("#survey-password").Input("guess");
+        cut.Find("form").Submit();
+        Assert.Contains("That password is not correct", cut.Find("#survey-password-error").TextContent);
+
+        cut.Find("#survey-password").Input("secret");
+        cut.Find("form").Submit();
+
+        Assert.Equal(2, cut.FindAll(".question-card").Count);
+        Assert.Equal("valid-key", Responses.AccessKeys[^1]);
+    }
+
+    [Fact]
+    public void Protected_surveys_send_the_key_and_thank_in_place()
+    {
+        Responses.Password = "secret";
+        _s.Definition.PasswordProtected = true;
+        _s.Definition.Sections.Remove(_s.Page2);
+        var cut = RenderRunner();
+        cut.Find("#survey-password").Input("secret");
+        cut.Find("form").Submit();
+
+        Choose(cut, _s.Yes);
+        Click(cut, "Submit");
+
+        Assert.Equal("valid-key", Assert.Single(Responses.Submissions).AccessKey);
+        Assert.Contains("Thank you!", cut.Markup);
+        Assert.Contains("Thanks!", cut.Markup);
+        Assert.DoesNotContain("thank-you", CurrentUri); // the public thank-you page doesn't show protected surveys' messages
+    }
+
+    [Fact]
+    public void Too_many_wrong_passwords_are_throttled()
+    {
+        Responses.Password = "secret";
+        var throttle = Services.GetRequiredService<SmartSurvey.Web.Infrastructure.PasswordAttemptThrottle>();
+        while (throttle.TryAcquire())
+        {
+        }
+
+        var cut = RenderRunner();
+        cut.Find("#survey-password").Input("secret");
+        cut.Find("form").Submit();
+
+        Assert.Contains("Too many attempts", cut.Markup);
+        Assert.Empty(cut.FindAll(".question-card"));
+    }
+
     [Theory]
     [InlineData(SurveyEligibility.Closed, "This survey is closed")]
     [InlineData(SurveyEligibility.NotOpenYet, "This survey isn't open yet")]

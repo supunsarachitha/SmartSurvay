@@ -118,7 +118,28 @@ public sealed class SaveResponseRequest
 
     /// <summary>Optional browser user agent (set by the host, truncated to 512 chars).</summary>
     public string? UserAgent { get; set; }
+
+    /// <summary>Access key from <c>UnlockAsync</c> (required for password-protected surveys).</summary>
+    public string? AccessKey { get; set; }
+
+    /// <summary>Solved bot challenge from the session (required for anonymous submissions when bot protection is on).</summary>
+    public BotChallengeSolution? Challenge { get; set; }
+
+    /// <summary>Honeypot: a field people never see and bots tend to fill. Must stay empty.</summary>
+    public string? Website { get; set; }
 }
+
+/// <summary>Password entered to open a protected survey.</summary>
+public sealed class UnlockSurveyRequest
+{
+    /// <summary>The survey password.</summary>
+    public string Password { get; set; } = string.Empty;
+}
+
+/// <summary>Result of a successful unlock.</summary>
+/// <param name="AccessKey">Key to send with the session, draft and submission requests (header <c>X-Survey-Access-Key</c> or <c>accessKey</c>).</param>
+/// <param name="ExpiresAt">When the key stops working (UTC).</param>
+public sealed record SurveyUnlockResult(string AccessKey, DateTime ExpiresAt);
 
 /// <summary>Result of a successful submission.</summary>
 /// <param name="ResponseId">Stored response id.</param>
@@ -162,11 +183,14 @@ public enum SurveyEligibility
     /// <summary>User already submitted and multiple responses are not allowed.</summary>
     AlreadyResponded = 7,
 
+    /// <summary>The survey is protected with a password and no valid access key was supplied.</summary>
+    PasswordRequired = 8,
+
     /// <summary>Survey is for members of its workspace and the signed-in user belongs to another workspace.</summary>
-    OtherWorkspace = 8,
+    OtherWorkspace = 9,
 
     /// <summary>The survey's workspace is disabled or waiting for approval.</summary>
-    Unavailable = 9,
+    Unavailable = 10,
 }
 
 /// <summary>Everything the survey runner needs to start or resume answering.</summary>
@@ -178,8 +202,14 @@ public sealed class SurveySessionDto
     /// <summary>Human-readable explanation when not eligible.</summary>
     public string? Message { get; set; }
 
-    /// <summary>Survey design (null when not found / not published).</summary>
+    /// <summary>Survey design (null when not found / not published / password required).</summary>
     public SurveyDefinitionDto? Survey { get; set; }
+
+    /// <summary>Survey title — also set when a password is required, so the prompt can name the survey.</summary>
+    public string? SurveyTitle { get; set; }
+
+    /// <summary>Proof-of-work challenge to solve before submitting (anonymous respondents, bot protection on).</summary>
+    public BotChallengeDto? Challenge { get; set; }
 
     /// <summary>Existing draft id when resuming.</summary>
     public Guid? DraftResponseId { get; set; }

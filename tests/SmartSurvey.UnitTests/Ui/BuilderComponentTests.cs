@@ -1,4 +1,5 @@
 using Bunit;
+using Microsoft.Extensions.DependencyInjection;
 using SmartSurvey.Domain.Enums;
 using SmartSurvey.UnitTests.TestSupport;
 using SmartSurvey.Web.Components.Admin.Builder;
@@ -81,5 +82,30 @@ public sealed class BuilderComponentTests : UiTestBase
         Assert.Contains("1 rule", editor.Markup);
         Assert.Contains("Needs attention", editor.Markup);
         Assert.Empty(editor.FindAll(".qe-body"));
+    }
+
+    [Fact]
+    public void Password_protection_asks_for_a_password_and_remembers_an_existing_one()
+    {
+        Services.AddSingleton<SmartSurvey.Application.Surveys.ISurveyService>(new FakeSurveyService()); // slug availability checks
+        var survey = _s.Definition;
+        var settings = Render<SurveySettingsForm>(p => p.Add(x => x.Survey, survey));
+        Assert.Empty(settings.FindAll("#s-password-value"));
+
+        settings.Find("#s-password").Change(true);
+        settings.Find("#s-password-value").Input("team-2026");
+
+        Assert.True(survey.PasswordProtected);
+        Assert.Equal("team-2026", survey.AccessPassword);
+
+        var saved = SampleSurveys.CustomerFeedback().Definition;
+        saved.PasswordProtected = true; // as loaded from the server: a password exists, but is never sent
+        var existing = Render<SurveySettingsForm>(p => p.Add(x => x.Survey, saved));
+        Assert.Contains("A password is set", existing.Markup);
+        Assert.Equal("Leave empty to keep the current password", existing.Find("#s-password-value").GetAttribute("placeholder"));
+
+        existing.Find("#s-password").Change(false);
+        Assert.False(saved.PasswordProtected);
+        Assert.Null(saved.AccessPassword);
     }
 }

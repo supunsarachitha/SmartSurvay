@@ -24,12 +24,14 @@ public abstract class UiTestBase : BunitContext
         JSInterop.Mode = JSRuntimeMode.Loose;
         Services.AddSingleton<IBrandingService>(new StubBrandingService(ProductName));
         Services.AddSingleton<IOptions<SupportOptions>>(_ => Options.Create(Support));
+        Services.AddSingleton(Options.Create(new SmartSurvey.Infrastructure.Persistence.Encryption.FieldEncryptionOptions()));
         Services.AddSingleton<ICurrentUser>(User);
         Services.AddSingleton<ISvgChartRenderer, SvgChartRenderer>();
         Services.AddSingleton<IResponseService>(Responses);
         Services.AddScoped<BrowserInterop>();
         Services.AddSingleton(TimeProvider.System);
         Services.AddScoped<SubmissionThrottle>();
+        Services.AddScoped<PasswordAttemptThrottle>();
         Auth = AddAuthorization();
     }
 

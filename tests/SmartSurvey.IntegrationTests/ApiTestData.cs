@@ -61,6 +61,45 @@ internal static class ApiTestData
         };
     }
 
+    /// <summary>
+    /// Submits a response like a browser would: opens the survey session (as <paramref name="client"/>), solves its
+    /// bot-protection challenge and posts the answers with the solution (and <paramref name="accessKey"/> if given).
+    /// </summary>
+    public static async Task<HttpResponseMessage> SubmitAnonymouslyAsync(
+        HttpClient client, SurveyDefinitionDto survey, SaveResponseRequest request, string? accessKey = null)
+    {
+        using var get = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/public/surveys/{survey.Slug}");
+        if (accessKey is not null)
+        {
+            get.Headers.Add("X-Survey-Access-Key", accessKey);
+            request.AccessKey = accessKey;
+        }
+
+        var session = await ReadAsync<SurveySessionDto>(await client.SendAsync(get));
+        if (session.Challenge is { } challenge)
+        {
+            request.Challenge = Solve(challenge);
+        }
+
+        return await client.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", request, ApiFactory.Json);
+    }
+
+    /// <summary>Solves a proof-of-work challenge the same way the browser does.</summary>
+    public static BotChallengeSolution Solve(BotChallengeDto challenge)
+    {
+        for (long n = 0; n <= challenge.MaxNumber; n++)
+        {
+            var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(
+                System.Text.Encoding.UTF8.GetBytes(challenge.Salt + n.ToString(System.Globalization.CultureInfo.InvariantCulture)))).ToLowerInvariant();
+            if (hash == challenge.Challenge)
+            {
+                return new BotChallengeSolution { Salt = challenge.Salt, Challenge = challenge.Challenge, Signature = challenge.Signature, Number = n };
+            }
+        }
+
+        throw new InvalidOperationException("The challenge has no solution.");
+    }
+
     /// <summary>Asserts the status code and deserialises the body.</summary>
     public static async Task<T> ReadAsync<T>(HttpResponseMessage response, HttpStatusCode expected = HttpStatusCode.OK)
     {

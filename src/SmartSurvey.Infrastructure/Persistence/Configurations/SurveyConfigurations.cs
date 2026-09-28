@@ -17,6 +17,7 @@ internal sealed class SurveyConfiguration : IEntityTypeConfiguration<Survey>
         b.Property(x => x.Slug).HasMaxLength(80).IsRequired();
         b.Property(x => x.WelcomeMessage).HasMaxLength(4000);
         b.Property(x => x.ThankYouMessage).HasMaxLength(4000);
+        b.Property(x => x.AccessPasswordHash).HasMaxLength(200);
         b.Property(x => x.Version).IsConcurrencyToken();
 
         b.BelongsToWorkspace();

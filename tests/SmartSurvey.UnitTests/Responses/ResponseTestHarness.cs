@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSurvey.Application.Common;
@@ -6,6 +7,7 @@ using SmartSurvey.Application.Surveys;
 using SmartSurvey.Domain.Entities;
 using SmartSurvey.Domain.Enums;
 using SmartSurvey.Domain.Identity;
+using SmartSurvey.Infrastructure.Security;
 using SmartSurvey.UnitTests.TestSupport;
 
 namespace SmartSurvey.UnitTests.Responses;
@@ -28,7 +30,7 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
 
     private int _surveyCounter;
 
-    private ResponseTestHarness()
+    private ResponseTestHarness(IBotProtection? botProtection)
     {
         Service = new ResponseService(
             Db,
@@ -37,10 +39,17 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
             Audit,
             new SaveResponseRequestValidator(),
             new ResponseQueryValidator(),
+            AccessKeys,
+            botProtection ?? new DisabledBotProtection(),
             NullLogger<ResponseService>.Instance);
     }
 
     public SqliteTestDatabase Db { get; } = new();
+
+    /// <summary>Access keys of password-protected surveys (ephemeral key ring).</summary>
+    public DataProtectionSurveyAccessKeys AccessKeys => _accessKeys ??= new DataProtectionSurveyAccessKeys(new EphemeralDataProtectionProvider(), Db.Time);
+
+    private DataProtectionSurveyAccessKeys? _accessKeys;
 
     public RecordingAuditService Audit { get; } = new();
 
@@ -51,9 +60,9 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
     public DateTime Now => Db.UtcNow;
 
     /// <summary>Creates the harness and seeds the users.</summary>
-    public static async Task<ResponseTestHarness> CreateAsync()
+    public static async Task<ResponseTestHarness> CreateAsync(IBotProtection? botProtection = null)
     {
-        var harness = new ResponseTestHarness();
+        var harness = new ResponseTestHarness(botProtection);
         await harness.Db.SeedAsync(
             NewUser(TestCurrentUser.AdminId, AdminEmail, AdminName),
             NewUser(TestCurrentUser.RespondentId, RespondentEmail, RespondentName),

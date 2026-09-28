@@ -13,6 +13,9 @@ public static class PublicEndpoints
     /// <summary>Maximum stored length of the submitting browser's user agent.</summary>
     private const int MaxUserAgentLength = 512;
 
+    /// <summary>Request header carrying the access key of a password-protected survey.</summary>
+    public const string AccessKeyHeader = "X-Survey-Access-Key";
+
     /// <summary>Maps the public endpoints.</summary>
     public static RouteGroupBuilder MapPublicEndpoints(this RouteGroupBuilder group)
     {
@@ -20,10 +23,17 @@ public static class PublicEndpoints
             .WithName("ListAvailableSurveys")
             .WithSummary("Surveys the caller can take right now: their own workspace's, or with ?workspace={slug} that workspace's public surveys.");
 
-        group.MapGet("/surveys/{slug}", (IResponseService responses, string slug, CancellationToken ct) =>
-                responses.StartOrResumeAsync(slug, ct))
+        group.MapGet("/surveys/{slug}", (IResponseService responses, HttpContext http, string slug, CancellationToken ct) =>
+                responses.StartOrResumeAsync(slug, http.Request.Headers[AccessKeyHeader].FirstOrDefault(), ct))
             .WithName("StartSurvey")
-            .WithSummary("Survey session: the definition, the caller's draft (if any) and eligibility.");
+            .WithSummary("Survey session: the definition, the caller's draft (if any) and eligibility.")
+            .WithDescription($"Password-protected surveys return eligibility PasswordRequired until the access key from the unlock endpoint is sent in the {AccessKeyHeader} header.");
+
+        group.MapPost("/surveys/{slug}/unlock", (IResponseService responses, string slug, UnlockSurveyRequest request, CancellationToken ct) =>
+                responses.UnlockAsync(slug, request.Password, ct))
+            .RequireRateLimiting(RateLimitPolicies.Submissions)
+            .WithName("UnlockSurvey")
+            .WithSummary("Checks the password of a protected survey and returns an access key (send it as X-Survey-Access-Key / accessKey).");
 
         group.MapPost("/surveys/{surveyId:guid}/responses", (
                 IResponseService responses, HttpContext http, Guid surveyId, SaveResponseRequest request, CancellationToken ct) =>

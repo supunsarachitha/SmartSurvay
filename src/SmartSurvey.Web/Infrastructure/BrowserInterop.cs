@@ -79,6 +79,22 @@ public sealed class BrowserInterop(IJSRuntime js)
         }
     }
 
+    /// <summary>
+    /// Solves a bot-protection challenge in a background thread of the browser. Returns null when it can't be
+    /// solved (no Web Worker support, disconnected) — the server then rejects the submission with a clear message.
+    /// </summary>
+    public async Task<long?> SolveChallengeAsync(Application.Responses.BotChallengeDto challenge)
+    {
+        try
+        {
+            return await js.InvokeAsync<long?>("SmartSurvey.solveChallenge", challenge.Salt, challenge.Challenge, challenge.MaxNumber);
+        }
+        catch (Exception ex) when (ex is JSException or InvalidOperationException or TaskCanceledException or JSDisconnectedException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>Opens the browser's print dialog (the print stylesheet hides navigation).</summary>
     public ValueTask PrintAsync() => js.InvokeVoidAsync("SmartSurvey.print");
 

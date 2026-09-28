@@ -5,6 +5,8 @@
 @inject BrowserInterop Browser
 @inject PersistentComponentState ApplicationState
 @inject SubmissionThrottle Throttle
+@inject PasswordAttemptThrottle PasswordThrottle
+@inject IOptions<SmartSurvey.Infrastructure.Persistence.Encryption.FieldEncryptionOptions> Encryption
 @inject Application.Branding.IBrandingService Branding
 @inject ILogger<SurveyRunner> Logger
 @* The respondent experience: multi-page survey with live conditional logic, per-page validation,
@@ -31,6 +33,39 @@
 else if (run is null && session is null)
 {
     <div class="survey-shell"><LoadingSpinner Text="Loading survey…" /></div>
+}
+else if (run is null && session?.Eligibility == SurveyEligibility.PasswordRequired)
+{
+    <div class="survey-shell">
+        <div class="card mx-auto" style="max-width:32rem">
+            <div class="card-body p-4 p-md-5">
+                <div class="status-icon" aria-hidden="true"><i class="bi bi-lock"></i></div>
+                <h1 class="h4 fw-bold mb-1 text-center">@(session.SurveyTitle ?? "Protected survey")</h1>
+                <p class="text-muted mb-4 text-center">This survey is protected with a password. Enter the password you received together with the link.</p>
+                <form @onsubmit="UnlockAsync" @onsubmit:preventDefault>
+                    <label class="form-label small" for="survey-password">Password</label>
+                    <input id="survey-password" type="password" class="form-control form-control-lg @(passwordError is null ? null : "is-invalid")"
+                           autocomplete="off" aria-describedby="@(passwordError is null ? null : "survey-password-error")"
+                           @bind="passwordInput" @bind:event="oninput" />
+                    @if (passwordError is not null)
+                    {
+                        <div class="invalid-feedback d-block" id="survey-password-error" role="alert"><i class="bi bi-exclamation-circle me-1"></i>@passwordError</div>
+                    }
+                    <button type="submit" class="btn btn-primary btn-lg w-100 mt-3" disabled="@(!interactive || unlocking || string.IsNullOrEmpty(passwordInput))">
+                        @if (unlocking)
+                        {
+                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Checking…</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-unlock"></i><span>Open survey</span>
+                        }
+                    </button>
+                </form>
+                <p class="small text-muted text-center mt-3 mb-0">Don't have the password? Ask the person who sent you the link.</p>
+            </div>
+        </div>
+    </div>
 }
 else if (run is null)
 {
@@ -73,6 +108,20 @@ else if (previewCompleted)
         <button class="btn btn-primary" @onclick="RestartPreview"><i class="bi bi-arrow-counterclockwise"></i>Restart preview</button>
     </ThankYouCard>
 }
+else if (completedInPlace)
+{
+    @* Password-protected surveys thank in place: the public thank-you page doesn't reveal their message. *@
+    <ThankYouCard SurveyTitle="@run.Survey.Title" Message="@run.Survey.ThankYouMessage">
+        @if (run.Survey.AllowMultipleResponses)
+        {
+            <button class="btn btn-primary" @onclick="AnswerAgainAsync" disabled="@busy"><i class="bi bi-arrow-repeat"></i>Submit another response</button>
+        }
+        @if (CurrentUser.IsAuthenticated && !Embedded)
+        {
+            <a class="btn btn-light" href="my/responses"><i class="bi bi-inboxes"></i>My responses</a>
+        }
+    </ThankYouCard>
+}
 else
 {
     var survey = run.Survey;
@@ -103,6 +152,10 @@ else
                     @if (hasRequired)
                     {
                         <span><span class="text-danger fw-bold">*</span> Required</span>
+                    }
+                    @if (Encryption.Value.Enabled)
+                    {
+                        <span title="The answers you type are encrypted in the database."><i class="bi bi-shield-lock me-1"></i>Written answers are stored encrypted</span>
                     }
                 </div>
             </header>
@@ -175,6 +228,12 @@ else
         }
         <ErrorAlert Message="@submitError" OnDismiss="() => submitError = null" Class="mt-3" />
 
+        @* Honeypot for spam bots: invisible to people (and screen readers), often filled in by bots. *@
+        <div class="hp-field" aria-hidden="true">
+            <label for="survey-website">Website</label>
+            <input id="survey-website" type="text" name="website" tabindex="-1" autocomplete="off" @bind="honeypot" />
+        </div>
+
         <div class="survey-nav">
             <div>
                 @if (!run.IsFirstPage)
@@ -244,6 +303,14 @@ else
     private bool submitted;
     private bool resumed;
     private bool previewCompleted;
+    private bool completedInPlace;
+    private bool interactive;
+    private bool unlocking;
+    private string? accessKey;
+    private string passwordInput = string.Empty;
+    private string? passwordError;
+    private string? honeypot;
+    private Task<long?>? challengeTask;
 
     /// <summary>Slug of the survey to answer (live and embedded mode).</summary>
     [Parameter] public string? Slug { get; set; }
@@ -338,6 +405,21 @@ else
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        // Bot protection: solve the proof-of-work challenge in the background while the person answers.
+        if (interactive && challengeTask is null && run is not null && !IsPreview && session?.Challenge is { } challenge)
+        {
+            challengeTask = Browser.SolveChallengeAsync(challenge);
+        }
+
+        if (firstRender)
+        {
+            interactive = true; // enables the password form (a prerendered form must not submit)
+            if (session?.Eligibility == SurveyEligibility.PasswordRequired)
+            {
+                StateHasChanged();
+            }
+        }
+
         if (pendingScroll is not { } target)
         {
             return;
@@ -369,6 +451,7 @@ else
 
     private void Start(RunnerSnapshot snapshot)
     {
+        challengeTask = null; // a new session brings a new challenge
         session = snapshot.Session;
         seed = snapshot.Seed;
         responseId = session.DraftResponseId;
@@ -470,9 +553,31 @@ else
         try
         {
             userAgent ??= await Browser.GetUserAgentAsync();
-            await Responses.SubmitAsync(session!.Survey!.Id, run.ToRequest(responseId, userAgent));
+            var request = BuildRequest();
+            request.Website = honeypot;
+            if (session!.Challenge is { } challenge)
+            {
+                challengeTask ??= Browser.SolveChallengeAsync(challenge);
+                if (await challengeTask is { } number)
+                {
+                    request.Challenge = new BotChallengeSolution
+                    {
+                        Salt = challenge.Salt, Challenge = challenge.Challenge, Signature = challenge.Signature, Number = number,
+                    };
+                }
+            }
+
+            await Responses.SubmitAsync(session.Survey!.Id, request);
             submitted = true;
-            Navigation.NavigateTo(ThankYouUrl);
+            if (run.Survey.PasswordProtected)
+            {
+                completedInPlace = true;
+                pendingScroll = "top";
+            }
+            else
+            {
+                Navigation.NavigateTo(ThankYouUrl);
+            }
         }
         catch (AppValidationException ex)
         {
@@ -512,8 +617,8 @@ else
         try
         {
             userAgent ??= await Browser.GetUserAgentAsync();
-            responseId = await Responses.SaveDraftAsync(session!.Survey!.Id, run!.ToRequest(responseId, userAgent));
-            run.MarkSaved();
+            responseId = await Responses.SaveDraftAsync(session!.Survey!.Id, BuildRequest());
+            run!.MarkSaved();
             saved = true;
             return true;
         }
@@ -565,6 +670,69 @@ else
         if (!await confirm!.ShowAsync("Leave this survey?", message, "Leave", danger: true, cancelText: "Keep answering"))
         {
             context.PreventNavigation();
+        }
+    }
+
+    /// <summary>The draft/submission payload including the access key of a protected survey.</summary>
+    private SaveResponseRequest BuildRequest()
+    {
+        var request = run!.ToRequest(responseId, userAgent);
+        request.AccessKey = accessKey;
+        return request;
+    }
+
+    private async Task UnlockAsync()
+    {
+        if (!interactive || unlocking || string.IsNullOrEmpty(passwordInput) || Slug is null)
+        {
+            return;
+        }
+
+        if (!PasswordThrottle.TryAcquire())
+        {
+            passwordError = "Too many attempts. Please wait a few minutes and try again.";
+            return;
+        }
+
+        unlocking = true;
+        passwordError = null;
+        try
+        {
+            accessKey = (await Responses.UnlockAsync(Slug, passwordInput)).AccessKey;
+            passwordInput = string.Empty;
+            Start(new RunnerSnapshot(Slug, await Responses.StartOrResumeAsync(Slug, accessKey), seed));
+        }
+        catch (AppValidationException ex)
+        {
+            passwordError = ex.Errors.SelectMany(e => e.Value).FirstOrDefault() ?? "That password is not correct.";
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            passwordError = UiErrors.Describe(ex);
+        }
+        finally
+        {
+            unlocking = false;
+        }
+    }
+
+    private async Task AnswerAgainAsync()
+    {
+        busy = true;
+        try
+        {
+            completedInPlace = false;
+            submitted = false;
+            Start(new RunnerSnapshot(Slug ?? string.Empty, await Responses.StartOrResumeAsync(Slug ?? string.Empty, accessKey), Random.Shared.Next()));
+            pendingScroll = "top";
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            submitError = UiErrors.Describe(ex);
+        }
+        finally
+        {
+            busy = false;
         }
     }
 

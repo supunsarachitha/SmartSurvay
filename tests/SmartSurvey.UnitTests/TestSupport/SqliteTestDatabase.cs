@@ -4,6 +4,7 @@ using Microsoft.Extensions.Time.Testing;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Domain.Entities;
 using SmartSurvey.Infrastructure.Persistence;
+using SmartSurvey.Infrastructure.Persistence.Encryption;
 
 namespace SmartSurvey.UnitTests.TestSupport;
 
@@ -27,16 +28,22 @@ public sealed class SqliteTestDatabase : IAppDbContextFactory, IAsyncDisposable,
     private readonly DbContextOptions<AppDbContext> _options;
 
     /// <summary>Opens the connection and creates the schema.</summary>
-    public SqliteTestDatabase()
+    /// <param name="fieldProtector">Encrypts the sensitive answer columns like production does (null = plain text).</param>
+    public SqliteTestDatabase(IFieldProtector? fieldProtector = null)
     {
         _connection = new SqliteConnection("DataSource=:memory:");
         _connection.Open();
 
-        _options = new DbContextOptionsBuilder<AppDbContext>()
+        var builder = new DbContextOptionsBuilder<AppDbContext>()
             .UseSqlite(_connection)
             .AddInterceptors(new AuditableEntityInterceptor(Time, CurrentUser))
-            .EnableSensitiveDataLogging()
-            .Options;
+            .EnableSensitiveDataLogging();
+        if (fieldProtector is not null)
+        {
+            builder.UseFieldEncryption(fieldProtector);
+        }
+
+        _options = builder.Options;
 
         using var db = new AppDbContext(_options);
         db.Database.EnsureCreated();
