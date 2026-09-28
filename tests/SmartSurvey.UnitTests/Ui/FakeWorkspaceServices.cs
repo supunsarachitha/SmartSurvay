@@ -81,6 +81,7 @@ public sealed class FakePlatformSettingsService : IPlatformSettingsService
         {
             AllowWorkspaceSignup = request.AllowWorkspaceSignup,
             RequireWorkspaceApproval = request.RequireWorkspaceApproval,
+            ProvideStarterTemplates = request.ProvideStarterTemplates,
             SupportEmail = request.SupportEmail,
         };
         return Task.FromResult(Settings);

@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using SmartSurvey.Application.Audit;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Application.Workspaces;
@@ -26,7 +27,10 @@ public sealed class PlatformWorkspaceService(
     ICurrentUser currentUser,
     IAuditService audit,
     IWorkspaceStatusProvider statuses,
-    TimeProvider time) : IPlatformWorkspaceService
+    IPlatformSettingsService settings,
+    StarterTemplates starterTemplates,
+    TimeProvider time,
+    ILogger<PlatformWorkspaceService> logger) : IPlatformWorkspaceService
 {
     /// <summary>Maximum length of a disable reason (matches the column).</summary>
     public const int MaxReasonLength = 500;
@@ -93,6 +97,7 @@ public sealed class PlatformWorkspaceService(
         await EnsureEmailFreeAsync(users, email);
 
         Workspace workspace;
+        ApplicationUser admin;
         await using (var transaction = await db.Database.BeginTransactionAsync(ct))
         {
             var slug = await WorkspaceSlugAllocator.AllocateAsync(db, request.Slug, request.Name, nameof(CreateWorkspaceRequest.Slug), null, ct);
@@ -100,7 +105,7 @@ public sealed class PlatformWorkspaceService(
             db.Workspaces.Add(workspace);
             await db.SaveChangesAsync(ct);
 
-            var admin = new ApplicationUser
+            admin = new ApplicationUser
             {
                 WorkspaceId = workspace.Id,
                 UserName = email,
@@ -115,6 +120,11 @@ public sealed class PlatformWorkspaceService(
                 nameof(CreateWorkspaceRequest.AdminEmail), nameof(CreateWorkspaceRequest.AdminPassword));
             IdentityErrors.ThrowIfFailed(await users.AddToRolesAsync(admin, AppRoles.WorkspaceRoles));
             await transaction.CommitAsync(ct);
+        }
+
+        if ((await settings.GetAsync(ct)).ProvideStarterTemplates)
+        {
+            await WorkspaceSignupService.AddStarterTemplatesAsync(starterTemplates, logger, workspace.Id, admin.Id, ct);
         }
 
         await audit.LogAsync(AuditActions.WorkspaceCreated, WorkspaceMapping.EntityType, workspace.Id.ToString(),

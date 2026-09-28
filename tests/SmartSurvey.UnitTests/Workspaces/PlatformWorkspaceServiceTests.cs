@@ -82,6 +82,7 @@ public sealed class PlatformWorkspaceServiceTests : IAsyncLifetime
         var created = await Platform(s => s.CreateAsync(NewWorkspace()));
 
         Assert.Equal("acme-research", created.Slug);
+        Assert.Equal(3, created.SurveyCount); // the starter templates
         Assert.Equal(WorkspaceStatus.Active, created.Status);
         Assert.Equal(["lead@acme.local"], created.AdminEmails);
 

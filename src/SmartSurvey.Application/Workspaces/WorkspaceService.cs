@@ -209,11 +209,12 @@ public sealed class PlatformSettingsService(IAppDbContextFactory dbFactory, ICur
 
         row.AllowWorkspaceSignup = request.AllowWorkspaceSignup;
         row.RequireWorkspaceApproval = request.RequireWorkspaceApproval;
+        row.ProvideStarterTemplates = request.ProvideStarterTemplates;
         row.SupportEmail = string.IsNullOrWhiteSpace(request.SupportEmail) ? null : request.SupportEmail.Trim();
         await db.SaveChangesAsync(ct);
 
         await audit.LogAsync(AuditActions.PlatformSettingsUpdated, "PlatformSettings", PlatformSettings.SingletonId.ToString(),
-            $"System settings saved: workspace sign-up {(row.AllowWorkspaceSignup ? "on" : "off")}, approval {(row.RequireWorkspaceApproval ? "required" : "not required")}.", ct);
+            $"System settings saved: workspace sign-up {(row.AllowWorkspaceSignup ? "on" : "off")}, approval {(row.RequireWorkspaceApproval ? "required" : "not required")}, starter templates {(row.ProvideStarterTemplates ? "on" : "off")}.", ct);
         return ToDto(row);
     }
 
@@ -221,6 +222,7 @@ public sealed class PlatformSettingsService(IAppDbContextFactory dbFactory, ICur
     {
         AllowWorkspaceSignup = s.AllowWorkspaceSignup,
         RequireWorkspaceApproval = s.RequireWorkspaceApproval,
+        ProvideStarterTemplates = s.ProvideStarterTemplates,
         SupportEmail = s.SupportEmail,
     };
 }

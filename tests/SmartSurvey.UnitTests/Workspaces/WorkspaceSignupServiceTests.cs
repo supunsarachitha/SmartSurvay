@@ -51,6 +51,43 @@ public sealed class WorkspaceSignupServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task New_workspaces_start_with_starter_templates()
+    {
+        var first = await Signup(s => s.SignUpAsync(NewSignup()));
+        var second = await Signup(s => s.SignUpAsync(NewSignup(email: "second@new.local")));
+
+        await using var db = await _host.CreateDbContextAsync();
+        var templates = await db.Surveys.Where(s => s.WorkspaceId == first.WorkspaceId).ToListAsync();
+        Assert.Equal(Infrastructure.Workspaces.StarterTemplates.Titles.Order(), templates.Select(t => t.Title).Order());
+        Assert.All(templates, t =>
+        {
+            Assert.True(t.IsTemplate);
+            Assert.Equal(Domain.Enums.SurveyStatus.Draft, t.Status);
+            Assert.Null(t.PublishedAt);
+            Assert.Contains("-template-", t.Slug);
+        });
+
+        // Whole designs, stamped with the new workspace; links unique across workspaces.
+        var ids = templates.Select(t => t.Id).ToList();
+        Assert.True(await db.Questions.CountAsync(q => ids.Contains(q.SurveyId)) > 10);
+        Assert.All(await db.Questions.Where(q => ids.Contains(q.SurveyId)).ToListAsync(), q => Assert.Equal(first.WorkspaceId, q.WorkspaceId));
+        Assert.True(await db.LogicRules.AnyAsync(r => ids.Contains(r.SurveyId)));
+        var allSlugs = await db.Surveys.Where(s => s.WorkspaceId == first.WorkspaceId || s.WorkspaceId == second.WorkspaceId).Select(s => s.Slug).ToListAsync();
+        Assert.Equal(6, allSlugs.Distinct().Count());
+    }
+
+    [Fact]
+    public async Task Starter_templates_can_be_switched_off()
+    {
+        await SaveSettingsAsync(new UpdatePlatformSettingsRequest { AllowWorkspaceSignup = true, ProvideStarterTemplates = false });
+
+        var result = await Signup(s => s.SignUpAsync(NewSignup()));
+
+        await using var db = await _host.CreateDbContextAsync();
+        Assert.False(await db.Surveys.AnyAsync(s => s.WorkspaceId == result.WorkspaceId));
+    }
+
+    [Fact]
     public async Task With_approval_required_new_workspaces_wait_for_a_super_admin()
     {
         await SaveSettingsAsync(new UpdatePlatformSettingsRequest { AllowWorkspaceSignup = true, RequireWorkspaceApproval = true });

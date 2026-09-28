@@ -21,6 +21,7 @@ namespace SmartSurvey.IntegrationTests;
 public sealed class WorkspaceApiTests(ApiFactory factory)
 {
     private const string Password = "Workspace123!";
+    private static readonly string[] StarterTemplateTitles = ["Customer satisfaction", "Team pulse check", "Event feedback"];
 
     private readonly HttpClient _admin = factory.Admin();
     private readonly HttpClient _super = factory.SuperAdmin();
@@ -58,8 +59,10 @@ public sealed class WorkspaceApiTests(ApiFactory factory)
         var workspace = await ReadAsync<WorkspaceDto>(await founder.GetAsync("/api/v1/workspace"));
         Assert.Equal(result.WorkspaceId, workspace.Id);
 
-        // Nothing of the default workspace is visible or reachable.
-        Assert.Equal(0, (await ReadAsync<PagedResult<SurveySummaryDto>>(await founder.GetAsync("/api/v1/surveys"))).TotalCount);
+        // Nothing of the default workspace is visible or reachable — only the new workspace's starter templates.
+        var own = await ReadAsync<PagedResult<SurveySummaryDto>>(await founder.GetAsync("/api/v1/surveys"));
+        Assert.Equal(StarterTemplateTitles.Order(), own.Items.Select(s => s.Title).Order());
+        Assert.All(own.Items, s => Assert.True(s.IsTemplate));
         Assert.Equal(0, (await ReadAsync<PagedResult<ReportSummaryDto>>(await founder.GetAsync("/api/v1/reports"))).TotalCount);
         Assert.Equal(0, (await ReadAsync<DashboardSummaryDto>(await founder.GetAsync("/api/v1/dashboard"))).TotalSurveys);
         Assert.Equal([email], (await ReadAsync<PagedResult<UserDto>>(await founder.GetAsync("/api/v1/users"))).Items.Select(u => u.Email));

@@ -87,6 +87,7 @@ public static class DependencyInjection
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<IPlatformWorkspaceService, PlatformWorkspaceService>();
         services.AddScoped<IWorkspaceSignupService, WorkspaceSignupService>();
+        services.AddScoped<StarterTemplates>();
         services.AddScoped<DbSeeder>();
 
         services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");

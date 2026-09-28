@@ -35,6 +35,10 @@
                            disabled="@(!form.AllowWorkspaceSignup)" />
                     <label class="form-check-label" for="st-approval">New workspaces wait for my approval before they can be used</label>
                 </div>
+                <div class="form-check form-switch mt-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="st-templates" @bind="form.ProvideStarterTemplates" @bind:after="MarkDirty" />
+                    <label class="form-check-label" for="st-templates">Give new workspaces ready-made survey templates (customer satisfaction, team pulse, event feedback)</label>
+                </div>
                 <p class="small text-muted mt-3 mb-0">Workspaces you create yourself (Workspaces → New workspace) are always active right away.</p>
             </div>
         </div>
@@ -64,6 +68,7 @@
         {
             AllowWorkspaceSignup = settings.AllowWorkspaceSignup,
             RequireWorkspaceApproval = settings.RequireWorkspaceApproval,
+            ProvideStarterTemplates = settings.ProvideStarterTemplates,
             SupportEmail = settings.SupportEmail,
         };
         errors = [];
