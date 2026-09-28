@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-09-28
+
+**Workspaces.** One installation now hosts many fully isolated workspaces with their own admins and members, a
+self-service sign-up, and a System console for super admins. Also included: the user guide, password-protected surveys,
+bot protection and encryption at rest (released on `main` after 1.0.0).
+
+**Upgrading from 1.x:** back up the database *and* the data-protection keys, then start the new version. The migration
+`AddWorkspaces` moves all existing surveys, responses, reports, audit entries and accounts into "Default workspace"
+(slug `default`); admins stay admins and survey links do not change. Set `Seed:SuperAdminEmail` /
+`Seed:SuperAdminPassword` (Docker: `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD`) to create the first super admin.
+Breaking changes: branding is managed by super admins (`/system/branding`, API requires the SuperAdmin role),
+`POST /api/auth/register` is refused in favour of the workspace sign-up/join endpoints, and
+`GET /api/v1/public/surveys` needs `?workspace={slug}` for anonymous callers.
+
 ### Added
 - **Workspaces (multi-tenancy, in progress on `feature/multi-workspace`):** every survey, response, report and audit
   entry now belongs to a workspace, and the data layer only ever returns the current workspace's rows (fail-closed
@@ -23,7 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Super admin bootstrap:** `Seed:SuperAdminEmail` / `Seed:SuperAdminPassword` (Docker: `SUPERADMIN_EMAIL`,
   `SUPERADMIN_PASSWORD`) create the first super admin. Demo data adds a second workspace "Acme Research"
   (`admin@acme.local`, admin password) to show the isolation.
-
 - **Workspace REST API:** `GET/PUT /api/v1/workspace`; `/api/v1/system/*` for super admins (overview, workspaces,
   accounts, settings, system audit log); public `GET /api/v1/public/settings`, `GET /api/v1/public/workspaces/{slug}`,
   `POST /api/v1/public/workspaces` (sign-up) and `POST /api/v1/public/workspaces/{slug}/register` (join).
@@ -38,16 +51,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   first admin, rename / re-address, approve, disable with a reason, enable, delete when disabled), accounts of every
   workspace (create super admins or members, roles, password, lock, delete), branding, system settings and the system
   audit log.
-
-### Changed
-- Branding can only be changed by super admins (it is system-wide); `PUT/POST/DELETE /api/v1/branding*` require the
-  SuperAdmin role.
-- `POST /api/auth/register` is refused (403): accounts belong to a workspace, so they are created with the workspace
-  sign-up and join endpoints. `GET /api/v1/public/surveys` lists the caller's own workspace, or a workspace's public
-  surveys with `?workspace={slug}`.
-- `/surveys` shows the signed-in member's workspace; guests are pointed to survey links and workspace pages. The
-  admin sidebar has "Workspace settings" instead of "Branding".
-- Branding moved from `/admin/branding` to `/system/branding`.
 - **User guide** at `/guide`: plain-language, step-by-step help with screenshots for respondents and administrators
   (linked from the top menu, footer, FAQ and admin sidebar).
 - **GitHub links** in the top menu, admin sidebar, home page and footer (`Support:GitHubUrl`); the Buy Me a Coffee page
@@ -72,6 +75,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   Migration `EncryptedAnswerColumns` widens those columns to `text`. Surfaced in the survey intro, response detail,
   export menu, guide, FAQ, README (including how to back up the keys) and documentation.
 
+### Changed
+- Branding can only be changed by super admins (it is system-wide); `PUT/POST/DELETE /api/v1/branding*` require the
+  SuperAdmin role.
+- `POST /api/auth/register` is refused (403): accounts belong to a workspace, so they are created with the workspace
+  sign-up and join endpoints. `GET /api/v1/public/surveys` lists the caller's own workspace, or a workspace's public
+  surveys with `?workspace={slug}`.
+- `/surveys` shows the signed-in member's workspace; guests are pointed to survey links and workspace pages. The
+  admin sidebar has "Workspace settings" instead of "Branding".
+- Branding moved from `/admin/branding` to `/system/branding`.
+- **License:** SmartSurvey is now source-available under the PolyForm Noncommercial License 1.0.0 (`LICENSE.md`);
+  the repository owner keeps all rights, including commercial use. The footer's "Open source" heading became "Project"
+  with a link to the license.
+
+### Security
+- Workspace isolation is enforced in the data layer (fail-closed query filters on every tenant table, a save guard
+  against cross-workspace writes); ids of other workspaces' data return `404`. Members of disabled workspaces are
+  refused at sign-in (explained only after the password was verified), on every request and in open circuits.
+- Workspace sign-up and join are rate limited on the pages as well as the API (`RateLimits:AuthPerMinute`).
+- `ALLOWED_HOSTS` in Docker / documented `AllowedHosts`: confirmation links are built from the request's host, so
+  production sites should restrict the accepted host names.
+
 ### Fixed
 - Start-up encryption of older plain-text answers could loop forever when combined with workspace scoping; it now
   runs in system scope, stops when rows cannot be loaded, and orders its batches (no more EF Core 10102 warnings).
@@ -79,11 +103,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   with a changed admin password).
 - The user guide no longer scrolls sideways on phones, and its screenshots scale to the text column and screen height
   (click to enlarge).
-
-### Changed
-- **License:** SmartSurvey is now source-available under the PolyForm Noncommercial License 1.0.0 (`LICENSE.md`);
-  the repository owner keeps all rights, including commercial use. The footer's "Open source" heading became "Project"
-  with a link to the license.
 
 ## [1.0.0] - 2026-09-27
 

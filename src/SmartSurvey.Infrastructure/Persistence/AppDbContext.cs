@@ -23,8 +23,9 @@ namespace SmartSurvey.Infrastructure.Persistence;
 /// <see cref="DataScope.None"/>, i.e. fail-closed). Global query filters limit every
 /// <see cref="IWorkspaceOwned"/> table and the audit log to the scope's workspace, and
 /// <see cref="SaveChanges(bool)"/> stamps <c>WorkspaceId</c> on inserts and rejects writes that
-/// would touch another workspace. Identity tables and <see cref="Workspaces"/> are not filtered
-/// (sign-in needs global lookups); services filter them explicitly.</para>
+/// would touch another workspace. Accounts (<see cref="ApplicationUser"/>) are limited to the
+/// workspace inside a workspace scope only: Identity's stores work on unscoped contexts because
+/// sign-in needs global look-ups. <see cref="Workspaces"/> is not filtered.</para>
 /// </remarks>
 public class AppDbContext(DbContextOptions<AppDbContext> options)
     : IdentityDbContext<ApplicationUser, IdentityRole<Guid>, Guid>(options), IAppDbContext
@@ -32,6 +33,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
     // Read by the global query filters; EF Core evaluates context members per instance.
     private Guid _filterWorkspaceId;
     private bool _unfiltered;
+    private bool _workspaceScoped;
 
     /// <summary>Current data scope (see <see cref="UseScope"/>).</summary>
     public DataScope Scope { get; private set; }
@@ -42,6 +44,7 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         Scope = scope;
         _filterWorkspaceId = scope.Kind == DataScopeKind.Workspace ? scope.WorkspaceId : Guid.Empty;
         _unfiltered = scope.Kind == DataScopeKind.System;
+        _workspaceScoped = scope.Kind == DataScopeKind.Workspace;
         return this;
     }
 
@@ -116,6 +119,9 @@ public class AppDbContext(DbContextOptions<AppDbContext> options)
         }
 
         builder.Entity<AuditLogEntry>().HasQueryFilter(e => _unfiltered || e.WorkspaceId == _filterWorkspaceId);
+
+        // Accounts: only inside a workspace scope (unscoped contexts serve Identity's global look-ups).
+        builder.Entity<ApplicationUser>().HasQueryFilter(u => !_workspaceScoped || u.WorkspaceId == _filterWorkspaceId);
 
         foreach (var entityType in builder.Model.GetEntityTypes())
         {

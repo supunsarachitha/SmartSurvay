@@ -139,6 +139,7 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
     private static ApplicationUser NewUser(Guid id, string email, string? displayName) => new()
     {
         Id = id,
+        WorkspaceId = TestWorkspaces.DefaultId, // members of the default test workspace
         UserName = email,
         NormalizedUserName = email.ToUpperInvariant(),
         Email = email,

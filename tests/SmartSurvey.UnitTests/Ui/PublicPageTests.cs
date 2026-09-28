@@ -59,7 +59,7 @@ public sealed class FaqPageTests : UiTestBase
     {
         var page = Render<Faq>();
 
-        Assert.Equal(5, page.FindAll("div.accordion").Count);
+        Assert.Equal(6, page.FindAll("div.accordion").Count);
         Assert.Contains($"What is {ProductName}?", page.Markup);
         Assert.Empty(page.FindAll(".accordion-collapse.show")); // collapsed until searched
     }

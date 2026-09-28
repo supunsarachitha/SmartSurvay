@@ -356,7 +356,8 @@ public sealed class DbSeeder(
     {
         var people = DemoPeople.Employees();
         var normalized = people.Select(p => userManager.NormalizeEmail(p.Email)!).ToList();
-        var existing = await db.Users
+        // Addresses are unique system-wide: look in every workspace, not only the demo one.
+        var existing = await db.Users.IgnoreQueryFilters()
             .Where(u => u.NormalizedEmail != null && normalized.Contains(u.NormalizedEmail))
             .Select(u => new { u.Id, u.NormalizedEmail, u.WorkspaceId })
             .ToDictionaryAsync(u => u.NormalizedEmail!, u => (u.Id, u.WorkspaceId), ct);

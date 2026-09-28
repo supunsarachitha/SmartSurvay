@@ -557,6 +557,8 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
 .guide-audience { display: inline-block; font-size: .75rem; font-weight: 600; padding: .15rem .6rem; border-radius: 999px; background: var(--ss-surface-2); color: var(--ss-muted); border: 1px solid var(--ss-border); }
 .guide-audience-respondents { background: rgba(14, 165, 233, .12); color: #0369a1; border-color: transparent; }
 .guide-audience-admins { background: var(--ss-primary-soft); color: var(--ss-primary); border-color: transparent; }
+.guide-audience-superadmins { background: rgba(139, 92, 246, .14); color: #6d28d9; border-color: transparent; }
+[data-bs-theme="dark"] .guide-audience-superadmins { color: #c4b5fd; }
 [data-bs-theme="dark"] .guide-audience-respondents { color: #7dd3fc; }
 .guide-steps { counter-reset: step; list-style: none; padding-left: 0 !important; }
 .guide-steps > li { counter-increment: step; position: relative; padding-left: 2.4rem; margin-bottom: .75rem; }

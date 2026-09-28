@@ -31,7 +31,7 @@ A full-stack, modular, well-commented **survey application**:
 | Frontend | **Blazor Web App, Interactive Server** render mode (per-page interactivity) | Static SSR for public/marketing pages + Identity pages; `@rendermode InteractiveServer` for builder, runner, reports, admin. |
 | ORM | **EF Core 8.0.31** | Code-first, migrations in Infrastructure. `IDbContextFactory` pattern (Blazor Server safe). |
 | Database | **PostgreSQL 16** (Npgsql EF 8.0.11) | Alternative provider **SQLite** (config switch) for demos/tests (uses `EnsureCreated`). |
-| Auth | **ASP.NET Core Identity** (Guid keys) — cookie for UI, **Identity bearer tokens** for REST API (`MapIdentityApi`) | Roles: `Admin`, `User`. |
+| Auth | **ASP.NET Core Identity** (Guid keys) — cookie for UI, **Identity bearer tokens** for REST API (`MapIdentityApi`) | Roles: `SuperAdmin` (no workspace), `Admin`, `User` (per workspace); claim `workspace_id`. |
 | API | **Minimal APIs** grouped under `/api/v1`, **Swagger** (Swashbuckle 10) | ProblemDetails error contract. |
 | Validation | **FluentValidation 12** | Request DTO validation inside services. |
 | PDF | **QuestPDF 2026.9.x** (Community license) | Charts embedded as SVG. |
@@ -85,7 +85,11 @@ Key principles
 ## 4. Data Model (contract)
 
 ```
-ApplicationUser : IdentityUser<Guid>   DisplayName, CreatedAt, LastLoginAt, IsActive
+Workspace (auditable)                  Name, Slug(unique), Description, ContactEmail, Status(Active|Disabled|PendingApproval),
+                                       StatusReason, StatusChangedAt, AllowSelfRegistration, ShowPublicSurveyList, OwnerId
+PlatformSettings (single row)          AllowWorkspaceSignup, RequireWorkspaceApproval, SupportEmail
+ApplicationUser : IdentityUser<Guid>   WorkspaceId? (null = super admin), DisplayName, CreatedAt, LastLoginAt, IsActive
+(every entity below: WorkspaceId via IWorkspaceOwned; AuditLogEntry.WorkspaceId nullable = system event)
 Survey (auditable)                     Title, Description, Slug(unique), Status(Draft|Published|Closed|Archived),
                                        IsTemplate, AllowAnonymous, AllowMultipleResponses, ShowProgressBar,
                                        ShowQuestionNumbers, OpensAt?, ClosesAt?, MaxResponses?, WelcomeMessage,
@@ -149,6 +153,7 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 - [x] Dark mode toggle
 - [x] Seed data: admin + demo user, example surveys with logic, sample responses, sample report
 - [x] Docker / docker-compose, CI workflow
+- [x] **Workspaces (v2.0, § 10):** isolated tenants with own admins/members, self-service sign-up (optional approval), join link, workspace page `/w/{slug}`, workspace settings; **super admin** System console (workspaces, accounts, branding, settings, system audit log); branding moved to super admins
 
 (Checked items = in scope; see phase checklists for implementation status.)
 
@@ -161,12 +166,15 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 | `/faq` | public | FAQ |
 | `/guide` | public | User guide for non-technical users (screenshots in `wwwroot/img/guide`) |
 | `/buy-me-a-coffee` | public | Support page (username configurable: `Support:BuyMeACoffeeUsername`) |
-| `/surveys` | public/users | Available surveys |
+| `/surveys` | members | The member's workspace's open surveys (guests: link / workspace finder) |
+| `/signup` | public | Create a workspace (creator becomes its admin) |
+| `/w/{slug}` | public | Workspace page with its public surveys, join / sign in |
+| `/workspace-unavailable` | public | Shown to members of disabled / pending workspaces |
 | `/s/{slug}` | per survey | Take survey (multi-page runner) |
 | `/s/{slug}/thank-you` | per survey | Completion page |
 | `/embed/s/{slug}`, `/embed/s/{slug}/thank-you` | per survey | Runner / completion page for iframes on other sites (minimal layout; see `Embedding:*`) |
 | `/my/responses` | user | My submissions & drafts |
-| `/Account/*` | public | Identity (login, register, manage, 2FA …) |
+| `/Account/*` | public | Identity (login, manage, 2FA …); `/Account/Register?workspace={slug}` = join a workspace |
 | `/admin` | admin | Dashboard |
 | `/admin/surveys` | admin | Survey list, create, templates, import |
 | `/admin/surveys/{id}/edit` | admin | Survey builder (questions, logic, settings) |
@@ -178,13 +186,18 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 | `/admin/reports/new`, `/admin/reports/{id}/edit` | admin | Report builder with live preview |
 | `/admin/reports/{id}` | admin | Report viewer + export buttons |
 | `/admin/users` | admin | User management |
-| `/admin/audit` | admin | Audit log |
-| `/admin/branding` | admin | Product name, tagline, icon / logo |
+| `/admin/audit` | admin | Audit log (the workspace's) |
+| `/admin/settings` | admin | Workspace settings (name, description, contact, join link, public page) |
+| `/system` | super admin | System overview (figures, pending approvals) |
+| `/system/workspaces`, `/system/workspaces/new`, `/system/workspaces/{id}` | super admin | Workspaces: list, create, detail (approve, disable, enable, edit, delete) |
+| `/system/accounts` | super admin | Every account (+ create super admins / members) |
+| `/system/branding` | super admin | Product name, tagline, icon / logo (moved from `/admin/branding`) |
+| `/system/settings`, `/system/audit` | super admin | System settings, system audit log |
 
 ### REST API (`/api/v1`, cookie or bearer auth)
 | Method & Route | Access | Purpose |
 |---|---|---|
-| `POST /api/auth/login`, `/register`, `/refresh` … | public | Identity API endpoints (bearer tokens) |
+| `POST /api/auth/login`, `/refresh` … | public | Identity API endpoints (bearer tokens); `/register` is refused (403) — see workspace sign-up/join |
 | `GET /api/v1/surveys` | admin | List (search, status, paging) |
 | `GET /api/v1/surveys/{id}` | admin | Full definition |
 | `POST /api/v1/surveys` | admin | Create |
@@ -214,7 +227,10 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 | `GET /api/v1/dashboard` | admin | Dashboard KPIs |
 | `GET /api/v1/users`, `POST /api/v1/users`, `PUT /api/v1/users/{id}/roles`, `POST /api/v1/users/{id}/password`, `POST /api/v1/users/{id}/lock\|unlock` | admin | User admin |
 | `GET /api/v1/audit` | admin | Audit log |
-| `GET /api/v1/public/branding`, `PUT /api/v1/branding`, `POST/DELETE /api/v1/branding/logo`, `POST /api/v1/branding/reset` | public / admin | Branding |
+| `GET /api/v1/public/branding`, `PUT /api/v1/branding`, `POST/DELETE /api/v1/branding/logo`, `POST /api/v1/branding/reset` | public / super admin | Branding |
+| `GET/PUT /api/v1/workspace` | member / admin | Own workspace settings |
+| `/api/v1/system/{overview,workspaces…,accounts…,settings,audit}` | super admin | System administration (see § 10.3) |
+| `GET /api/v1/public/settings`, `GET /api/v1/public/workspaces/{slug}`, `POST /api/v1/public/workspaces`, `POST /api/v1/public/workspaces/{slug}/register` | public | Sign-up / join (rate limited) |
 | `GET /branding/logo`, `GET /branding/favicon` | public | Brand images (versioned caching) |
 | `GET /health` | public | Health check |
 | `/swagger` | dev/configurable | OpenAPI UI |
@@ -298,8 +314,9 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 * Always use `TimeProvider` for "now"; store UTC.
 * No new NuGet packages without updating `Directory.Packages.props` and this plan.
 * Commit after each completed phase: `git commit -m "Phase N: …"`. Update CHANGELOG `[Unreleased]`.
-* Dev credentials (seeded, Development only): `admin@smartsurvey.local / Admin123!`,
-  `user@smartsurvey.local / User123!`.
+* Dev credentials (seeded, Development only): `admin@smartsurvey.local / Admin123!` (admin of "Default workspace"),
+  `user@smartsurvey.local / User123!`, `superadmin@smartsurvey.local / SuperAdmin123!`, `admin@acme.local / Admin123!`
+  (second demo workspace "Acme Research").
 
 ## 8b. UI design standard ("user friendly, attractive, professional")
 
@@ -489,8 +506,8 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 - [x] 14.1 Full build/tests; PostgreSQL run incl. upgrade of a v1.0 database; `scripts/smoke.sh` + `container-smoke.sh` extended (super admin, second workspace)
 - [x] 14.2 Headless-browser checks: sign-up → own workspace; two workspaces isolated; disable → members locked out, links unavailable; enable; super admin console
 - [x] 14.3 Security review focused on cross-workspace access (IDOR via ids in URLs/API, filters bypassed, circuits), fixes
-- [~] 14.4 Docs: DOCUMENTATION.md (tenancy model, roles, routes, upgrade notes), README, user guide + FAQ, CHANGELOG 2.0.0, § 4–6 of this file
-- [ ] 14.5 Final phase gate (containers running on the release build)
+- [x] 14.4 Docs: DOCUMENTATION.md (tenancy model, roles, routes, upgrade notes), README, user guide + FAQ, CHANGELOG 2.0.0, § 4–6 of this file
+- [~] 14.5 Final phase gate (containers running on the release build)
 
 ### 10.5 Log
 
@@ -507,3 +524,4 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 | 2026-09-28 | **Phase 12 done** | Public UI: `/signup` (sign-up with approval/closed states; signs the founder in → `/admin`), `/Account/Register` (no workspace → two ways in; `?workspace=` → join form, invite-only and not-found states), `/w/{slug}` (intro, contact, public surveys via shared `SurveyCard`, join/sign-in or member badge), `/surveys` (members: own workspace; guests: link/workspace finder; super admins → System), `/workspace-unavailable`, home CTAs per role, user menu shows the workspace / "Super admin" and role links, top bar Admin/System buttons. Runner: session carries workspace name/slug → "Create account" joins that workspace, "More from …", `OtherWorkspace`/`Unavailable` texts. Admin: sidebar workspace name, `/admin/settings` (name, description, contact, join link with copy, public page), branding link removed (page moves to /system in 13.4), users page join link + role filter limited to workspace roles, last-admin guard on self-deletion. Workspace cache now holds name/slug (`WorkspaceInfo`). Tests found a real bug: an empty optional address failed `StringLength(MinimumLength)` → regex. 829 unit + 69 integration green (incl. form sign-up end to end); containers rebuilt; new pages 200 live. Next: 13.1 |
 | 2026-09-28 | **Phase 13 done** | System console (`Pages/SystemConsole` — a folder named `System` shadows the `System` namespace): `SystemLayout` (tinted sidebar, "New workspace"), `/system` overview (KPIs, approve pending in place, newest workspaces), `/system/workspaces` (search/status, `WorkspaceTable`), `/system/workspaces/new`, `/system/workspaces/{id}` (figures, approve / disable with reason / enable, details incl. address, admins, delete only when disabled + typed name), `/system/accounts`, `/system/branding` (moved), `/system/settings`, `/system/audit`. Shared components instead of copies: `AccountManager` (Users page + Accounts, `SystemMode`: workspace column/filter, super admin accounts, create member-of-workspace or super admin) and `AuditLogView` (`SystemMode` → `ListSystemAsync`). Tests found a real bug: a bool-bound `<select>` never switched → string-bound account type. 12 bUnit + 5 HTTP tests (guests → login, workspace admin → AccessDenied on /system, super admin → AccessDenied on /admin, /admin/branding 404). 841 unit + 74 integration green; containers rebuilt; live cookie sign-in as super admin, all /system pages 200. Next: 14.1 |
 | 2026-09-28 | 14.1–14.3 | Verification: `scripts/smoke.sh` gained `--user superadmin|acme` (all pages of all five roles render on SQLite without errors); `container-smoke.sh` checks sign-up/join/workspace pages, public settings, super admin sign-in, system overview, super admin ↛ survey data (optional 4th/5th args, '' skips). Headless browser (`scripts/browser/workspaces.check.js`, puppeteer-core + Chrome, fresh SQLite instance): 17 checks green, no console/request/5xx errors — sign-up → own empty workspace, settings save, join link, super admin disables (reason) → member redirected + login explains + workspace page gone, enable → sign-in again, super admin account via dialog, admin ↛ /system, runner across workspaces. Security review of every filter bypass (system scope only in seeding/startup, super-admin services, id/status/public-field lookups for share links, slugs and public workspace pages); fixes: `DisableAsync` checks the role before validating; `/signup` and `/Account/Register` rate limited like the API (test); `ALLOWED_HOSTS` in compose/.env (confirmation links use the request host — pre-existing, now documented). No vulnerable packages. Demo Acme survey got its own description. Next: 14.4 docs |
+| 2026-09-28 | 14.4 | Docs: DOCUMENTATION.md (§5.3 tenancy model/roles/enforcement, data model, upgrade notes, API, UI guide incl. System console, security, configuration, testing, deployment, troubleshooting), README (highlights, accounts table, upgrade note, settings, dev credentials, gallery), user guide (Workspaces, Workspace settings, System console, super admin branding; new audience badge), FAQ (Workspaces group, admin answers), CHANGELOG `[2.0.0]` (restructured: main's post-1.0 items had landed under Changed), `Version` 2.0.0, plan §2/4/5/6/8. New screenshots (dashboard light/dark, users, branding, system-overview, workspace-settings) captured with puppeteer — reviewing them found a **real leak**: the workspace dashboard counted every account of the site (Users table unfiltered) → accounts now filtered inside a workspace scope (Identity keeps global look-ups on unscoped contexts), seeder's cross-workspace address check uses `IgnoreQueryFilters`; tests added. 842 unit + 75 integration green. Next: 14.5 final gate |

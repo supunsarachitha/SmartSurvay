@@ -37,9 +37,10 @@
 
 ## 1. Overview
 
-SmartSurvey is a self-hosted, full-stack survey platform:
+SmartSurvey is a self-hosted, full-stack survey platform that hosts many **workspaces** — fully isolated rooms,
+each with its own admins, members, surveys, responses, reports and audit log (§5.3):
 
-* **Administrators** design surveys with ten question types, answer options, combined
+* **Workspace admins** design surveys with ten question types, answer options, combined
   *"Other → free text"* options, multi-page layouts and **conditional show/hide logic**; they publish,
   schedule, share (link, QR code, embed) and close surveys, browse individual responses and build
   **dynamic reports** — tables and charts over live data — that can be exported as **PDF, CSV, TXT,
@@ -47,6 +48,10 @@ SmartSurvey is a self-hosted, full-stack survey platform:
 * **Respondents** answer surveys in a clean, mobile-friendly runner with live branching, per-page
   validation, a progress bar and **save & resume** drafts. Surveys can be public (anonymous link) or
   require an account.
+* **Anyone** can create a workspace at `/signup` and becomes its admin (a super admin can switch this off or require
+  approval); people join a workspace with its join link.
+* **Super admins** run the system in the **System console** (`/system`): create, rename, approve, disable, enable and
+  delete workspaces, manage every account, the branding and the system settings — without seeing workspace content.
 * **Integrators** use the same capabilities through a documented **REST API** secured with bearer tokens.
 
 All business rules live in one Application layer that is shared by the Blazor UI and the REST API, so
@@ -64,8 +69,10 @@ both behave identically.
 | Responses | Filterable, paged response browser; response detail; deletion; raw export (CSV/XLSX/JSON) |
 | Reports | Saved report definitions per survey; global filters (date range, drafts, answer-based filters with All/Any); 10 widget types (KPIs, question tables, bar/horizontal bar/pie/doughnut charts, responses-over-time line chart, cross-tabulation, text responses, raw grid); numeric statistics incl. NPS; auto-generated default report; live preview builder |
 | Exports | PDF (QuestPDF, charts embedded as SVG), CSV (RFC 4180, Excel-friendly, CSV-injection safe), TXT (ASCII tables + text bar charts), XLSX (ClosedXML, one sheet per widget), JSON |
-| Administration | Dashboard (KPIs, 30-day trend, top surveys, recent responses), user management (create, roles, set password, lock/unlock, delete with self-protection), audit log, branding (product name, tagline, icon or logo/favicon) |
-| Platform | ASP.NET Core Identity (cookie + bearer tokens, lockout, 2FA pages), account e-mails over SMTP, role policies, ProblemDetails errors, rate limiting, security headers, **encryption at rest** of respondents' written answers, password-protected surveys, bot/spam protection, health checks, Swagger/OpenAPI, dark mode, responsive UI, Docker, CI |
+| Workspaces | Isolated tenants with their own admins and members; self-service sign-up (optional approval); join link; public workspace page `/w/{slug}` with its public surveys; workspace settings (name, description, contact, join link, public page) |
+| Administration | Per workspace: dashboard (KPIs, 30-day trend, top surveys, recent responses), member management (create, roles, set password, lock/unlock, delete with self- and last-admin protection), audit log, settings |
+| System console | Super admins: overview across workspaces (figures only), workspaces (create with first admin, rename/re-address, approve, disable with a reason, enable, delete), accounts of every workspace and super admins, branding (product name, tagline, icon or logo/favicon), system settings (sign-up, approval, support e-mail), system audit log |
+| Platform | ASP.NET Core Identity (cookie + bearer tokens, lockout, 2FA pages), account e-mails over SMTP, role policies (SuperAdmin, workspace Admin, User), ProblemDetails errors, rate limiting, security headers, **encryption at rest** of respondents' written answers, password-protected surveys, bot/spam protection, health checks, Swagger/OpenAPI, dark mode, responsive UI, Docker, CI |
 | Extras | FAQ page, Buy Me a Coffee support page with QR code |
 
 ## 3. Technology stack
@@ -222,6 +229,56 @@ flowchart LR
   render through persisted component state), then answers are edited in `SurveyRunState`, which runs the same
   `LogicEvaluator` / `ResponseValidator` as the server.
 
+### 5.3 Workspaces (multi-tenancy)
+
+A **workspace** is a tenant: an isolated room with its own admins, members, surveys, responses, reports and audit log.
+Nothing is shared between workspaces. The code and the UI both call it *workspace*.
+
+**Roles**
+
+| Role | Belongs to | Can |
+|---|---|---|
+| `SuperAdmin` | no workspace | System console `/system`, `/api/v1/system/*`: workspaces, accounts of every workspace, branding, system settings, system audit log. **Cannot** open surveys, responses, reports or a workspace's audit log. |
+| `Admin` | one workspace | Everything inside that workspace: surveys, responses, reports, members (roles Admin/User), audit log, workspace settings. Cannot change branding. |
+| `User` | one workspace | Answer the workspace's surveys (incl. members-only ones), drafts, "My responses". |
+
+**Rules**
+
+* **One account = one workspace.** E-mail addresses stay unique system-wide because sign-in is global; a person who
+  works in two workspaces uses two addresses. Accounts never move between workspaces.
+* **Survey links stay `/s/{slug}`**; slugs are unique system-wide so existing links, QR codes and embeds keep working.
+  A share link works for everyone the survey allows. Members of *another* workspace answer anonymous surveys as guests
+  (no link to their account, no drafts) and are refused on members-only surveys ("this survey is for another
+  workspace").
+* **Disabled / pending workspaces:** members cannot sign in (the login page explains why, but only after the password
+  was verified), existing cookies and API tokens are refused at once (`WorkspaceAccessMiddleware`: pages sign out and
+  show `/workspace-unavailable`, API and `/_blazor` get 403), open Blazor circuits are signed out within a minute, and the
+  workspace's survey links and page show "not available". Data is kept; deleting is only possible for a disabled
+  workspace and requires typing its name.
+* **Sign-up:** `/signup` creates a workspace plus its first admin. `PlatformSettings.AllowWorkspaceSignup` switches it
+  off; `RequireWorkspaceApproval` makes new workspaces wait (`PendingApproval`) until a super admin approves them.
+
+**How isolation is enforced** (fail-closed, in the data layer — services cannot forget it)
+
+1. Every tenant-owned table has a `WorkspaceId` (`IWorkspaceOwned`: surveys and their sections, questions, options and
+   logic, responses, answers, selections, reports and widgets); `AuditLogs.WorkspaceId` is nullable (null = system
+   event); `AspNetUsers.WorkspaceId` is null only for super admins.
+2. Every `AppDbContext` has a `DataScope`: `None` (the default — sees no workspace data), `Workspace(id)` or `System`
+   (unfiltered, only for system code). Global query filters limit every tenant table and the audit log to the scope.
+3. `SaveChanges` stamps `WorkspaceId` on inserts and throws on writes that would touch another workspace or change the
+   workspace of existing rows.
+4. `IAppDbContextFactory.CreateAsync()` scopes to the current user's workspace (from the `workspace_id` claim, which is
+   fixed for an account) and refuses members of inactive workspaces; `CreateForWorkspaceAsync(id)` is used by the
+   respondent flow after resolving a share link; `CreateSystemAsync()` only by seeding/start-up, super admin services,
+   the system-wide slug check and share-link resolution (which read nothing but ids, status and public fields).
+5. Accounts (`AspNetUsers`) are limited to the workspace inside a workspace scope, so e.g. the dashboard's member
+   count or respondent names can never include other workspaces; unscoped contexts keep global look-ups for Identity
+   (sign-in, unique e-mail checks). `Workspaces` is not filtered. Services additionally check roles (workspace admin vs.
+   super admin).
+
+The workspace status, name and slug are cached for 30 seconds (`WorkspaceStatusCache`) and dropped immediately when
+this process changes them; with several app instances another instance picks a change up within that time.
+
 ## 6. Project structure
 
 ```
@@ -272,7 +329,15 @@ erDiagram
     Surveys ||--o{ Reports : "analysed by"
     Reports ||--o{ ReportWidgets : "has"
     ReportWidgets }o--o| Questions : "primary/secondary"
+    Workspaces ||--o{ Surveys : "owns"
+    Workspaces ||--o{ Reports : "owns"
+    Workspaces ||--o{ Responses : "owns"
+    Workspaces |o--o{ AspNetUsers : "members (null = super admin)"
+    Workspaces |o--o{ AuditLogs : "entries (null = system event)"
 ```
+
+Every table below the workspace (sections, questions, options, logic, answers, selections, widgets) also carries
+`WorkspaceId` for filtering (§5.3); only the root tables have a foreign key to `Workspaces`.
 
 | Table | Purpose | Notable columns / constraints |
 |---|---|---|
@@ -285,13 +350,16 @@ erDiagram
 | `Answers` | One per question per response | `TextValue` (**encrypted**) / `NumberValue` (double) / `DateValue` (date); unique (`ResponseId`,`QuestionId`) |
 | `AnswerSelections` | Selected options | `FreeText` (**encrypted**); unique (`AnswerId`,`OptionId`) |
 | `Reports` / `ReportWidgets` | Saved report definitions | `Filters` and `Settings` (**jsonb**); widget question FKs **SET NULL** |
-| `AuditLogs` | Audit trail | indexed by `Timestamp` and (`EntityType`,`EntityId`) |
+| `Workspaces` | Tenants | `Slug` (unique), `Status` (`Active`, `Disabled`, `PendingApproval`), `StatusReason`, `AllowSelfRegistration`, `ShowPublicSurveyList`, `OwnerId`, audit columns |
+| `PlatformSettings` | System settings (single row) | `AllowWorkspaceSignup`, `RequireWorkspaceApproval`, `SupportEmail` |
+| `AuditLogs` | Audit trail | `WorkspaceId` (null = system event); indexed by `Timestamp`, (`EntityType`,`EntityId`) and (`WorkspaceId`,`Timestamp`) |
 | `BrandingSettings` | Product branding (single row) | `ProductName`, `Tagline`, `IconName`, `LogoContent` (bytes) + content type, `Version` (cache busting) |
-| `AspNet*` | ASP.NET Core Identity | GUID keys; `AspNetUsers` adds `DisplayName`, `CreatedAt`, `LastLoginAt`, `IsActive` |
+| `AspNet*` | ASP.NET Core Identity | GUID keys; `AspNetUsers` adds `WorkspaceId` (null = super admin), `DisplayName`, `CreatedAt`, `LastLoginAt`, `IsActive`; roles `SuperAdmin`, `Admin`, `User` |
 
 Delete behaviour: deleting a survey cascades to its design, responses and reports; deleting a question
 cascades to its answers (the builder warns before doing so); deleting a user keeps their responses
-(anonymised).
+(anonymised); deleting a (disabled) workspace removes its responses, reports, surveys, audit entries and accounts in
+one transaction (foreign keys to `Workspaces` are restricted, so nothing is removed by accident).
 
 **Encryption at rest:** `Answers.TextValue` (text, paragraph and e-mail answers), `AnswerSelections.FreeText` ("Other"
 texts) and `Responses.UserAgent` are encrypted with ASP.NET Core Data Protection (AES-256-CBC + HMAC-SHA256,
@@ -326,6 +394,12 @@ dotnet ef migrations script --idempotent --project src/SmartSurvey.Infrastructur
 
 The web app applies pending migrations at start-up when `Database:ApplyMigrationsOnStartup` is `true`
 (default). Disable it in environments where schema changes are deployed separately.
+
+**Upgrading from 1.x (`AddWorkspaces`):** the migration creates the `Workspaces` table and — only when the database
+already contains accounts, surveys or audit entries — a workspace **"Default workspace"** (slug `default`) that receives
+all existing data and accounts; existing admins stay its admins. Survey links do not change. At the next start the seeder
+creates the first super admin from `Seed:SuperAdminEmail` / `Seed:SuperAdminPassword` (Docker: `SUPERADMIN_EMAIL`,
+`SUPERADMIN_PASSWORD`). Back up the database (and the data-protection keys) before upgrading.
 
 ## 9. Designing surveys
 
@@ -519,8 +593,16 @@ ISO 8601.
 keyed by question id), `401` unauthenticated, `403` forbidden, `404` not found, `409` conflict
 (stale `version`, duplicate slug), `422` business rule (e.g. survey closed), `429` rate limited.
 
-The full endpoint list is in [DEVELOPMENT_PLAN.md §6](../DEVELOPMENT_PLAN.md#6-routes) and interactively
-in Swagger (`/swagger`). Ready-to-run examples: [`docs/examples`](examples/).
+**Workspaces:** every call runs in the caller's workspace — ids of other workspaces' surveys, responses and reports
+are simply `404`. Workspace admins use the groups `/surveys`, `/responses`, `/reports`, `/dashboard`, `/users`, `/audit`
+and `/workspace`; super admins use `/system/*` (overview, workspaces, accounts, settings, audit) and `/branding`, and get
+`403` on workspace content. Accounts are created per workspace: `POST /api/v1/public/workspaces` (sign-up) and
+`POST /api/v1/public/workspaces/{slug}/register` (join); the Identity API's `POST /api/auth/register` returns `403`.
+`GET /api/v1/public/surveys` lists the caller's workspace, or with `?workspace={slug}` a workspace's public surveys.
+
+The full endpoint list is in [DEVELOPMENT_PLAN.md §6 and §10.3](../DEVELOPMENT_PLAN.md#6-routes) and interactively
+in Swagger (`/swagger`). Ready-to-run examples: [`docs/examples`](examples/) (steps 16–23 cover workspaces and the
+System endpoints; a test checks that every request in the walkthrough is a real API operation).
 
 ## 15. User interface guide
 
@@ -530,7 +612,9 @@ screenshots live in `wwwroot/img/guide` (WebP) and are also used by the README.
 
 ### 15.1 Respondents
 
-1. Browse **Surveys** (`/surveys`) or open a shared link `/s/{slug}` (or an embedded survey on another site).
+1. Open a shared link `/s/{slug}` (or an embedded survey on another site), a workspace's page `/w/{slug}`, or — as a
+   member — **Surveys** (`/surveys`, your workspace's open surveys). Join a workspace with its join link
+   (`/Account/Register?workspace={slug}`).
 2. Answer page by page; questions appear or disappear based on earlier answers; required questions are
    marked with `*`; the progress bar shows how much is answered. Problems are shown next to the question
    when moving on, and disappear as soon as the answer is fixed.
@@ -557,12 +641,30 @@ screenshots live in `wwwroot/img/guide` (WebP) and are also used by the README.
    small, add widgets (the menu only offers widgets the survey has suitable questions for), choose which responses count
    (date range, drafts, answer filters combined with all/any) and watch the live preview update as you edit. Save, then
    open the viewer (`/admin/reports/{id}`) to refresh, print or export (PDF/Excel/CSV/TXT/JSON).
-7. **Users** (`/admin/users`) — create accounts, grant or revoke the administrator role, lock/unlock, delete (you
-   cannot lock, demote or delete yourself, and the last administrator is protected). **Audit log** (`/admin/audit`) —
-   who changed or exported what, with filters. **Branding** (`/admin/branding`) — product name, tagline, icon or logo
-   (also the favicon), with a live preview; saving refreshes the page so the navigation shows the new brand.
+7. **Users** (`/admin/users`) — the workspace's members: create accounts, grant or revoke the administrator role,
+   lock/unlock, delete (you cannot lock, demote or delete yourself, and the workspace's last administrator is
+   protected); shows the join link when joining is on. **Audit log** (`/admin/audit`) — who changed or exported what in
+   this workspace, with filters. **Workspace settings** (`/admin/settings`) — name, description, contact e-mail, join
+   link on/off (with copy button), public survey page on/off. The sidebar shows the workspace's name.
 
-### 15.3 Design system
+A new workspace starts at **`/signup`** (workspace name, optional address, your account); you land on its dashboard as
+its admin — or on a "waiting for approval" page when approval is required.
+
+### 15.3 Super admins (System console)
+
+1. **Overview** (`/system`) — workspaces by status, member accounts, super admins, surveys and responses across the
+   site (figures only), workspaces waiting for approval (approve in place), newest workspaces.
+2. **Workspaces** (`/system/workspaces`, `/system/workspaces/new`, `/system/workspaces/{id}`) — search and filter;
+   create a workspace with its first admin; on a workspace: figures, approve, disable with a message for its members,
+   enable, rename or change its address, contact its admins, delete (only when disabled, after typing its name).
+3. **Accounts** (`/system/accounts`) — every account with its workspace (filter by workspace and role); create
+   super admins or members of a chosen workspace; roles, new password, lock/unlock, delete (the last super admin and a
+   workspace's last admin are protected).
+4. **Branding** (`/system/branding`) — product name, tagline, icon or logo (also the favicon), with a live preview;
+   applies to the whole site. **Settings** (`/system/settings`) — workspace sign-up on/off, approval of new workspaces,
+   support e-mail. **Audit log** (`/system/audit`) — super admin actions and sign-ups.
+
+### 15.4 Design system
 
 The UI uses a custom design layer on top of Bootstrap 5.3 (`wwwroot/app.css`): indigo primary colour,
 slate neutrals, Inter typography, soft shadows, light **and dark themes** (toggle in the top bar,
@@ -574,8 +676,14 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
 
 * **Authentication:** ASP.NET Core Identity, PBKDF2 password hashing, account lockout (5 attempts / 15 min),
   optional e-mail confirmation (`Identity:RequireConfirmedAccount`), 2FA pages included.
-* **Authorization:** roles `Admin` and `User`; policy `Admin` for admin pages, `ApiAdmin`/`ApiUser` for the
-  API. Services re-check admin rights (defense in depth) and response ownership.
+* **Authorization:** roles `SuperAdmin`, `Admin` and `User`; policies `Admin` (Admin role **and** a workspace claim) and
+  `SuperAdmin` for pages, `ApiAdmin`/`ApiSuperAdmin`/`ApiUser` for the API. Services re-check roles (defense in depth)
+  and response ownership.
+* **Workspace isolation:** enforced in the data layer (§5.3): fail-closed query filters on every tenant table, a save
+  guard against cross-workspace writes, and a context factory that refuses members of inactive workspaces. Ids of other
+  workspaces' data are `404`, never `403`, so their existence is not revealed. Members of disabled workspaces are
+  refused at sign-in, on every request and in open circuits; the login page only explains why after the password was
+  verified. Workspace sign-up and join are rate limited (page and API).
 * **API hygiene:** API requests get `401/403` instead of login redirects; ProblemDetails never leak stack
   traces outside Development; expected errors (400/403/404/409/422) are not logged as server errors; rate limiting on
   authentication (20/min/IP) and submissions (30/min/IP). Submissions from the interactive survey runner are limited
@@ -602,8 +710,10 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
   for PostgreSQL, and TLS for database connections across networks (`SSL Mode=Require` in the connection string).
 * **Data protection:** keys can be persisted (`DataProtection:KeysPath`) so cookies/tokens survive restarts.
 * **Transport:** HTTPS redirection and HSTS outside Development; forwarded headers support behind proxies.
-* **Secrets:** no production credentials in configuration — set `Seed:AdminPassword` and connection strings
-  via environment variables or a secret store.
+* **Host names:** e-mail links are built from the request's host; set `AllowedHosts` (Docker: `ALLOWED_HOSTS`) to the
+  site's host name(s) in production so a forged `Host` header cannot put a foreign address into confirmation e-mails.
+* **Secrets:** no production credentials in configuration — set `Seed:AdminPassword`, `Seed:SuperAdminPassword` and
+  connection strings via environment variables or a secret store.
 
 ## 17. Configuration reference
 
@@ -618,6 +728,10 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 | `Seed:CreateAdmin` | `true` | Create the initial admin when none exists |
 | `Seed:AdminEmail` | `admin@smartsurvey.local` | Initial admin e-mail |
 | `Seed:AdminPassword` | *(empty)* | Initial admin password (required to create the admin) |
+| `Seed:WorkspaceName` / `Seed:WorkspaceSlug` | `Default workspace` / `default` | Workspace created for the initial admin and the demo data (an existing workspace with that slug is reused) |
+| `Seed:CreateSuperAdmin` | `true` | Create the initial super admin when none exists |
+| `Seed:SuperAdminEmail` / `Seed:SuperAdminPassword` | `superadmin@smartsurvey.local` / *(empty)* | Initial super admin (the password is required to create it; an existing account is never promoted) |
+| `Seed:DemoSecondWorkspace` / `Seed:DemoSecondAdminEmail` | `true` / `admin@acme.local` | With demo data: second workspace "Acme Research" (admin password = `Seed:AdminPassword`) |
 | `Seed:DemoData` | `false` (`true` in Development) | Demo user, surveys, responses and report |
 | `Seed:DemoUserEmail` / `Seed:DemoUserPassword` | `user@smartsurvey.local` / `User123!` | Demo respondent |
 | `Identity:RequireConfirmedAccount` | `false` | Require e-mail confirmation before login |
@@ -641,6 +755,8 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 | `DataProtection:KeysPath` | *(empty)* | Directory for persisted data-protection keys |
 | `ReverseProxy:Enabled` | `false` | Honour `X-Forwarded-For/Proto` |
 | `Https:Redirect` | `true` | Enable HTTPS redirection |
+| `RateLimits:AuthPerMinute` | `20` | Sign-in, sign-up and join requests per IP and minute (Identity API, workspace sign-up/join API and pages) |
+| `AllowedHosts` | `*` | Host names the app answers to (set in production, see §16) |
 | `SMARTSURVEY_MIGRATIONS_CONNECTION` (env) | local PostgreSQL | Connection used by `dotnet ef` |
 
 ## 18. Testing
@@ -649,7 +765,9 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 dotnet test                                   # unit + integration tests
 dotnet test tests/SmartSurvey.UnitTests       # fast unit tests only
 bash scripts/smoke.sh --user admin / /admin /admin/surveys   # boot the app and smoke-test pages
+bash scripts/smoke.sh --user superadmin /system /system/workspaces  # users: admin, user, acme, superadmin, anon
 scripts/container-smoke.sh http://localhost:8080             # smoke-test a running container stack
+cd scripts/browser && npm install && npm run check           # headless-browser workspace flows (see the script)
 ```
 
 * **Unit tests** cover the logic evaluator, condition matcher, answer validator, slug generator, EF model
@@ -659,20 +777,31 @@ scripts/container-smoke.sh http://localhost:8080             # smoke-test a runn
   database: authentication, authorization, survey lifecycle, public submission, reports and exports, users,
   audit, branding, respondent pages and security headers, health and Swagger. The test host validates DI scopes and
   registrations (like Development) and captures logs, e.g. to assert that expected API errors aren't logged as errors.
+* **Workspace isolation** has dedicated tests on every level: data layer (`WorkspaceIsolationTests`: filters, save
+  guard, fail-closed scope), every service used against another workspace's data (`CrossWorkspaceServiceTests`),
+  super admin and sign-up services, and every API group over HTTP (`WorkspaceApiTests`: isolation, disable/enable,
+  approval, role boundaries) plus the pages (`WorkspacePageTests`, incl. a sign-up through the real form).
 * **Smoke test** (`scripts/smoke.sh`) starts the compiled app with demo data, logs in through the real
-  Identity form and checks that pages render on the server without errors.
+  Identity form and checks that pages render on the server without errors. `scripts/container-smoke.sh` accepts
+  `''` as admin / super admin password to skip those checks on a stack whose passwords were changed.
+* **Browser check** (`scripts/browser/workspaces.check.js`, puppeteer-core + Chrome) drives the interactive Blazor
+  circuits through sign-up, settings, disabling/enabling, the System console and the survey runner against a fresh
+  instance, and fails on console errors, failed requests or 5xx responses.
 
 ## 19. Deployment
 
 **Docker:** `docker build -t smartsurvey .` produces a Linux image (non-root user, port 8080, fontconfig and
 DejaVu fonts for PDF rendering). `docker-compose.yml` runs the app with PostgreSQL, persists the database and the
-data-protection keys in volumes, and configures the admin via `ADMIN_EMAIL` / `ADMIN_PASSWORD`. The keys are
+data-protection keys in volumes, and configures the first workspace admin via `ADMIN_EMAIL` / `ADMIN_PASSWORD` and the
+first super admin via `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` (both default to `ChangeMe123!` — change them). The keys are
 stored unencrypted on their volume (the container logs a warning about it): keep the volume private, or configure
 key encryption (`ProtectKeysWithCertificate`) for stricter environments.
 
 **Production checklist**
 
-- [ ] Strong `Seed:AdminPassword` (or create the admin once and set `Seed:CreateAdmin=false`)
+- [ ] Strong `Seed:SuperAdminPassword` and `Seed:AdminPassword` (or create the accounts once and set `Seed:CreateSuperAdmin` / `Seed:CreateAdmin` to `false`); change them after the first sign-in
+- [ ] Decide on self-service sign-up (System → Settings: on, off, or with approval) and set a support e-mail
+- [ ] `AllowedHosts` (Docker: `ALLOWED_HOSTS`) set to the site's host name(s)
 - [ ] `Seed:DemoData=false`
 - [ ] Connection string from a secret store
 - [ ] `DataProtection:KeysPath` on persistent storage (or a shared key ring when scaling out) — it holds the keys that
@@ -708,6 +837,9 @@ container; builds the Docker image, starts it with docker compose and runs `scri
 | `Connection refused` on start-up | PostgreSQL not running / wrong connection string; or use SQLite mode |
 | `28P01 password authentication failed` | Create the `smartsurvey` role (§4.2) or fix the password |
 | Admin login fails on a fresh database | `Seed:AdminPassword` was empty — set it and restart |
+| No super admin after upgrading | `Seed:SuperAdminPassword` (Docker: `SUPERADMIN_PASSWORD`) was empty, or the address already belongs to an account (it is never promoted) — the start-up log says which |
+| "Your workspace is unavailable" after signing in | A super admin disabled the workspace (or it waits for approval) — enable/approve it in System → Workspaces |
+| `403` "Registration happens per workspace" from `/api/auth/register` | Use `POST /api/v1/public/workspaces` (new workspace) or `/api/v1/public/workspaces/{slug}/register` (join) |
 | Logged out after every restart (Docker) | Configure `DataProtection:KeysPath` on a volume (compose does this) |
 | Answers show "[encrypted answer — the key to read it is not available]" | The data-protection key ring is missing or from another installation (e.g. a database restored without its `keys` volume). Restore the matching key backup into `DataProtection:KeysPath` and restart |
 | PDF export fails in a custom Linux image | Install `libfontconfig1` and a font package (see Dockerfile) |

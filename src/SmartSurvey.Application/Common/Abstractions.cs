@@ -56,7 +56,10 @@ public interface IAppDbContext : IDisposable, IAsyncDisposable
     /// <summary>Product branding (single row).</summary>
     DbSet<BrandingSettings> BrandingSettings { get; }
 
-    /// <summary>Identity users (read access for display names / respondent info). Not filtered by the data scope.</summary>
+    /// <summary>
+    /// Identity users (read access for display names / respondent info). Limited to the workspace in a
+    /// workspace scope; not filtered in the other scopes.
+    /// </summary>
     DbSet<ApplicationUser> Users { get; }
 
     /// <summary>Persists pending changes.</summary>

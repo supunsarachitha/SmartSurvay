@@ -40,6 +40,7 @@ public sealed class CrossWorkspaceServiceTests : IAsyncLifetime
         _foreign = await r.SeedSurveyAsync(title: "Theirs", workspaceId: Theirs);
         await r.SeedResponseAsync(_mine, null, ResponseStatus.Completed);
         _foreignResponse = await r.SeedResponseAsync(_foreign, null, ResponseStatus.Completed, workspaceId: Theirs);
+        await _h.Db.SeedAsync(new Domain.Identity.ApplicationUser { UserName = "stranger@other.local", Email = "stranger@other.local", WorkspaceId = Theirs });
         _foreignReport = new ReportDefinition { Name = "Their report", SurveyId = _foreign.Definition.Id };
         await _h.Db.SeedInWorkspaceAsync(Theirs, _foreignReport);
         _h.User.ActAsAdmin();
@@ -117,6 +118,7 @@ public sealed class CrossWorkspaceServiceTests : IAsyncLifetime
 
         Assert.Equal(1, summary.TotalSurveys);
         Assert.Equal(1, summary.CompletedResponses);
+        Assert.Equal(3, summary.TotalUsers); // the harness's three members; accounts of other workspaces are not counted
     }
 
     [Fact]

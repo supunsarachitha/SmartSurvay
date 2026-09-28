@@ -236,6 +236,30 @@ public class WorkspaceIsolationTests
     }
 
     [Fact]
+    public async Task Accounts_are_limited_to_the_workspace_only_inside_a_workspace_scope()
+    {
+        await using var db = new SqliteTestDatabase();
+        await db.SeedAsync(
+            new Domain.Identity.ApplicationUser { UserName = "mine@test.local", Email = "mine@test.local", WorkspaceId = Mine },
+            new Domain.Identity.ApplicationUser { UserName = "theirs@test.local", Email = "theirs@test.local", WorkspaceId = Theirs },
+            new Domain.Identity.ApplicationUser { UserName = "super@test.local", Email = "super@test.local" });
+
+        await using (var scoped = db.CreateContext(DataScope.ForWorkspace(Mine)))
+        {
+            Assert.Equal(["mine@test.local"], await scoped.Users.Select(u => u.Email).ToListAsync());
+        }
+
+        // Unscoped contexts (Identity's stores) and system code see every account.
+        await using (var unscoped = db.CreateContext(DataScope.None))
+        {
+            Assert.Equal(3, await unscoped.Users.CountAsync());
+        }
+
+        await using var system = db.CreateContext(DataScope.System);
+        Assert.Equal(3, await system.Users.CountAsync());
+    }
+
+    [Fact]
     public void Scope_for_an_empty_workspace_id_is_refused() =>
         Assert.Throws<ArgumentException>(() => DataScope.ForWorkspace(Guid.Empty));
 }

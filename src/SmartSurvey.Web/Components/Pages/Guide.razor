@@ -60,6 +60,7 @@
                 <ul>
                     <li><strong>People answering surveys</strong> (respondents) open a link, answer the questions and send their answers.</li>
                     <li><strong>Administrators</strong> create the surveys, share them, read the answers and turn them into reports with charts.</li>
+                    <li>Everything happens inside a <strong>workspace</strong> — a private space of a team or organisation. Workspaces never see each other's surveys or answers.</li>
                 </ul>
                 <p>
                     The menu at the top of every page takes you to the <em>Surveys</em> you can answer, <em>My responses</em>
@@ -68,10 +69,23 @@
                 </p>
             </GuideSection>
 
+            <GuideSection Id="workspaces" Icon="bi-buildings" Title="Workspaces">
+                <p>
+                    A <strong>workspace</strong> is the private space of a team, class, club or company. It has its own administrators,
+                    members, surveys, answers and reports — and nobody outside it can see them.
+                </p>
+                <ul>
+                    <li><strong>Start your own:</strong> choose <em>Create workspace</em> (top right), give it a name and create your account. You become its administrator and can create your first survey right away. On some sites a site administrator approves new workspaces first — you can sign in as soon as that is done.</li>
+                    <li><strong>Join one:</strong> open the <em>join link</em> the workspace's administrator gave you, and create your account there. Your account then belongs to that workspace.</li>
+                    <li><strong>Its page:</strong> every workspace has a page (<em>/w/its-name</em>) that shows who runs it and the surveys anyone may answer.</li>
+                    <li>One account belongs to one workspace. If you take part in two workspaces, use a different e-mail address for each.</li>
+                </ul>
+            </GuideSection>
+
             <GuideSection Id="account" Icon="bi-person-circle" Title="Your account">
                 <p>Many surveys can be answered without an account. You need one to answer members-only surveys, to save your progress and to see your past answers.</p>
                 <ol class="guide-steps">
-                    <li><strong>Create an account:</strong> choose <em>Sign in</em> → <em>Create account</em>, enter your e-mail address and a password (at least 8 characters with upper- and lower-case letters, a number and a symbol).</li>
+                    <li><strong>Create an account:</strong> open your workspace's <em>join link</em> (or create a new workspace, see above), enter your e-mail address and a password (at least 8 characters with upper- and lower-case letters, a number and a symbol).</li>
                     <li><strong>Sign in:</strong> <em>Sign in</em> in the top right corner. After five wrong passwords the account is locked for 15 minutes to keep it safe.</li>
                     <li><strong>Forgot your password?</strong> Choose <em>Forgot your password?</em> on the sign-in page — you receive an e-mail with a link to choose a new one. If no e-mail arrives, ask an administrator: they can set a new password for you.</li>
                     <li><strong>Account settings:</strong> open the menu with your name (top right) → <em>Account settings</em> to change your name, e-mail or password, or to turn on two-step sign-in with an authenticator app.</li>
@@ -82,7 +96,8 @@
             <GuideSection Id="find-surveys" Icon="bi-search" Title="Finding a survey" Audience="respondents">
                 <ul>
                     <li>Most people receive a <strong>link</strong> (by e-mail or chat) or scan a <strong>QR code</strong> with their phone camera — it opens the survey directly.</li>
-                    <li>The <strong>Surveys</strong> page lists every survey that is open right now. Surveys marked <em>Members</em> need you to sign in first.</li>
+                    <li>After signing in, the <strong>Surveys</strong> page lists your workspace's surveys that are open right now. A workspace's page lists the surveys anyone may answer; surveys marked <em>Members</em> need you to sign in first.</li>
+                    <li>A members-only survey of <em>another</em> workspace tells you so — ask its organiser for access.</li>
                     <li>Some websites show a survey <strong>inside their own page</strong> — you answer it right there.</li>
                     <li>Some surveys are <strong>protected with a password</strong> <i class="bi bi-lock"></i>. Type the password you received from the organiser and choose <em>Open survey</em>. Don't have it? Ask the person who sent you the link.</li>
                     <li>If a survey says it is <em>closed</em>, <em>not open yet</em> or <em>full</em>, the organiser has stopped (or not yet started) collecting answers.</li>
@@ -283,25 +298,54 @@
             <GuideSection Id="users" Icon="bi-people" Title="Managing users" Audience="admins" Image="users.webp"
                           ImageAlt="The users page with roles and account status" Caption="The users page. Your own account is marked “You” and protected against accidental changes.">
                 <ul>
+                    <li>The page lists the members of <strong>your workspace</strong>. When joining is switched on, the <strong>join link</strong> at the top lets people create their own member account — use <em>Copy link</em> and share it.</li>
                     <li><strong>New user</strong> — create an account with an e-mail address and a first password (tick <em>Administrator</em> for full access).</li>
                     <li>The ⋯ menu next to a person lets you <strong>make them an administrator</strong> (or remove that role), <strong>set a new password</strong>, <strong>lock</strong> the account (they can no longer sign in), unlock it or delete it.</li>
                     <li>Deleting an account keeps that person's survey answers, but without their name.</li>
-                    <li>You cannot lock, demote or delete yourself, and the last administrator is always kept.</li>
+                    <li>You cannot lock, demote or delete yourself, and the last administrator of the workspace is always kept.</li>
                 </ul>
+            </GuideSection>
+
+            <GuideSection Id="workspace-settings" Icon="bi-sliders" Title="Workspace settings" Audience="admins" Image="workspace-settings.webp"
+                          ImageAlt="The workspace settings page with name, description, contact e-mail and the join link" Caption="Workspace settings: how your workspace introduces itself and how people join it.">
+                <ol class="guide-steps">
+                    <li>Open <strong>Workspace settings</strong> in the admin menu (or click the workspace name at the top of the menu).</li>
+                    <li>Change the <strong>name</strong>, a short <strong>description</strong> and a <strong>contact e-mail</strong> — they appear on the workspace page.</li>
+                    <li><strong>Joining:</strong> switch on <em>People can create a member account with the join link</em> and share the link, or switch it off and add members yourself on the Users page.</li>
+                    <li><strong>Public survey page:</strong> choose whether the workspace page lists the surveys that anyone may answer.</li>
+                    <li>Choose <strong>Save changes</strong>. The workspace address, the product name and the logo are managed by the site's super admin.</li>
+                </ol>
             </GuideSection>
 
             <GuideSection Id="audit" Icon="bi-journal-text" Title="Audit log" Audience="admins">
                 <p>
                     The <strong>Audit log</strong> records who did what and when: surveys created, changed, published or deleted, responses
-                    submitted or deleted, reports and exports, user changes and branding changes. Search it, filter by type and date, and
-                    click an entry to open the item concerned.
+                    submitted or deleted, reports and exports, member and settings changes — only for your workspace. Search it, filter by
+                    type and date, and click an entry to open the item concerned.
                 </p>
             </GuideSection>
 
-            <GuideSection Id="branding" Icon="bi-palette" Title="Branding: name and logo" Audience="admins" Image="branding.webp"
+            @* ------------------------------------------------------------------ Super admins *@
+            <GuideSection Id="system" Icon="bi-shield-lock" Title="The System console" Audience="superadmins" Image="system-overview.webp"
+                          ImageAlt="The System overview with workspace figures, a workspace waiting for approval and the newest workspaces" Caption="The System overview: every workspace at a glance — approve new ones right here.">
+                <p>
+                    <strong>Super admins</strong> run the whole site. They open the <strong>System</strong> console (top right) and see
+                    every workspace — but never a workspace's surveys, answers or reports.
+                </p>
+                <ul>
+                    <li><strong>Overview</strong> — how many workspaces, members, surveys and answers there are, and which new workspaces wait for approval (<em>Approve</em> right there).</li>
+                    <li><strong>Workspaces</strong> — create a workspace together with its first administrator, or open one to rename it or change its address.</li>
+                    <li><strong>Disable</strong> a workspace (optionally with a message for its members): nobody of it can sign in any more and its survey links stop working, but nothing is deleted. <strong>Enable</strong> brings everything back.</li>
+                    <li><strong>Delete</strong> a workspace only after disabling it — you type its name to confirm, because all its surveys, answers and accounts are removed for good.</li>
+                    <li><strong>Accounts</strong> — every account with its workspace: create super admins or members of a workspace, set new passwords, lock or delete accounts.</li>
+                    <li><strong>Settings</strong> — whether people may create workspaces themselves, whether new workspaces need your approval, and a support e-mail address. The <strong>Audit log</strong> lists what super admins did.</li>
+                </ul>
+            </GuideSection>
+
+            <GuideSection Id="branding" Icon="bi-palette" Title="Branding: name and logo" Audience="superadmins" Image="branding.webp"
                           ImageAlt="The branding page with name, tagline, logo upload, icon choice and preview" Caption="Branding: change the name, tagline and logo and see the result right away.">
                 <ol class="guide-steps">
-                    <li>Open <strong>Branding</strong> in the admin menu.</li>
+                    <li>Open <strong>Branding</strong> in the System console — the name and logo apply to the whole site and every workspace.</li>
                     <li>Change the <strong>product name</strong> and <strong>tagline</strong> — they appear in the menu, the browser tab, the footer and exported reports.</li>
                     <li>Upload a <strong>logo</strong> (a square image works best) or pick one of the <strong>icons</strong>. The logo is also used as the small browser-tab icon.</li>
                     <li>Check the preview and choose <strong>Save changes</strong>. <em>Reset to defaults</em> brings back the original look.</li>
@@ -330,12 +374,13 @@
     /// <summary>Table of contents: group title and (anchor, title) entries, in page order.</summary>
     internal static readonly IReadOnlyList<(string Group, (string Id, string Title)[] Items)> Contents =
     [
-        ("Getting started", [("overview", "What it does"), ("account", "Your account")]),
+        ("Getting started", [("overview", "What it does"), ("workspaces", "Workspaces"), ("account", "Your account")]),
         ("Answering surveys", [("find-surveys", "Finding a survey"), ("answering", "Answering"), ("save-later", "Save and finish later")]),
         ("Creating surveys", [("admin-area", "The admin area"), ("create-survey", "Creating a survey"), ("questions", "Pages and questions"),
             ("logic", "Display logic"), ("settings", "Survey settings"), ("preview-publish", "Preview and publish"), ("share", "Sharing")]),
         ("Results", [("responses", "Responses"), ("reports", "Reports and charts")]),
-        ("Administration", [("users", "Users"), ("audit", "Audit log"), ("branding", "Branding")]),
+        ("Administration", [("users", "Users"), ("workspace-settings", "Workspace settings"), ("audit", "Audit log")]),
+        ("Super admins", [("system", "The System console"), ("branding", "Branding")]),
         ("Help", [("help", "More help")]),
     ];
 
