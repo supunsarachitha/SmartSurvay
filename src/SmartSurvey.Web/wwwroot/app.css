@@ -561,10 +561,24 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
 .guide-tip { display: flex; gap: .75rem; padding: .85rem 1rem; border-radius: var(--ss-radius-sm); background: rgba(245, 158, 11, .1); border: 1px solid rgba(245, 158, 11, .25); margin: 1rem 0; font-size: .95rem; }
 .guide-tip > i { color: #d97706; font-size: 1.15rem; }
 .guide-table { max-width: 48rem; }
-.guide-figure { margin: 1.5rem 0 0; }
-.guide-figure img { width: 100%; height: auto; border-radius: var(--ss-radius); border: 1px solid var(--ss-border); box-shadow: var(--ss-shadow-sm); background: var(--ss-surface); }
+/* Screenshots: as wide as the text column at most, and never taller than ~70% of the screen (aspect ratio kept). */
+.guide-figure { margin: 1.5rem 0 0; max-width: 48rem; }
+.guide-figure a { display: inline-block; max-width: 100%; cursor: zoom-in; }
+.guide-figure img {
+    display: block; width: auto; height: auto; max-width: 100%; max-height: 70vh;
+    border-radius: var(--ss-radius); border: 1px solid var(--ss-border); box-shadow: var(--ss-shadow-sm); background: var(--ss-surface);
+    transition: box-shadow .15s ease;
+}
+.guide-figure a:hover img { box-shadow: var(--ss-shadow); }
 .guide-figure figcaption { font-size: .85rem; color: var(--ss-muted); margin-top: .5rem; }
-.guide-figure-phone { max-width: 300px; }
+.guide-zoom-hint { white-space: nowrap; margin-left: .35rem; opacity: .8; }
+.guide-figure-phone { max-width: 240px; }
+@media (max-width: 575.98px) {
+    .guide-figure-phone { max-width: 200px; }
+    .guide-section { padding-bottom: 2rem; margin-bottom: 2rem; }
+    .guide-body { font-size: .95rem; }
+    .guide-zoom-hint { display: none; }
+}
 
 /* Survey builder */
 .border-dashed { border: 1px dashed var(--ss-border) !important; }

@@ -20,7 +20,8 @@
 </section>
 
 <div class="container pb-5">
-    <div class="row g-5">
+    @* g-4 on phones: Bootstrap's g-5 gutter is wider than the container padding and makes narrow screens scroll sideways. *@
+    <div class="row g-4 g-lg-5">
         <aside class="col-lg-3 d-none d-lg-block">
             <nav class="guide-toc" aria-label="Guide contents">
                 @foreach (var (group, items) in Contents)
@@ -255,10 +256,8 @@
                     <li>The <strong>live preview</strong> on the right updates as you make changes. When you are happy, choose <strong>Create report</strong>.</li>
                     <li>Open the report and choose <strong>Export</strong> to download it as a <strong>PDF</strong>, <strong>Excel</strong>, CSV, text or JSON file — or <strong>Print</strong> it.</li>
                 </ol>
-                <figure class="guide-figure">
-                    <img src="img/guide/report-builder.webp" alt="The report builder with widgets on the left and the live preview on the right" loading="lazy" width="1280" height="800" />
-                    <figcaption>The report builder: settings and widgets on the left, live preview on the right.</figcaption>
-                </figure>
+                <GuideFigure Image="report-builder.webp" Alt="The report builder with widgets on the left and the live preview on the right"
+                             Caption="The report builder: settings and widgets on the left, live preview on the right." />
             </GuideSection>
 
             @* ------------------------------------------------------------------ Administration *@
