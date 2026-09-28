@@ -55,6 +55,7 @@ version — the migration `AddStarterTemplatesSetting` runs automatically. Self-
   "Microsoft.AspNetCore.Identity.UI" in authenticator apps. The QR code is now generated on the server and the account
   carries the product name.
 - Form labels on the account pages are linked to their fields (screen readers).
+- The report builder's "Add widget" menu no longer runs off the bottom of the window (it scrolls inside).
 - Logging out of a page that needs an account (admin area, System console, account pages, My responses) now leads to
   the home page. Before, the sign-in page kept that page as its return address, so the next person who signed in with
   a different account was sent there — e.g. to "Access denied".

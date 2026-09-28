@@ -169,7 +169,9 @@ async function walkToSubmit(page) {
 // Crawler: clicks every visible button / button-styled link of a page once and checks what happened.
 const CLICKABLE = 'button, a.btn, a.dropdown-item, [role=button]';
 function describeClickables(selector) {
-  const visible = e => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e); return r.width > 0 && r.height > 0 && s.visibility !== 'hidden'; };
+  // checkVisibility() also hides the content of closed <details> (laid out, but not rendered).
+  const visible = e => { const r = e.getBoundingClientRect(); const s = getComputedStyle(e);
+    return r.width > 0 && r.height > 0 && s.visibility !== 'hidden' && (e.checkVisibility?.() ?? true); };
   return [...document.querySelectorAll(selector)].map((e, i) => {
     const text = (e.innerText || '').replace(/\s+/g, ' ').trim().slice(0, 60);
     const label = e.getAttribute('aria-label') || e.getAttribute('title') || '';
@@ -235,7 +237,7 @@ const hitTest = (page, i) => page.evaluate((selector, i) => {
   for (const t of document.querySelectorAll('[data-bs-toggle=dropdown][aria-expanded=true]')) {
     if (!t.parentElement.contains(e) && window.bootstrap) window.bootstrap.Dropdown.getOrCreateInstance(t).hide();
   }
-  e.scrollIntoView({ block: 'center', inline: 'center' });
+  e.scrollIntoView(e.closest('.dropdown-menu') ? { block: 'nearest' } : { block: 'center', inline: 'center' }); // menus scroll inside
   const r = e.getBoundingClientRect();
   const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
   if (!top || top === e || e.contains(top)) return 'ok';
