@@ -1,6 +1,7 @@
 @page "/"
 @using SmartSurvey.Application.Branding
 @inject IBrandingService BrandingService
+@inject IPlatformSettingsService PlatformSettings
 @inject IOptions<SupportOptions> Support
 @* Landing page (static SSR): hero, feature grid, how-it-works and call to action. Product name and
    tagline come from the admin-configurable branding. *@
@@ -20,20 +21,28 @@
                     them into clear reports with charts — ready to export as PDF, Excel or CSV.
                 </p>
                 <div class="d-flex flex-wrap gap-2">
-                    <AuthorizeView Roles="@AppRoles.Admin">
+                    <AuthorizeView Policy="@AuthPolicies.Admin">
                         <Authorized>
                             <a class="btn btn-primary btn-lg" href="admin/surveys"><i class="bi bi-plus-lg"></i>Create a survey</a>
                             <a class="btn btn-light btn-lg" href="admin"><i class="bi bi-speedometer2"></i>Open dashboard</a>
                         </Authorized>
                         <NotAuthorized>
-                            <a class="btn btn-primary btn-lg" href="surveys"><i class="bi bi-ui-checks"></i>Browse surveys</a>
-                            @if (context.User.Identity?.IsAuthenticated != true)
+                            @if (context.User.IsInRole(AppRoles.SuperAdmin))
                             {
-                                <a class="btn btn-light btn-lg" href="Account/Register"><i class="bi bi-person-plus"></i>Create free account</a>
+                                <a class="btn btn-primary btn-lg" href="system"><i class="bi bi-shield-lock"></i>Open System console</a>
+                            }
+                            else if (context.User.Identity?.IsAuthenticated == true)
+                            {
+                                <a class="btn btn-primary btn-lg" href="surveys"><i class="bi bi-ui-checks"></i>Browse surveys</a>
+                                <a class="btn btn-light btn-lg" href="my/responses"><i class="bi bi-journal-check"></i>My responses</a>
                             }
                             else
                             {
-                                <a class="btn btn-light btn-lg" href="my/responses"><i class="bi bi-journal-check"></i>My responses</a>
+                                @if (signupOpen)
+                                {
+                                    <a class="btn btn-primary btn-lg" href="signup"><i class="bi bi-building-add"></i>Create your workspace</a>
+                                }
+                                <a class="btn btn-light btn-lg" href="Account/Login"><i class="bi bi-box-arrow-in-right"></i>Sign in</a>
                             }
                         </NotAuthorized>
                     </AuthorizeView>
@@ -133,10 +142,13 @@
         <div class="coffee-card rounded-4 p-4 p-lg-5 d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3">
             <div>
                 <h2 class="h4 fw-bold mb-1">Ready to hear from your audience?</h2>
-                <p class="mb-0 text-muted">Browse the open surveys, or read the FAQ to see what @brand.ProductName can do.</p>
+                <p class="mb-0 text-muted">Create a private workspace for your team in a minute, or read the FAQ to see what @brand.ProductName can do.</p>
             </div>
             <div class="d-flex flex-wrap gap-2">
-                <a class="btn btn-primary" href="surveys"><i class="bi bi-ui-checks"></i>Open surveys</a>
+                @if (signupOpen)
+                {
+                    <a class="btn btn-primary" href="signup"><i class="bi bi-building-add"></i>Create your workspace</a>
+                }
                 <a class="btn btn-light" href="faq"><i class="bi bi-question-circle"></i>Read the FAQ</a>
             </div>
         </div>
@@ -172,5 +184,11 @@
         ("Analyse", "Generate an instant overview report, customise it and export the results for your team."),
     ];
 
-    protected override async Task OnInitializedAsync() => brand = await BrandingService.GetAsync();
+    private bool signupOpen = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        brand = await BrandingService.GetAsync();
+        signupOpen = (await PlatformSettings.GetAsync()).AllowWorkspaceSignup;
+    }
 }

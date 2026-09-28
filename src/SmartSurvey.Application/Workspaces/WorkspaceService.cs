@@ -8,7 +8,8 @@ using SmartSurvey.Domain.Entities;
 namespace SmartSurvey.Application.Workspaces;
 
 /// <summary>The current user's workspace: read by members, settings changed by its admins; public lookup by slug.</summary>
-public sealed class WorkspaceService(IAppDbContextFactory dbFactory, ICurrentUser currentUser, IAuditService audit) : IWorkspaceService
+public sealed class WorkspaceService(
+    IAppDbContextFactory dbFactory, ICurrentUser currentUser, IAuditService audit, IWorkspaceStatusProvider? cache = null) : IWorkspaceService
 {
     private static readonly UpdateWorkspaceSettingsRequestValidator SettingsValidator = new();
 
@@ -43,6 +44,7 @@ public sealed class WorkspaceService(IAppDbContextFactory dbFactory, ICurrentUse
         workspace.AllowSelfRegistration = request.AllowSelfRegistration;
         workspace.ShowPublicSurveyList = request.ShowPublicSurveyList;
         await db.SaveChangesAsync(ct);
+        cache?.Invalidate(workspaceId); // the name shown in menus
 
         await audit.LogAsync(AuditActions.WorkspaceSettingsUpdated, WorkspaceMapping.EntityType, workspaceId.ToString(),
             $"Workspace settings saved: name \"{workspace.Name}\", self-registration {(workspace.AllowSelfRegistration ? "on" : "off")}, public survey page {(workspace.ShowPublicSurveyList ? "on" : "off")}.", ct);
@@ -131,26 +133,26 @@ public sealed class WorkspaceStatusCache(IServiceScopeFactory scopeFactory, Time
     /// <summary>How long a status is trusted before it is read again.</summary>
     public static readonly TimeSpan Ttl = TimeSpan.FromSeconds(30);
 
-    private readonly ConcurrentDictionary<Guid, (WorkspaceStatus? Status, DateTimeOffset Expires)> _entries = new();
+    private readonly ConcurrentDictionary<Guid, (WorkspaceInfo? Info, DateTimeOffset Expires)> _entries = new();
 
     /// <inheritdoc />
-    public async Task<WorkspaceStatus?> GetStatusAsync(Guid workspaceId, CancellationToken ct = default)
+    public async Task<WorkspaceInfo?> GetAsync(Guid workspaceId, CancellationToken ct = default)
     {
         var now = time.GetUtcNow();
         if (_entries.TryGetValue(workspaceId, out var entry) && entry.Expires > now)
         {
-            return entry.Status;
+            return entry.Info;
         }
 
         await using var scope = scopeFactory.CreateAsyncScope();
         await using var db = await scope.ServiceProvider.GetRequiredService<IAppDbContextFactory>().CreateSystemAsync(ct);
-        var status = await db.Workspaces.AsNoTracking()
+        var info = await db.Workspaces.AsNoTracking()
             .Where(w => w.Id == workspaceId)
-            .Select(w => (WorkspaceStatus?)w.Status)
+            .Select(w => new WorkspaceInfo(w.Id, w.Name, w.Slug, w.Status))
             .FirstOrDefaultAsync(ct);
 
-        _entries[workspaceId] = (status, now + Ttl);
-        return status;
+        _entries[workspaceId] = (info, now + Ttl);
+        return info;
     }
 
     /// <inheritdoc />

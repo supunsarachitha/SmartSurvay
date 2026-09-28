@@ -120,7 +120,7 @@ public sealed class WorkspaceServiceTests : IAsyncLifetime
     public async Task Status_cache_serves_cached_values_until_invalidated_or_expired()
     {
         var services = new ServiceCollection().AddSingleton<IAppDbContextFactory>(_db).BuildServiceProvider();
-        var cache = new WorkspaceStatusCache(services.GetRequiredService<IServiceScopeFactory>(), _db.Time);
+        IWorkspaceStatusProvider cache = new WorkspaceStatusCache(services.GetRequiredService<IServiceScopeFactory>(), _db.Time);
 
         Assert.Equal(WorkspaceStatus.Active, await cache.GetStatusAsync(TestWorkspaces.OtherId));
         Assert.Null(await cache.GetStatusAsync(Guid.NewGuid()));

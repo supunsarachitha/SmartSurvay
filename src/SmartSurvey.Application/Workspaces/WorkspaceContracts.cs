@@ -109,12 +109,23 @@ public interface IWorkspaceService
 /// </summary>
 public interface IWorkspaceStatusProvider
 {
-    /// <summary>Status of the workspace, or null when it does not exist.</summary>
-    Task<WorkspaceStatus?> GetStatusAsync(Guid workspaceId, CancellationToken ct = default);
+    /// <summary>Name, address and status of the workspace, or null when it does not exist.</summary>
+    Task<WorkspaceInfo?> GetAsync(Guid workspaceId, CancellationToken ct = default);
 
-    /// <summary>Drops the cached status of a workspace.</summary>
+    /// <summary>Status of the workspace, or null when it does not exist.</summary>
+    async Task<WorkspaceStatus?> GetStatusAsync(Guid workspaceId, CancellationToken ct = default) =>
+        (await GetAsync(workspaceId, ct))?.Status;
+
+    /// <summary>Drops the cached entry of a workspace (after its status, name or address changed).</summary>
     void Invalidate(Guid workspaceId);
 }
+
+/// <summary>Cached facts about a workspace (for menus and access checks).</summary>
+/// <param name="Id">Id.</param>
+/// <param name="Name">Display name.</param>
+/// <param name="Slug">Address.</param>
+/// <param name="Status">Status.</param>
+public sealed record WorkspaceInfo(Guid Id, string Name, string Slug, WorkspaceStatus Status);
 
 // ------------------------------------------------------------------------------------------------
 // System administration (super admins)

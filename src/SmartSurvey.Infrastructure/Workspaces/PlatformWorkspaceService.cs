@@ -136,6 +136,7 @@ public sealed class PlatformWorkspaceService(
         workspace.Description = string.IsNullOrWhiteSpace(request.Description) ? null : request.Description.Trim();
         workspace.ContactEmail = string.IsNullOrWhiteSpace(request.ContactEmail) ? null : request.ContactEmail.Trim();
         await db.SaveChangesAsync(ct);
+        statuses.Invalidate(id);
 
         var slugNote = oldSlug == workspace.Slug ? string.Empty : $" Address changed from {oldSlug} to {workspace.Slug}.";
         await audit.LogAsync(AuditActions.WorkspaceUpdated, WorkspaceMapping.EntityType, id.ToString(),

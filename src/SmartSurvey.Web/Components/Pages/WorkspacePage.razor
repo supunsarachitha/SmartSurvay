@@ -1,0 +1,96 @@
+@page "/w/{Slug}"
+@using SmartSurvey.Application.Workspaces
+@inject IWorkspaceService Workspaces
+@inject IResponseService Responses
+@inject ICurrentUser CurrentUser
+
+@* Public page of a workspace (static SSR): who runs it, how to join, and its surveys — all of them for
+   members, the ones anyone may answer for everyone else (when the workspace shows them). *@
+
+<PageTitle>@(workspace?.Name ?? "Workspace")</PageTitle>
+
+<div class="container py-5">
+    @if (workspace is null)
+    {
+        <EmptyState Icon="bi-question-circle" Title="Workspace not found"
+                    Message="There is no active workspace at this address. Please check the link you received.">
+            <a class="btn btn-light" href=""><i class="bi bi-house"></i>Go home</a>
+        </EmptyState>
+    }
+    else
+    {
+        <div class="d-flex flex-column flex-lg-row align-items-lg-center justify-content-between gap-3 mb-4">
+            <div class="d-flex gap-3 align-items-start">
+                <span class="feature-icon"><i class="bi bi-buildings"></i></span>
+                <div>
+                    <span class="eyebrow mb-1">Workspace</span>
+                    <h1 class="h3 fw-bold mb-1">@workspace.Name</h1>
+                    @if (!string.IsNullOrWhiteSpace(workspace.Description))
+                    {
+                        <p class="text-muted mb-1 text-pre-line">@workspace.Description</p>
+                    }
+                    @if (!string.IsNullOrWhiteSpace(workspace.ContactEmail))
+                    {
+                        <a class="small" href="mailto:@workspace.ContactEmail"><i class="bi bi-envelope me-1"></i>@workspace.ContactEmail</a>
+                    }
+                </div>
+            </div>
+            <div class="d-flex flex-wrap gap-2">
+                @if (isMember)
+                {
+                    <span class="badge-status badge-completed align-self-center"><i class="bi bi-person-check me-1"></i>You are a member</span>
+                }
+                else if (!CurrentUser.IsAuthenticated)
+                {
+                    <a class="btn btn-light" href="Account/Login?ReturnUrl=@Uri.EscapeDataString($"/w/{workspace.Slug}")"><i class="bi bi-box-arrow-in-right"></i>Sign in</a>
+                    @if (workspace.AllowSelfRegistration)
+                    {
+                        <a class="btn btn-primary" href="Account/Register?workspace=@workspace.Slug&ReturnUrl=@Uri.EscapeDataString($"/w/{workspace.Slug}")"><i class="bi bi-person-plus"></i>Join this workspace</a>
+                    }
+                }
+            </div>
+        </div>
+
+        @if (!isMember && !workspace.ShowPublicSurveyList)
+        {
+            <EmptyState Icon="bi-link-45deg" Title="Surveys are shared by link"
+                        Message="This workspace does not list its surveys publicly. Open the survey link you received to take part." />
+        }
+        else if (surveys.Count == 0)
+        {
+            <EmptyState Icon="bi-clipboard-check" Title="No open surveys right now"
+                        Message="@(isMember ? "Check back soon — new surveys appear here as soon as they are published." : "There are no public surveys at the moment.")" />
+        }
+        else
+        {
+            <h2 class="h5 fw-semibold mb-3">Open surveys</h2>
+            <div class="row g-4">
+                @foreach (var survey in surveys)
+                {
+                    <div class="col-md-6 col-xl-4"><SurveyCard Survey="survey" /></div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    /// <summary>Workspace address.</summary>
+    [Parameter] public string Slug { get; set; } = string.Empty;
+
+    private PublicWorkspaceDto? workspace;
+    private IReadOnlyList<AvailableSurveyDto> surveys = [];
+    private bool isMember;
+
+    protected override async Task OnInitializedAsync()
+    {
+        workspace = await Workspaces.FindPublicAsync(Slug);
+        if (workspace is null)
+        {
+            return;
+        }
+
+        isMember = CurrentUser.WorkspaceId == workspace.Id;
+        surveys = await Responses.ListAvailableAsync(workspace.Slug);
+    }
+}

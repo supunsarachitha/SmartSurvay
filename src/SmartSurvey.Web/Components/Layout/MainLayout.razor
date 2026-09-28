@@ -18,7 +18,10 @@
                 <li class="nav-item"><NavLink class="nav-link" href="surveys">Surveys</NavLink></li>
                 <AuthorizeView>
                     <Authorized>
-                        <li class="nav-item"><NavLink class="nav-link" href="my/responses">My responses</NavLink></li>
+                        @if (context.User.HasClaim(c => c.Type == AppClaimTypes.WorkspaceId))
+                        {
+                            <li class="nav-item"><NavLink class="nav-link" href="my/responses">My responses</NavLink></li>
+                        }
                     </Authorized>
                 </AuthorizeView>
                 <li class="nav-item"><NavLink class="nav-link" href="guide">Guide</NavLink></li>
@@ -31,9 +34,14 @@
                     <a class="btn btn-icon btn-light" href="@Support.Value.GitHubUrl" target="_blank" rel="noopener" title="SmartSurvey on GitHub" aria-label="SmartSurvey on GitHub"><i class="bi bi-github"></i></a>
                 }
                 <ThemeToggle />
-                <AuthorizeView Roles="@AppRoles.Admin">
+                <AuthorizeView Policy="@AuthPolicies.Admin">
                     <Authorized>
                         <a class="btn btn-soft-primary btn-sm" href="admin"><i class="bi bi-speedometer2"></i>Admin</a>
+                    </Authorized>
+                </AuthorizeView>
+                <AuthorizeView Policy="@AuthPolicies.SuperAdmin">
+                    <Authorized>
+                        <a class="btn btn-soft-primary btn-sm" href="system"><i class="bi bi-shield-lock"></i>System</a>
                     </Authorized>
                 </AuthorizeView>
                 <UserMenu />

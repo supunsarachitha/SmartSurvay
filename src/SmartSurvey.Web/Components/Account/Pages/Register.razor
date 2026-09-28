@@ -1,33 +1,87 @@
 @page "/Account/Register"
 
 @using System.ComponentModel.DataAnnotations
-@using System.Text
-@using System.Text.Encodings.Web
 @using Microsoft.AspNetCore.Identity
-@using Microsoft.AspNetCore.WebUtilities
+@using SmartSurvey.Application.Common
+@using SmartSurvey.Application.Workspaces
 @using SmartSurvey.Domain.Identity
 
+@inject IWorkspaceService Workspaces
+@inject IWorkspaceSignupService Signup
+@inject AccountEmails AccountEmails
 @inject UserManager<ApplicationUser> UserManager
-@inject IUserStore<ApplicationUser> UserStore
 @inject SignInManager<ApplicationUser> SignInManager
-@inject IEmailSender<ApplicationUser> EmailSender
-@inject TimeProvider Time
 @inject ILogger<Register> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
 
-<PageTitle>Create account</PageTitle>
+@* Accounts belong to a workspace. With ?workspace={slug} this is that workspace's join form (when it
+   accepts members through its link); without it the page explains the two ways in. *@
+
+<PageTitle>@(workspace is null ? "Create account" : $"Join {workspace.Name}")</PageTitle>
 
 <div class="card auth-card">
-        <div class="card-body">
+    <div class="card-body">
+        @if (string.IsNullOrWhiteSpace(WorkspaceSlug))
+        {
             <div class="text-center mb-4">
                 <BrandMark ShowName="false" Size="lg" />
-                <h1 class="h4 fw-bold mt-3 mb-1">Create your account</h1>
-                <p class="text-muted small mb-0">Free — answer member surveys and save your progress.</p>
+                <h1 class="h4 fw-bold mt-3 mb-1">How would you like to start?</h1>
+                <p class="text-muted small mb-0">Every account belongs to a workspace — a private space for surveys.</p>
+            </div>
+            <a class="card card-hover text-decoration-none mb-3" href="signup">
+                <div class="card-body d-flex gap-3 align-items-start">
+                    <span class="feature-icon"><i class="bi bi-building-add"></i></span>
+                    <span>
+                        <span class="fw-semibold d-block text-body">Create a workspace</span>
+                        <span class="small text-muted">Build surveys and reports for your team or audience. You become its admin.</span>
+                    </span>
+                </div>
+            </a>
+            <div class="card">
+                <div class="card-body">
+                    <div class="d-flex gap-3 align-items-start mb-3">
+                        <span class="feature-icon"><i class="bi bi-people"></i></span>
+                        <span>
+                            <span class="fw-semibold d-block">Join a workspace</span>
+                            <span class="small text-muted">Open the join link its admin gave you, or enter the workspace address.</span>
+                        </span>
+                    </div>
+                    <form method="get" action="Account/Register" class="input-group">
+                        <span class="input-group-text text-muted small">/w/</span>
+                        <input class="form-control" name="workspace" placeholder="workspace-address" aria-label="Workspace address" required />
+                        <button class="btn btn-soft-primary" type="submit">Continue</button>
+                    </form>
+                </div>
+            </div>
+        }
+        else if (workspace is null)
+        {
+            <EmptyState Icon="bi-question-circle" Title="Workspace not found"
+                        Message="There is no active workspace at this address. Please check the link you received.">
+                <a class="btn btn-light" href="Account/Register"><i class="bi bi-arrow-left"></i>Back</a>
+            </EmptyState>
+        }
+        else if (!workspace.AllowSelfRegistration)
+        {
+            <EmptyState Icon="bi-door-closed" Title="@($"{workspace.Name} is invite-only")"
+                        Message="This workspace does not accept new members through its link. Please ask its administrator for an account.">
+                @if (!string.IsNullOrWhiteSpace(workspace.ContactEmail))
+                {
+                    <a class="btn btn-primary" href="mailto:@workspace.ContactEmail"><i class="bi bi-envelope"></i>Contact the workspace</a>
+                }
+            </EmptyState>
+        }
+        else
+        {
+            <div class="text-center mb-4">
+                <BrandMark ShowName="false" Size="lg" />
+                <h1 class="h4 fw-bold mt-3 mb-1">Join @workspace.Name</h1>
+                <p class="text-muted small mb-0">Create your account to answer this workspace's surveys and save your progress.</p>
             </div>
 
-            <StatusMessage Message="@Message" />
-            <EditForm Model="Input" asp-route-returnUrl="@ReturnUrl" method="post" OnValidSubmit="RegisterUser" FormName="register">
+            <StatusMessage Message="@errorMessage" />
+            <EditForm Model="Input" method="post" OnValidSubmit="JoinWorkspace" FormName="register">
                 <DataAnnotationsValidator />
                 <div class="mb-3">
                     <label for="register-name" class="form-label">Name <span class="text-muted small">(optional)</span></label>
@@ -50,87 +104,74 @@
                     <InputText id="register-confirm" type="password" @bind-Value="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
                     <ValidationMessage For="() => Input.ConfirmPassword" class="validation-message" />
                 </div>
-                <button type="submit" class="w-100 btn btn-lg btn-primary"><i class="bi bi-person-plus"></i>Create account</button>
+                <button type="submit" class="w-100 btn btn-lg btn-primary"><i class="bi bi-person-plus"></i>Join workspace</button>
             </EditForm>
+        }
 
-            <div class="divider-text my-4">Already have an account?</div>
-            <a class="btn btn-light w-100" href="@(NavigationManager.GetUriWithQueryParameters("Account/Login", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">
-                <i class="bi bi-box-arrow-in-right"></i>Sign in
-            </a>
-        </div>
+        <div class="divider-text my-4">Already have an account?</div>
+        <a class="btn btn-light w-100" href="@(NavigationManager.GetUriWithQueryParameters("Account/Login", new Dictionary<string, object?> { ["ReturnUrl"] = ReturnUrl }))">
+            <i class="bi bi-box-arrow-in-right"></i>Sign in
+        </a>
+    </div>
 </div>
 
 @code {
-    private IEnumerable<IdentityError>? identityErrors;
+    private PublicWorkspaceDto? workspace;
+    private string? errorMessage;
 
     [SupplyParameterFromForm]
     private InputModel Input { get; set; } = new();
 
+    /// <summary>Address of the workspace to join.</summary>
+    [SupplyParameterFromQuery(Name = "workspace")]
+    private string? WorkspaceSlug { get; set; }
+
     [SupplyParameterFromQuery]
     private string? ReturnUrl { get; set; }
 
-    private string? Message => identityErrors is null ? null : $"Error: {string.Join(" ", identityErrors.Select(error => error.Description))}";
-
-    public async Task RegisterUser(EditContext editContext)
+    protected override async Task OnInitializedAsync()
     {
-        var user = new ApplicationUser
+        if (!string.IsNullOrWhiteSpace(WorkspaceSlug))
         {
-            DisplayName = string.IsNullOrWhiteSpace(Input.DisplayName) ? null : Input.DisplayName.Trim(),
-            CreatedAt = Time.GetUtcNow().UtcDateTime,
-        };
+            workspace = await Workspaces.FindPublicAsync(WorkspaceSlug);
+        }
+    }
 
-        await UserStore.SetUserNameAsync(user, Input.Email, CancellationToken.None);
-        await GetEmailStore().SetEmailAsync(user, Input.Email, CancellationToken.None);
-        var result = await UserManager.CreateAsync(user, Input.Password);
-
-        if (!result.Succeeded)
+    public async Task JoinWorkspace()
+    {
+        JoinWorkspaceResult result;
+        try
         {
-            identityErrors = result.Errors;
+            result = await Signup.JoinAsync(WorkspaceSlug!, new JoinWorkspaceRequest
+            {
+                DisplayName = Input.DisplayName,
+                Email = Input.Email,
+                Password = Input.Password,
+            });
+        }
+        catch (AppException ex) when (UiErrors.IsExpected(ex))
+        {
+            errorMessage = "Error: " + UiErrors.Describe(ex);
             return;
         }
 
-        // Every self-registered account is a regular respondent (roles are seeded at start-up).
-        var roleResult = await UserManager.AddToRoleAsync(user, AppRoles.User);
-        if (!roleResult.Succeeded)
-        {
-            Logger.LogWarning("Could not add the new user {UserId} to the {Role} role: {Errors}",
-                user.Id, AppRoles.User, string.Join(" ", roleResult.Errors.Select(e => e.Description)));
-        }
-
-        Logger.LogInformation("User created a new account with password.");
-
-        var userId = await UserManager.GetUserIdAsync(user);
-        var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
-        code = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(code));
-        var callbackUrl = NavigationManager.GetUriWithQueryParameters(
-            NavigationManager.ToAbsoluteUri("Account/ConfirmEmail").AbsoluteUri,
-            new Dictionary<string, object?> { ["userId"] = userId, ["code"] = code, ["returnUrl"] = ReturnUrl });
-
-        await EmailSender.SendConfirmationLinkAsync(user, Input.Email, HtmlEncoder.Default.Encode(callbackUrl));
+        Logger.LogInformation("A member joined workspace {Slug}.", WorkspaceSlug);
+        var destination = string.IsNullOrEmpty(ReturnUrl) ? $"w/{workspace!.Slug}" : ReturnUrl;
+        await AccountEmails.SendConfirmationAsync(result.UserId, NavigationManager.BaseUri, ReturnUrl);
 
         if (UserManager.Options.SignIn.RequireConfirmedAccount)
         {
-            RedirectManager.RedirectTo(
-                "Account/RegisterConfirmation",
-                new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
+            RedirectManager.RedirectTo("Account/RegisterConfirmation", new() { ["email"] = Input.Email, ["returnUrl"] = ReturnUrl });
         }
 
-        await SignInManager.SignInAsync(user, isPersistent: false);
-        RedirectManager.RedirectTo(ReturnUrl);
-    }
-
-    private IUserEmailStore<ApplicationUser> GetEmailStore()
-    {
-        if (!UserManager.SupportsUserEmail)
-        {
-            throw new NotSupportedException("The default UI requires a user store with email support.");
-        }
-        return (IUserEmailStore<ApplicationUser>)UserStore;
+        var user = await UserManager.FindByIdAsync(result.UserId.ToString());
+        await SignInManager.SignInAsync(user!, isPersistent: false);
+        RedirectManager.RedirectTo(destination);
     }
 
     private sealed class InputModel
     {
-        [StringLength(100, ErrorMessage = "Please keep your name under 100 characters.")]
+        [StringLength(200, ErrorMessage = "Use at most {1} characters.")]
         public string? DisplayName { get; set; }
 
         [Required(ErrorMessage = "Please enter your e-mail address.")]
@@ -139,14 +180,12 @@
         public string Email { get; set; } = "";
 
         [Required(ErrorMessage = "Please choose a password.")]
-        [StringLength(100, ErrorMessage = "The password must be between {2} and {1} characters long.", MinimumLength = 8)]
+        [StringLength(100, ErrorMessage = "The password must be at least {2} characters long.", MinimumLength = 8)]
         [DataType(DataType.Password)]
-        [Display(Name = "Password")]
         public string Password { get; set; } = "";
 
         [DataType(DataType.Password)]
-        [Display(Name = "Confirm password")]
-        [Compare("Password", ErrorMessage = "The passwords do not match.")]
+        [Compare(nameof(Password), ErrorMessage = "The passwords do not match.")]
         public string ConfirmPassword { get; set; } = "";
     }
 }
