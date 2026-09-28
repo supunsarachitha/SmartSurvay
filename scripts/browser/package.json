@@ -1,9 +1,10 @@
 {
   "name": "smartsurvey-browser-checks",
   "private": true,
-  "description": "Headless-browser checks of SmartSurvey (see the comment at the top of each *.check.js).",
+  "description": "Headless-browser checks and the guide screenshots of SmartSurvey (see the comment at the top of each script).",
   "scripts": {
-    "check": "node workspaces.check.js"
+    "check": "node workspaces.check.js",
+    "screenshots": "node screenshots.js"
   },
   "dependencies": {
     "puppeteer-core": "^23.0.0"

@@ -559,9 +559,9 @@ As § 10.0 (resume from the last § 11.3 row, `[~]` markers, commit per task, ph
 - [x] 15.5 Docs + Phase gate
 
 #### Phase 16 — Guide screenshots
-- [ ] 16.1 `scripts/browser/screenshots.js`: reproducible capture of every guide image from a fresh demo instance
-- [ ] 16.2 Recapture, review every image, replace; README gallery
-- [ ] 16.3 Phase gate
+- [x] 16.1 `scripts/browser/screenshots.js`: reproducible capture of every guide image from a fresh demo instance
+- [x] 16.2 Recapture, review every image, replace; README gallery
+- [~] 16.3 Phase gate
 
 #### Phase 17 — .NET 10 LTS
 - [ ] 17.1 SDK 10.0.300 (installed) in `global.json`, `net10.0`, Microsoft/EF/Npgsql 10.x, other packages checked for .NET 10, `dotnet-ef` 10
