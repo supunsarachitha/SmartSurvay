@@ -5,7 +5,7 @@
 #   docker compose up --build        (app + PostgreSQL, see docker-compose.yml)
 # ---------------------------------------------------------------------------------------------
 
-FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src
 
 # Restore first (better layer caching): only project files and shared build settings.
@@ -19,7 +19,7 @@ RUN dotnet restore src/SmartSurvey.Web/SmartSurvey.Web.csproj
 COPY src/ src/
 RUN dotnet publish src/SmartSurvey.Web/SmartSurvey.Web.csproj -c Release -o /app/publish --no-restore /p:UseAppHost=false
 
-FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS final
+FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 # QuestPDF's native renderer needs fontconfig; DejaVu provides a broad glyph fallback for PDFs.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends libfontconfig1 fonts-dejavu-core \

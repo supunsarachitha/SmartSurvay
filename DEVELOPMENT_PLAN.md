@@ -564,8 +564,8 @@ As § 10.0 (resume from the last § 11.3 row, `[~]` markers, commit per task, ph
 - [x] 16.3 Phase gate
 
 #### Phase 17 — .NET 10 LTS
-- [ ] 17.1 SDK 10.0.300 (installed) in `global.json`, `net10.0`, Microsoft/EF/Npgsql 10.x, other packages checked for .NET 10, `dotnet-ef` 10
-- [ ] 17.2 Fix breaking changes and new warnings; migrations/model snapshot consistent (`has-pending-model-changes`)
+- [x] 17.1 SDK 10.0.300 (installed) in `global.json`, `net10.0`, Microsoft/EF/Npgsql 10.x, other packages checked for .NET 10, `dotnet-ef` 10
+- [~] 17.2 Fix breaking changes and new warnings; migrations/model snapshot consistent (`has-pending-model-changes`)
 - [ ] 17.3 Docker images `10.0`, CI `setup-dotnet` 10, docs/README/plan (tech stack, prerequisites)
 - [ ] 17.4 Verification: all tests, `smoke.sh` (all roles), browser check, PostgreSQL via the live compose stack, container smoke
 - [ ] 17.5 Phase gate + CHANGELOG (2.1.0)

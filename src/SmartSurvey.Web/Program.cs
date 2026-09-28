@@ -87,7 +87,7 @@ if (behindProxy)
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-        options.KnownNetworks.Clear();
+        options.KnownIPNetworks.Clear();
         options.KnownProxies.Clear();
     });
 }
@@ -149,8 +149,17 @@ if (app.Environment.IsDevelopment() || app.Configuration.GetValue("Swagger:Enabl
 }
 
 // ----- Endpoints ------------------------------------------------------------------------------
+// Framing headers come from SecurityHeadersMiddleware alone (per path: /embed pages may be framed by other sites),
+// so Blazor's own frame-ancestors header is switched off — a second CSP header would block embedding. While
+// embedding is enabled, WebSocket compression is off too, as recommended for circuits that other sites can frame
+// (compression side channels).
+var embeddingEnabled = app.Configuration.GetValue("Embedding:Enabled", true);
 app.MapRazorComponents<App>()
-    .AddInteractiveServerRenderMode();
+    .AddInteractiveServerRenderMode(options =>
+    {
+        options.ContentSecurityFrameAncestorsPolicy = null;
+        options.DisableWebSocketCompression = embeddingEnabled;
+    });
 
 app.MapAdditionalIdentityEndpoints();
 
