@@ -1,0 +1,62 @@
+@* One chapter of the user guide: anchor, icon, title, audience badge, text and an optional screenshot. *@
+
+<section class="guide-section" id="@Id" aria-labelledby="@($"{Id}-title")">
+    <div class="d-flex align-items-start gap-3 mb-3">
+        <span class="feature-icon flex-shrink-0" aria-hidden="true"><i class="bi @Icon"></i></span>
+        <div class="min-w-0">
+            <h2 class="h4 fw-bold mb-1" id="@($"{Id}-title")">@Title</h2>
+            <span class="guide-audience @AudienceClass">@AudienceLabel</span>
+        </div>
+    </div>
+    <div class="guide-body">
+        @ChildContent
+    </div>
+    @if (!string.IsNullOrWhiteSpace(Image))
+    {
+        <figure class="guide-figure @(Phone ? "guide-figure-phone" : null)">
+            <img src="@($"img/guide/{Image}")" alt="@ImageAlt" loading="lazy" width="@(Phone ? 390 : 1280)" height="@(Phone ? 844 : 800)" />
+            @if (!string.IsNullOrWhiteSpace(Caption))
+            {
+                <figcaption>@Caption</figcaption>
+            }
+        </figure>
+    }
+</section>
+
+@code {
+    /// <summary>Anchor id (used by the table of contents).</summary>
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+
+    /// <summary>Bootstrap icon class.</summary>
+    [Parameter] public string Icon { get; set; } = "bi-book";
+
+    /// <summary>Chapter title.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>Who the chapter is for: "everyone", "respondents" or "admins".</summary>
+    [Parameter] public string Audience { get; set; } = "everyone";
+
+    /// <summary>Screenshot file name in <c>wwwroot/img/guide</c>.</summary>
+    [Parameter] public string? Image { get; set; }
+
+    /// <summary>Screenshot description for screen readers.</summary>
+    [Parameter] public string? ImageAlt { get; set; }
+
+    /// <summary>Caption under the screenshot.</summary>
+    [Parameter] public string? Caption { get; set; }
+
+    /// <summary>The screenshot is a phone screen (narrow).</summary>
+    [Parameter] public bool Phone { get; set; }
+
+    /// <summary>Chapter text.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string AudienceLabel => Audience switch
+    {
+        "respondents" => "For people answering surveys",
+        "admins" => "For administrators",
+        _ => "For everyone",
+    };
+
+    private string AudienceClass => $"guide-audience-{Audience}";
+}

@@ -45,17 +45,17 @@ public sealed class SupportOptions
     /// <summary>Configuration section name.</summary>
     public const string SectionName = "Support";
 
-    /// <summary>buymeacoffee.com user name.</summary>
-    public string BuyMeACoffeeUsername { get; set; } = "smartsurvey";
+    /// <summary>buymeacoffee.com user name (the page at https://buymeacoffee.com/{name}).</summary>
+    public string BuyMeACoffeeUsername { get; set; } = "jkhy9gtjs";
 
     /// <summary>Optional source repository URL.</summary>
-    public string? GitHubUrl { get; set; }
+    public string? GitHubUrl { get; set; } = "https://github.com/supunsarachitha/SmartSurvay";
 
     /// <summary>Optional contact e-mail.</summary>
     public string? ContactEmail { get; set; }
 
     /// <summary>Full Buy Me a Coffee URL.</summary>
-    public string BuyMeACoffeeUrl => $"https://www.buymeacoffee.com/{Uri.EscapeDataString(BuyMeACoffeeUsername)}";
+    public string BuyMeACoffeeUrl => $"https://buymeacoffee.com/{Uri.EscapeDataString(BuyMeACoffeeUsername)}";
 }
 
 /// <summary>Registers Web-host services.</summary>

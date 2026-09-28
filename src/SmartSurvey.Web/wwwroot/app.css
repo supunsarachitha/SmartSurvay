@@ -537,5 +537,34 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
 .answer-row:last-child { border-bottom: 0; padding-bottom: 0; }
 .answer-row:first-child { padding-top: 0; }
 
+/* User guide (/guide) */
+.guide-toc { position: sticky; top: 84px; max-height: calc(100vh - 100px); overflow-y: auto; font-size: .9rem; padding-right: .5rem; }
+.guide-toc a, .guide-toc-mobile a { display: block; padding: .2rem 0; color: var(--ss-muted); text-decoration: none; }
+.guide-toc a:hover, .guide-toc-mobile a:hover { color: var(--ss-primary); }
+.guide-toc-mobile { border: 1px solid var(--ss-border); border-radius: var(--ss-radius); padding: .75rem 1rem; background: var(--ss-surface); }
+.guide-toc-mobile summary { font-weight: 600; cursor: pointer; }
+.guide-section { scroll-margin-top: 84px; padding-bottom: 2.5rem; margin-bottom: 2.5rem; border-bottom: 1px solid var(--ss-border); }
+.guide-section:last-child { border-bottom: 0; }
+.guide-body { max-width: 48rem; font-size: 1rem; line-height: 1.7; }
+.guide-body ul, .guide-body ol { padding-left: 1.25rem; }
+.guide-body li { margin-bottom: .4rem; }
+.guide-audience { display: inline-block; font-size: .75rem; font-weight: 600; padding: .15rem .6rem; border-radius: 999px; background: var(--ss-surface-2); color: var(--ss-muted); border: 1px solid var(--ss-border); }
+.guide-audience-respondents { background: rgba(14, 165, 233, .12); color: #0369a1; border-color: transparent; }
+.guide-audience-admins { background: var(--ss-primary-soft); color: var(--ss-primary); border-color: transparent; }
+[data-bs-theme="dark"] .guide-audience-respondents { color: #7dd3fc; }
+.guide-steps { counter-reset: step; list-style: none; padding-left: 0 !important; }
+.guide-steps > li { counter-increment: step; position: relative; padding-left: 2.4rem; margin-bottom: .75rem; }
+.guide-steps > li::before {
+    content: counter(step); position: absolute; left: 0; top: .1rem; width: 1.7rem; height: 1.7rem; border-radius: 50%;
+    background: var(--ss-primary-soft); color: var(--ss-primary); font-weight: 700; font-size: .85rem; display: flex; align-items: center; justify-content: center;
+}
+.guide-tip { display: flex; gap: .75rem; padding: .85rem 1rem; border-radius: var(--ss-radius-sm); background: rgba(245, 158, 11, .1); border: 1px solid rgba(245, 158, 11, .25); margin: 1rem 0; font-size: .95rem; }
+.guide-tip > i { color: #d97706; font-size: 1.15rem; }
+.guide-table { max-width: 48rem; }
+.guide-figure { margin: 1.5rem 0 0; }
+.guide-figure img { width: 100%; height: auto; border-radius: var(--ss-radius); border: 1px solid var(--ss-border); box-shadow: var(--ss-shadow-sm); background: var(--ss-surface); }
+.guide-figure figcaption { font-size: .85rem; color: var(--ss-muted); margin-top: .5rem; }
+.guide-figure-phone { max-width: 300px; }
+
 /* Survey builder */
 .border-dashed { border: 1px dashed var(--ss-border) !important; }

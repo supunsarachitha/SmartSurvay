@@ -150,9 +150,15 @@ SQLite mode creates the schema with `EnsureCreated` (no migrations) and is inten
 ### 4.5 Full container stack
 
 ```bash
-docker compose up --build        # http://localhost:8080  (admin password: ChangeMe123! unless ADMIN_PASSWORD is set)
+cp .env.example .env             # optional: passwords, ports, demo data, e-mail (SMTP_*) …
+docker compose up -d --build     # http://localhost:8080  (admin password: ChangeMe123! unless ADMIN_PASSWORD is set)
 scripts/container-smoke.sh       # health, pages, admin sign-in and a PDF export against the running stack
 ```
+
+Step-by-step instructions for non-developers — installing Docker, everyday commands (stop/start/update/logs), backup
+and restore, the `.env` settings and troubleshooting — are in the README section
+[**Run with Docker**](../README.md#-run-with-docker-recommended). The compose file maps the `.env` variables to the
+application settings of [§17](#17-configuration-reference) (e.g. `SMTP_HOST` → `Email:Smtp:Host`).
 
 ## 5. Architecture
 
@@ -479,6 +485,10 @@ in Swagger (`/swagger`). Ready-to-run examples: [`docs/examples`](examples/).
 
 ## 15. User interface guide
 
+The app includes a **user guide** for non-technical users at `/guide` (linked in the top menu, the footer, the FAQ and
+the admin sidebar): plain-language, step-by-step chapters with screenshots for respondents and administrators. The
+screenshots live in `wwwroot/img/guide` (WebP) and are also used by the README.
+
 ### 15.1 Respondents
 
 1. Browse **Surveys** (`/surveys`) or open a shared link `/s/{slug}` (or an embedded survey on another site).
@@ -565,8 +575,9 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 | `Seed:DemoData` | `false` (`true` in Development) | Demo user, surveys, responses and report |
 | `Seed:DemoUserEmail` / `Seed:DemoUserPassword` | `user@smartsurvey.local` / `User123!` | Demo respondent |
 | `Identity:RequireConfirmedAccount` | `false` | Require e-mail confirmation before login |
-| `Support:BuyMeACoffeeUsername` | `smartsurvey` | Target of the Buy Me a Coffee page |
-| `Support:GitHubUrl` / `Support:ContactEmail` | *(empty)* | Footer / FAQ links |
+| `Support:BuyMeACoffeeUsername` | `jkhy9gtjs` | Buy Me a Coffee account (`https://buymeacoffee.com/{name}`) behind the support page |
+| `Support:GitHubUrl` | `https://github.com/supunsarachitha/SmartSurvay` | GitHub links in the navigation bar, admin sidebar, home page, footer and support page (empty hides them) |
+| `Support:ContactEmail` | *(empty)* | "Contact" link in the footer |
 | `Email:FromAddress` | `no-reply@smartsurvey.local` | Sender address of account e-mails (confirmation, password reset) |
 | `Email:FromName` | *(empty = product name)* | Sender display name |
 | `Email:Smtp:Host` | *(empty = e-mail disabled)* | SMTP server; without it e-mails are only logged (full text in Development) |
@@ -654,6 +665,10 @@ container; builds the Docker image, starts it with docker compose and runs `scri
 
 ## 22. Licensing notes
 
+* **SmartSurvey itself** is source-available under the **PolyForm Noncommercial License 1.0.0** ([`LICENSE.md`](../LICENSE.md)):
+  free for non-commercial purposes; commercial use needs a separate license from the copyright holder — the repository
+  owner, Supun ([github.com/supunsarachitha](https://github.com/supunsarachitha)) — who keeps all rights, including
+  commercial use.
 * **QuestPDF** is used under the *Community* license (free for individuals, open-source projects and
   companies with < USD 1M annual gross revenue). Larger organisations need a commercial QuestPDF license.
 * Bootstrap, Bootstrap Icons (MIT), Inter (SIL OFL 1.1), ClosedXML (MIT), QRCoder (MIT), MailKit/MimeKit (MIT),

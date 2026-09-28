@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@inject IOptions<SupportOptions> Support
 @* Admin layout: dark sidebar + top bar. Used by every page under Pages/Admin (see _Imports.razor there).
    The layout is static; the ToastHost is an interactive island that shares the page's circuit, so
    interactive admin pages can raise toasts through the scoped ToastService. *@
@@ -24,10 +25,17 @@
             <NavLink class="nav-link" href="admin/audit"><i class="bi bi-journal-text"></i> Audit log</NavLink>
             <NavLink class="nav-link" href="admin/branding"><i class="bi bi-palette"></i> Branding</NavLink>
             <a class="nav-link" href="swagger" target="_blank" rel="noopener"><i class="bi bi-braces"></i> API docs</a>
+
+            <div class="sidebar-heading">Help</div>
+            <NavLink class="nav-link" href="guide"><i class="bi bi-book"></i> User guide</NavLink>
+            @if (!string.IsNullOrWhiteSpace(Support.Value.GitHubUrl))
+            {
+                <a class="nav-link" href="@Support.Value.GitHubUrl" target="_blank" rel="noopener"><i class="bi bi-github"></i> GitHub</a>
+            }
         </nav>
         <div class="sidebar-footer d-flex justify-content-between">
             <a href=""><i class="bi bi-arrow-left me-1"></i> Back to site</a>
-            <a href="faq" title="Help"><i class="bi bi-question-circle"></i></a>
+            <a href="guide" title="User guide"><i class="bi bi-question-circle"></i></a>
         </div>
     </aside>
     <div class="sidebar-backdrop"></div>

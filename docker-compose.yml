@@ -1,7 +1,8 @@
-# SmartSurvey — local container stack: PostgreSQL 16 + the web app.
-#   docker compose up --build            → http://localhost:8080
-# Override with environment variables or a .env file, e.g.:
-#   WEB_PORT=8081 POSTGRES_PORT=5433 ADMIN_PASSWORD='S3cure!Pass' docker compose up --build
+# SmartSurvey — container stack: PostgreSQL 16 + the web app.
+#   docker compose up -d --build         → http://localhost:8080
+# Settings come from environment variables or a .env file next to this file (see .env.example), e.g.:
+#   WEB_PORT=8081 POSTGRES_PORT=5433 ADMIN_PASSWORD='S3cure!Pass' docker compose up -d --build
+# Step-by-step instructions: README.md → "Run with Docker".
 services:
   db:
     image: postgres:16-alpine
@@ -36,7 +37,15 @@ services:
       Seed__AdminPassword: ${ADMIN_PASSWORD:-ChangeMe123!}
       Seed__DemoData: ${DEMO_DATA:-true}
       Swagger__Enabled: ${SWAGGER_ENABLED:-true}
-      Support__BuyMeACoffeeUsername: ${BMC_USERNAME:-smartsurvey}
+      Support__BuyMeACoffeeUsername: ${BMC_USERNAME:-jkhy9gtjs}
+      Support__GitHubUrl: ${GITHUB_URL:-https://github.com/supunsarachitha/SmartSurvay}
+      # Account e-mails (password reset, confirmation). Leave SMTP_HOST empty to disable e-mail.
+      Email__FromAddress: ${MAIL_FROM:-no-reply@smartsurvey.local}
+      Email__Smtp__Host: ${SMTP_HOST:-}
+      Email__Smtp__Port: ${SMTP_PORT:-587}
+      Email__Smtp__Security: ${SMTP_SECURITY:-Auto}
+      Email__Smtp__UserName: ${SMTP_USERNAME:-}
+      Email__Smtp__Password: ${SMTP_PASSWORD:-}
     ports:
       - "${WEB_PORT:-8080}:8080"
     volumes:

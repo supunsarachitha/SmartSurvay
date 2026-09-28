@@ -1,0 +1,327 @@
+@page "/guide"
+@using SmartSurvey.Application.Branding
+@using SmartSurvey.Web.Components.Guide
+@inject IBrandingService BrandingService
+@inject IOptions<SupportOptions> Support
+@* User guide (static SSR) for non-technical users: how to answer surveys and — for administrators — how to
+   create, share and analyse them. Screenshots live in wwwroot/img/guide. *@
+
+<PageTitle>User guide · @P</PageTitle>
+
+<section class="hero pb-4">
+    <div class="container">
+        <span class="eyebrow mb-3"><i class="bi bi-book"></i>User guide</span>
+        <h1 class="mb-3 text-balance">How to use @P</h1>
+        <p class="lead mb-0" style="max-width:44rem">
+            Step-by-step help in plain language — whether you are answering a survey or creating one. No technical
+            knowledge needed. Use the contents to jump to a topic.
+        </p>
+    </div>
+</section>
+
+<div class="container pb-5">
+    <div class="row g-5">
+        <aside class="col-lg-3 d-none d-lg-block">
+            <nav class="guide-toc" aria-label="Guide contents">
+                @foreach (var (group, items) in Contents)
+                {
+                    <div class="small-caps mb-1 mt-3">@group</div>
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var (id, title) in items)
+                        {
+                            <li><a href="guide#@id">@title</a></li>
+                        }
+                    </ul>
+                }
+            </nav>
+        </aside>
+
+        <div class="col-lg-9 min-w-0">
+            @* Contents for small screens. *@
+            <details class="guide-toc-mobile d-lg-none mb-4">
+                <summary><i class="bi bi-list-ul me-2"></i>Contents</summary>
+                @foreach (var (group, items) in Contents)
+                {
+                    <div class="small-caps mb-1 mt-3">@group</div>
+                    <ul class="list-unstyled mb-0">
+                        @foreach (var (id, title) in items)
+                        {
+                            <li><a href="guide#@id">@title</a></li>
+                        }
+                    </ul>
+                }
+            </details>
+
+            @* ------------------------------------------------------------------ Getting started *@
+            <GuideSection Id="overview" Icon="bi-compass" Title="@($"What {P} does")" Image="home.webp"
+                          ImageAlt="The home page with the main menu at the top" Caption="The home page. The menu at the top leads to surveys, your responses, this guide and the FAQ.">
+                <p>@P lets organisations ask questions and understand the answers:</p>
+                <ul>
+                    <li><strong>People answering surveys</strong> (respondents) open a link, answer the questions and send their answers.</li>
+                    <li><strong>Administrators</strong> create the surveys, share them, read the answers and turn them into reports with charts.</li>
+                </ul>
+                <p>
+                    The menu at the top of every page takes you to the <em>Surveys</em> you can answer, <em>My responses</em>
+                    (after signing in), this <em>Guide</em> and the <em>FAQ</em>. The <i class="bi bi-moon-stars"></i> button switches
+                    between light and dark colours — your choice is remembered.
+                </p>
+            </GuideSection>
+
+            <GuideSection Id="account" Icon="bi-person-circle" Title="Your account">
+                <p>Many surveys can be answered without an account. You need one to answer members-only surveys, to save your progress and to see your past answers.</p>
+                <ol class="guide-steps">
+                    <li><strong>Create an account:</strong> choose <em>Sign in</em> → <em>Create account</em>, enter your e-mail address and a password (at least 8 characters with upper- and lower-case letters, a number and a symbol).</li>
+                    <li><strong>Sign in:</strong> <em>Sign in</em> in the top right corner. After five wrong passwords the account is locked for 15 minutes to keep it safe.</li>
+                    <li><strong>Forgot your password?</strong> Choose <em>Forgot your password?</em> on the sign-in page — you receive an e-mail with a link to choose a new one. If no e-mail arrives, ask an administrator: they can set a new password for you.</li>
+                    <li><strong>Account settings:</strong> open the menu with your name (top right) → <em>Account settings</em> to change your name, e-mail or password, or to turn on two-step sign-in with an authenticator app.</li>
+                </ol>
+            </GuideSection>
+
+            @* ------------------------------------------------------------------ Answering *@
+            <GuideSection Id="find-surveys" Icon="bi-search" Title="Finding a survey" Audience="respondents">
+                <ul>
+                    <li>Most people receive a <strong>link</strong> (by e-mail or chat) or scan a <strong>QR code</strong> with their phone camera — it opens the survey directly.</li>
+                    <li>The <strong>Surveys</strong> page lists every survey that is open right now. Surveys marked <em>Members</em> need you to sign in first.</li>
+                    <li>Some websites show a survey <strong>inside their own page</strong> — you answer it right there.</li>
+                    <li>If a survey says it is <em>closed</em>, <em>not open yet</em> or <em>full</em>, the organiser has stopped (or not yet started) collecting answers.</li>
+                </ul>
+            </GuideSection>
+
+            <GuideSection Id="answering" Icon="bi-ui-checks" Title="Answering a survey" Audience="respondents" Image="survey.webp"
+                          ImageAlt="A survey page with a progress bar and questions" Caption="A survey page: the progress bar at the top, questions below and the Next button at the bottom.">
+                <ol class="guide-steps">
+                    <li>Read the introduction at the top — it tells you what the survey is about and roughly how long it takes.</li>
+                    <li>Answer the questions. Questions marked with a red <span class="text-danger fw-bold">*</span> must be answered; the others are optional.</li>
+                    <li>Some questions only appear after certain answers — for example a “Why?” question after you answer “No”. That is normal.</li>
+                    <li>Choose <strong>Next</strong> to go to the next page and <strong>Back</strong> to change earlier answers. The bar at the top shows how much you have answered.</li>
+                    <li>If something is missing, the question is outlined in red with a short explanation. The message disappears as soon as you fix the answer.</li>
+                    <li>On the last page choose <strong>Submit</strong>. A thank-you page confirms that your answers were received.</li>
+                </ol>
+                <div class="guide-tip">
+                    <i class="bi bi-lightbulb"></i>
+                    <div>
+                        <strong>How to answer each kind of question:</strong> click a <em>round button</em> to choose one answer, tick <em>boxes</em> to
+                        choose several, pick from a <em>drop-down list</em>, click the <em>stars</em> to rate (click fewer stars to lower the rating),
+                        or click a <em>number</em> on a scale (for example 0 = not at all likely, 10 = extremely likely). When you choose an
+                        answer such as “Other (please specify)”, a small text box appears — write your answer there.
+                        Optional questions have a <em>Clear answer</em> link if you change your mind.
+                    </div>
+                </div>
+            </GuideSection>
+
+            <GuideSection Id="save-later" Icon="bi-bookmark" Title="Save and finish later" Audience="respondents" Image="survey-mobile.webp" Phone="true"
+                          ImageAlt="A survey on a phone screen" Caption="Surveys work on phones and tablets too.">
+                <p>When you are signed in, your answers are saved automatically every time you move to another page — and when you leave the survey.</p>
+                <ul>
+                    <li>Choose <strong>Save &amp; finish later</strong> at the bottom of a page to save right away.</li>
+                    <li>To continue, open the survey link again or go to <strong>My responses</strong> and choose <em>Continue</em>. You return to the page where you stopped, with your answers filled in (“Welcome back!”).</li>
+                    <li>Want a fresh start? Choose <strong>Start over</strong> on the “Welcome back” message.</li>
+                    <li>Without an account, answers are not saved until you submit — the browser warns you if you try to leave a half-finished survey.</li>
+                </ul>
+            </GuideSection>
+
+            @* ------------------------------------------------------------------ Creating surveys *@
+            <GuideSection Id="admin-area" Icon="bi-speedometer2" Title="The admin area" Audience="admins" Image="dashboard.webp"
+                          ImageAlt="The admin dashboard with key numbers, a chart and the latest responses" Caption="The dashboard: key numbers, responses over the last 30 days, the most answered surveys and the latest responses.">
+                <p>Administrators see an <strong>Admin</strong> button in the top menu. The admin area has a menu on the left:</p>
+                <ul>
+                    <li><strong>Dashboard</strong> — how many surveys and responses you have and how they develop.</li>
+                    <li><strong>Surveys</strong> — create, edit, share and manage surveys.</li>
+                    <li><strong>Reports</strong> — charts and tables built from the answers, ready to export.</li>
+                    <li><strong>Users</strong>, <strong>Audit log</strong> and <strong>Branding</strong> — people, a history of changes and the look of the site.</li>
+                </ul>
+                <p>On a phone, open the menu with the <i class="bi bi-list"></i> button in the top left corner.</p>
+            </GuideSection>
+
+            <GuideSection Id="create-survey" Icon="bi-plus-square" Title="Creating a survey" Audience="admins" Image="survey-list.webp"
+                          ImageAlt="The list of surveys with status, number of responses and actions" Caption="The survey list: search, filter by status and use the ⋯ menu for more actions.">
+                <p>Go to <strong>Surveys</strong>. There are three ways to start:</p>
+                <ol class="guide-steps">
+                    <li><strong>New survey</strong> — start with an empty survey.</li>
+                    <li><strong>From template</strong> — copy a survey that was saved as a template (use <em>Save as template</em> in any survey's ⋯ menu to create one).</li>
+                    <li><strong>Import</strong> — load a survey file that was exported from @P (for example from another installation).</li>
+                </ol>
+                <p>The ⋯ menu next to each survey also lets you preview, share, see responses, start a report, duplicate, export or delete it.</p>
+            </GuideSection>
+
+            <GuideSection Id="questions" Icon="bi-list-check" Title="Adding pages and questions" Audience="admins" Image="builder.webp"
+                          ImageAlt="The survey builder with a page, questions and the outline on the right" Caption="The survey builder: pages and questions on the left, the outline and problems list on the right.">
+                <ol class="guide-steps">
+                    <li>Give the survey a <strong>title</strong> in the <em>Settings</em> tab (or keep “Untitled survey” for now).</li>
+                    <li>In the <strong>Questions</strong> tab, choose <em>Add question</em> and pick a type. Click a question to open it and type the question text.</li>
+                    <li>For choice questions, type the <strong>answer options</strong>. Tick <em>Allow text</em> on an option such as “Other” to let people write their own answer. You can paste a whole list at once.</li>
+                    <li>Switch on <strong>Required</strong> if the question must be answered, and add a <strong>help text</strong> if it needs explaining.</li>
+                    <li>Use <em>Add page</em> to split long surveys into several pages. The arrows move questions (also to another page), the copy button duplicates and the bin deletes.</li>
+                    <li>Choose <strong>Save changes</strong> (top right). If something is wrong, the problem is shown next to the question and listed in the outline.</li>
+                </ol>
+                <div class="table-responsive">
+                    <table class="table table-sm guide-table">
+                        <thead><tr><th scope="col">Question type</th><th scope="col">What people do</th></tr></thead>
+                        <tbody>
+                            <tr><td>Short text / Long text</td><td>Write a few words or a longer comment</td></tr>
+                            <tr><td>Single choice</td><td>Pick one answer (round buttons)</td></tr>
+                            <tr><td>Multiple choice</td><td>Tick one or more answers — you can set a minimum and maximum</td></tr>
+                            <tr><td>Dropdown</td><td>Pick one answer from a list (good for long lists, such as countries)</td></tr>
+                            <tr><td>Number</td><td>Enter a number — you can set the smallest and largest allowed value</td></tr>
+                            <tr><td>E-mail</td><td>Enter an e-mail address (checked automatically)</td></tr>
+                            <tr><td>Date</td><td>Pick a date from a calendar</td></tr>
+                            <tr><td>Star rating</td><td>Give 1 to 5 (or up to 10) stars</td></tr>
+                            <tr><td>Linear scale</td><td>Pick a number on a scale, e.g. 0–10 “How likely are you to recommend us?”</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="guide-tip">
+                    <i class="bi bi-lightbulb"></i>
+                    <div>Leaving the page with unsaved changes? The builder asks before anything is lost.</div>
+                </div>
+            </GuideSection>
+
+            <GuideSection Id="logic" Icon="bi-diagram-3" Title="Showing questions only when they matter" Audience="admins" Image="builder-logic.webp"
+                          ImageAlt="A question with a display rule that shows it only after a certain answer" Caption="A display rule: this question only appears when the respondent answered “No” to an earlier question.">
+                <p>
+                    <strong>Display logic</strong> shows or hides a question — or a whole page — depending on earlier answers. Example:
+                    ask “What could we improve?” only to people who were <em>not</em> satisfied.
+                </p>
+                <ol class="guide-steps">
+                    <li>Open the question (or page) that should appear conditionally and find <strong>Display logic</strong>.</li>
+                    <li>Choose <em>Add display rule</em>, then pick <strong>Show</strong> (or <em>Hide</em>) and a condition, e.g. “Q2 · How satisfied are you? — is — Dissatisfied”.</li>
+                    <li>Add more conditions if needed and choose whether <strong>all</strong> or <strong>any</strong> of them must be true.</li>
+                    <li>Save, then use <strong>Preview</strong> to try it out.</li>
+                </ol>
+                <p>Rules can only look at questions that come <em>earlier</em> in the survey. Hidden questions are skipped and never required.</p>
+            </GuideSection>
+
+            <GuideSection Id="settings" Icon="bi-sliders" Title="Survey settings" Audience="admins" Image="survey-settings.webp"
+                          ImageAlt="The settings tab of the survey builder" Caption="The Settings tab: title, link, messages, who may answer and when.">
+                <ul>
+                    <li><strong>Title, description and link</strong> — the link address is created from the title; you can change it.</li>
+                    <li><strong>Welcome and thank-you messages</strong> — shown at the start and after submitting.</li>
+                    <li><strong>Allow anonymous responses</strong> — anyone with the link may answer. Switch it off to require signing in.</li>
+                    <li><strong>Allow multiple responses</strong> — signed-in people may answer more than once (useful for a tablet at a reception desk).</li>
+                    <li><strong>Progress bar and question numbers</strong> — show or hide them.</li>
+                    <li><strong>Opens / closes at</strong> — the survey is only available between these times.</li>
+                    <li><strong>Response limit</strong> — stop automatically after a number of responses.</li>
+                </ul>
+            </GuideSection>
+
+            <GuideSection Id="preview-publish" Icon="bi-send" Title="Preview and publish" Audience="admins" Image="preview.webp"
+                          ImageAlt="The survey preview in phone width" Caption="Preview in phone width. Nothing you enter in the preview is saved.">
+                <p>Choose <strong>Preview</strong> to try the survey exactly as respondents see it — including the display logic. Switch between <em>Desktop</em> and <em>Phone</em> width. Nothing is saved.</p>
+                <p>A survey moves through these stages (use the <strong>Status</strong> menu in the builder or the ⋯ menu in the list):</p>
+                <div class="table-responsive">
+                    <table class="table table-sm guide-table">
+                        <thead><tr><th scope="col">Status</th><th scope="col">Meaning</th></tr></thead>
+                        <tbody>
+                            <tr><td><span class="badge-status badge-draft">Draft</span></td><td>Being prepared — respondents cannot open it yet.</td></tr>
+                            <tr><td><span class="badge-status badge-published">Published</span></td><td>Live — people can answer (within its dates and limit). You can still edit it.</td></tr>
+                            <tr><td><span class="badge-status badge-closed">Closed</span></td><td>No new answers. Responses and reports stay available; you can reopen it.</td></tr>
+                            <tr><td><span class="badge-status badge-archived">Archived</span></td><td>Put away and read-only; restore it to draft to use it again.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </GuideSection>
+
+            <GuideSection Id="share" Icon="bi-share" Title="Sharing a survey" Audience="admins" Image="share.webp"
+                          ImageAlt="The share page with the survey link, invitation text and QR code" Caption="The share page: copy the link, download the QR code, copy an invitation text or the code to embed the survey on a website.">
+                <p>Open a survey's <strong>Share</strong> page (from the builder or the ⋯ menu):</p>
+                <ul>
+                    <li><strong>Link</strong> — copy it into an e-mail, chat message or newsletter.</li>
+                    <li><strong>QR code</strong> — download it as an image for posters, slides or receipts; people scan it with their phone camera.</li>
+                    <li><strong>Invitation text</strong> — a ready-made message you can adjust and copy.</li>
+                    <li><strong>Embed on a website</strong> — copy the code and give it to whoever manages your website; the survey then appears inside your page.</li>
+                </ul>
+                <p>The survey must be <em>published</em> before respondents can open the link.</p>
+            </GuideSection>
+
+            @* ------------------------------------------------------------------ Results *@
+            <GuideSection Id="responses" Icon="bi-inboxes" Title="Reading the responses" Audience="admins" Image="responses.webp"
+                          ImageAlt="The list of responses of a survey with filters" Caption="The responses of a survey. Click a name to see every answer of that person.">
+                <ol class="guide-steps">
+                    <li>Open <strong>Responses</strong> from the survey's menu (or click the number of responses in the survey list).</li>
+                    <li>Filter by <strong>status</strong> (completed or still in progress), <strong>date</strong> or respondent name.</li>
+                    <li>Click a respondent to see <strong>all their answers</strong>, page by page. From there you can print or delete the response.</li>
+                    <li>Choose <strong>Export data</strong> to download all answers as an <strong>Excel</strong> file, <strong>CSV</strong> or <strong>JSON</strong> — one row per response, one column per question.</li>
+                </ol>
+            </GuideSection>
+
+            <GuideSection Id="reports" Icon="bi-bar-chart-line" Title="Reports and charts" Audience="admins" Image="report.webp"
+                          ImageAlt="A report with summary numbers and charts" Caption="A report: summary numbers, charts and tables — always calculated from the latest answers.">
+                <p>The fastest way: open <strong>Reports</strong> and choose <strong>Quick overview</strong>, then pick a survey. You get a complete report with a chart or table for every question.</p>
+                <p>To build your own report, choose <strong>New report</strong>:</p>
+                <ol class="guide-steps">
+                    <li>Pick the <strong>survey</strong>, then start from the <em>Recommended overview</em> or <em>Start small</em>.</li>
+                    <li>Choose <strong>Add widget</strong> to add a chart or table — for example a pie chart of one question, a comparison of two questions (“cross-tabulation”), the latest written answers or responses over time.</li>
+                    <li>Under <strong>Which responses</strong>, limit the report to a date range or to people who gave a certain answer (for example “only customers from Europe”).</li>
+                    <li>The <strong>live preview</strong> on the right updates as you make changes. When you are happy, choose <strong>Create report</strong>.</li>
+                    <li>Open the report and choose <strong>Export</strong> to download it as a <strong>PDF</strong>, <strong>Excel</strong>, CSV, text or JSON file — or <strong>Print</strong> it.</li>
+                </ol>
+                <figure class="guide-figure">
+                    <img src="img/guide/report-builder.webp" alt="The report builder with widgets on the left and the live preview on the right" loading="lazy" width="1280" height="800" />
+                    <figcaption>The report builder: settings and widgets on the left, live preview on the right.</figcaption>
+                </figure>
+            </GuideSection>
+
+            @* ------------------------------------------------------------------ Administration *@
+            <GuideSection Id="users" Icon="bi-people" Title="Managing users" Audience="admins" Image="users.webp"
+                          ImageAlt="The users page with roles and account status" Caption="The users page. Your own account is marked “You” and protected against accidental changes.">
+                <ul>
+                    <li><strong>New user</strong> — create an account with an e-mail address and a first password (tick <em>Administrator</em> for full access).</li>
+                    <li>The ⋯ menu next to a person lets you <strong>make them an administrator</strong> (or remove that role), <strong>set a new password</strong>, <strong>lock</strong> the account (they can no longer sign in), unlock it or delete it.</li>
+                    <li>Deleting an account keeps that person's survey answers, but without their name.</li>
+                    <li>You cannot lock, demote or delete yourself, and the last administrator is always kept.</li>
+                </ul>
+            </GuideSection>
+
+            <GuideSection Id="audit" Icon="bi-journal-text" Title="Audit log" Audience="admins">
+                <p>
+                    The <strong>Audit log</strong> records who did what and when: surveys created, changed, published or deleted, responses
+                    submitted or deleted, reports and exports, user changes and branding changes. Search it, filter by type and date, and
+                    click an entry to open the item concerned.
+                </p>
+            </GuideSection>
+
+            <GuideSection Id="branding" Icon="bi-palette" Title="Branding: name and logo" Audience="admins" Image="branding.webp"
+                          ImageAlt="The branding page with name, tagline, logo upload, icon choice and preview" Caption="Branding: change the name, tagline and logo and see the result right away.">
+                <ol class="guide-steps">
+                    <li>Open <strong>Branding</strong> in the admin menu.</li>
+                    <li>Change the <strong>product name</strong> and <strong>tagline</strong> — they appear in the menu, the browser tab, the footer and exported reports.</li>
+                    <li>Upload a <strong>logo</strong> (a square image works best) or pick one of the <strong>icons</strong>. The logo is also used as the small browser-tab icon.</li>
+                    <li>Check the preview and choose <strong>Save changes</strong>. <em>Reset to defaults</em> brings back the original look.</li>
+                </ol>
+            </GuideSection>
+
+            @* ------------------------------------------------------------------ Help *@
+            <GuideSection Id="help" Icon="bi-life-preserver" Title="More help">
+                <ul>
+                    <li>The <a href="faq">FAQ</a> answers common questions about surveys, privacy and reports.</li>
+                    <li>Forgot your password or locked out? Use <em>Forgot your password?</em> on the sign-in page, or ask an administrator.</li>
+                    @if (!string.IsNullOrWhiteSpace(Support.Value.GitHubUrl))
+                    {
+                        <li>Found a problem or have an idea? Tell us on <a href="@Support.Value.GitHubUrl" target="_blank" rel="noopener">GitHub</a>.</li>
+                    }
+                    <li>Enjoying @P? You can <a href="buy-me-a-coffee">buy us a coffee</a>.</li>
+                </ul>
+            </GuideSection>
+        </div>
+    </div>
+</div>
+
+@code {
+    private BrandingDto brand = new();
+
+    /// <summary>Table of contents: group title and (anchor, title) entries, in page order.</summary>
+    internal static readonly IReadOnlyList<(string Group, (string Id, string Title)[] Items)> Contents =
+    [
+        ("Getting started", [("overview", "What it does"), ("account", "Your account")]),
+        ("Answering surveys", [("find-surveys", "Finding a survey"), ("answering", "Answering"), ("save-later", "Save and finish later")]),
+        ("Creating surveys", [("admin-area", "The admin area"), ("create-survey", "Creating a survey"), ("questions", "Pages and questions"),
+            ("logic", "Display logic"), ("settings", "Survey settings"), ("preview-publish", "Preview and publish"), ("share", "Sharing")]),
+        ("Results", [("responses", "Responses"), ("reports", "Reports and charts")]),
+        ("Administration", [("users", "Users"), ("audit", "Audit log"), ("branding", "Branding")]),
+        ("Help", [("help", "More help")]),
+    ];
+
+    private string P => brand.ProductName;
+
+    protected override async Task OnInitializedAsync() => brand = await BrandingService.GetAsync();
+}

@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **User guide** at `/guide`: plain-language, step-by-step help with screenshots for respondents and administrators
+  (linked from the top menu, footer, FAQ and admin sidebar).
+- **GitHub links** in the top menu, admin sidebar, home page and footer (`Support:GitHubUrl`); the Buy Me a Coffee page
+  points to <https://buymeacoffee.com/jkhy9gtjs>.
+- **Docker instructions** in the README (install, start, everyday commands, backup/restore, settings, troubleshooting),
+  a documented `.env.example`, and optional SMTP settings in `docker-compose.yml`.
+- README screenshots gallery and badges.
+
+### Changed
+- **License:** SmartSurvey is now source-available under the PolyForm Noncommercial License 1.0.0 (`LICENSE.md`);
+  the repository owner keeps all rights, including commercial use. The footer's "Open source" heading became "Project"
+  with a link to the license.
+
 ## [1.0.0] - 2026-09-27
 
 First complete release: survey design with conditional logic, respondent runner, reports and exports,

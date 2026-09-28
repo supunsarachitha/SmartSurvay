@@ -22,6 +22,7 @@
             <div class="col-6 col-lg-2">
                 <div class="small-caps mb-2">Help</div>
                 <ul class="list-unstyled d-grid gap-1 mb-0">
+                    <li><a href="guide">User guide</a></li>
                     <li><a href="faq">FAQ</a></li>
                     <li><a href="buy-me-a-coffee">Buy me a coffee</a></li>
                     @if (!string.IsNullOrWhiteSpace(Support.Value.ContactEmail))
@@ -31,11 +32,12 @@
                 </ul>
             </div>
             <div class="col-lg-2">
-                <div class="small-caps mb-2">Open source</div>
+                <div class="small-caps mb-2">Project</div>
                 <ul class="list-unstyled d-grid gap-1 mb-0">
                     @if (!string.IsNullOrWhiteSpace(Support.Value.GitHubUrl))
                     {
                         <li><a href="@Support.Value.GitHubUrl" target="_blank" rel="noopener"><i class="bi bi-github me-1"></i>GitHub</a></li>
+                        <li><a href="@($"{Support.Value.GitHubUrl.TrimEnd('/')}/blob/main/LICENSE.md")" target="_blank" rel="noopener"><i class="bi bi-file-earmark-text me-1"></i>License (non-commercial)</a></li>
                     }
                     <li><a href="health" target="_blank" rel="noopener"><i class="bi bi-heart-pulse me-1"></i>Status</a></li>
                 </ul>

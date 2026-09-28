@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@inject IOptions<SupportOptions> Support
 @* Public / respondent layout: sticky top navigation, content, footer. Rendered statically (SSR);
    interactive pages render inside @Body. *@
 
@@ -20,10 +21,15 @@
                         <li class="nav-item"><NavLink class="nav-link" href="my/responses">My responses</NavLink></li>
                     </Authorized>
                 </AuthorizeView>
+                <li class="nav-item"><NavLink class="nav-link" href="guide">Guide</NavLink></li>
                 <li class="nav-item"><NavLink class="nav-link" href="faq">FAQ</NavLink></li>
                 <li class="nav-item"><NavLink class="nav-link" href="buy-me-a-coffee"><i class="bi bi-cup-hot me-1"></i>Support us</NavLink></li>
             </ul>
             <div class="d-flex align-items-center gap-2 py-2 py-lg-0">
+                @if (!string.IsNullOrWhiteSpace(Support.Value.GitHubUrl))
+                {
+                    <a class="btn btn-icon btn-light" href="@Support.Value.GitHubUrl" target="_blank" rel="noopener" title="SmartSurvey on GitHub" aria-label="SmartSurvey on GitHub"><i class="bi bi-github"></i></a>
+                }
                 <ThemeToggle />
                 <AuthorizeView Roles="@AppRoles.Admin">
                     <Authorized>

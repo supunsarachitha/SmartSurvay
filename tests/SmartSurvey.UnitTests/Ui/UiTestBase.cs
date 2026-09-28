@@ -35,7 +35,7 @@ public abstract class UiTestBase : BunitContext
 
     protected const string ProductName = "Acme Surveys";
 
-    protected SupportOptions Support { get; } = new() { BuyMeACoffeeUsername = "acme" };
+    protected SupportOptions Support { get; } = new() { BuyMeACoffeeUsername = "acme", GitHubUrl = null };
 
     protected TestCurrentUser User { get; } = TestCurrentUser.Anonymous();
 

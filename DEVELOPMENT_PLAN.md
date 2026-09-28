@@ -153,6 +153,7 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 |---|---|---|
 | `/` | public | Landing page / features |
 | `/faq` | public | FAQ |
+| `/guide` | public | User guide for non-technical users (screenshots in `wwwroot/img/guide`) |
 | `/buy-me-a-coffee` | public | Support page (username configurable: `Support:BuyMeACoffeeUsername`) |
 | `/surveys` | public/users | Available surveys |
 | `/s/{slug}` | per survey | Take survey (multi-page runner) |

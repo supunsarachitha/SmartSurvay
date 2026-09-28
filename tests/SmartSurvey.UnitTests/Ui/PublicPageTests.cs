@@ -86,7 +86,7 @@ public sealed class BuyMeACoffeePageTests : UiTestBase
         var page = Render<BuyMeACoffee>();
 
         var link = page.Find("a.btn-coffee");
-        Assert.Equal("https://www.buymeacoffee.com/acme", link.GetAttribute("href"));
+        Assert.Equal("https://buymeacoffee.com/acme", link.GetAttribute("href"));
         Assert.Equal("_blank", link.GetAttribute("target"));
         Assert.Contains("noopener", link.GetAttribute("rel"));
     }
