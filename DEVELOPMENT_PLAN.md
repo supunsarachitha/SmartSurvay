@@ -5,9 +5,10 @@
 > [§ 9 Progress Log](#9-progress-log) and the phase checklists), then `git log --oneline`,
 > and continue with the first unchecked task. Update this file after every completed task/phase.
 
-> **✅ Multi-workspace v2.0.0 is complete (2026-09-28) on branch `feature/multi-workspace`** — all phases 9–14 done,
-> not yet pushed or merged. Next steps are the user's: review, push, open a PR to `main`, tag `v2.0.0` after merging.
-> Open follow-ups: § 7 Backlog (.NET 10 before 2026-11-10) and § 10.6. Phases 0–8 below are v1.0.0.
+> **▶ CURRENT WORK (since 2026-09-28): v2 follow-ups on branch `feature/v2-follow-ups`** (from `main` after PR #2
+> merged v2.0.0). Resume with [§ 11](#11-v2-follow-ups--branch-featurev2-follow-ups): same protocol as § 10.0 — check
+> out the branch, `git status`, continue with the first `[~]`/`[ ]` task in § 11.2, commit per task, containers after
+> each phase. Phases 0–8 = v1.0.0, § 10 = v2.0.0 (done).
 
 ---
 
@@ -533,3 +534,44 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 - Optional: a canonical public base URL setting for e-mail links (today: request host + `AllowedHosts`).
 - Optional: starter survey templates for new workspaces (new workspaces start empty).
 - Multi-instance deployments: workspace status changes reach other instances within the 30 s cache TTL.
+
+---
+
+## 11. v2 follow-ups — branch `feature/v2-follow-ups`
+
+User request (2026-09-28): "fix those follow up pending things in a new branch" — the items of § 10.6 and the § 7
+backlog item (.NET 10 before .NET 8 support ends on 2026-11-10). Pushing, PRs, tags and the live stack's passwords stay
+with the user.
+
+### 11.1 Protocol
+
+As § 10.0 (resume from the last § 11.3 row, `[~]` markers, commit per task, phase gate = build 0 warnings → all tests →
+`docker compose up -d --build` → `scripts/container-smoke.sh http://localhost:8080 admin@smartsurvey.local '' superadmin@smartsurvey.local 'ChangeMe123!'`
+→ commit). Screenshots and browser checks always run against a fresh local SQLite instance, never the live database.
+
+### 11.2 Phases & tasks
+
+#### Phase 15 — Settings, starter templates, housekeeping
+- [ ] 15.1 Housekeeping: drop the scratch database `smartsurvey_upgrade_test`; move the pre-upgrade backup out of the session scratchpad to `../backups/` (outside the repository)
+- [ ] 15.2 `App:PublicBaseUrl` (Docker `PUBLIC_BASE_URL`): e-mail links (confirmation, reset, change e-mail — every flow, via the e-mail sender) and the join link use it when set
+- [ ] 15.3 `Workspaces:StatusCacheSeconds` (default 30) — how quickly other app instances notice a disabled workspace
+- [ ] 15.4 Starter templates for new workspaces (sign-up and super admin create): system setting "Give new workspaces starter templates" (migration), templates built from the demo designs with unique links; tests
+- [ ] 15.5 Docs + Phase gate
+
+#### Phase 16 — Guide screenshots
+- [ ] 16.1 `scripts/browser/screenshots.js`: reproducible capture of every guide image from a fresh demo instance
+- [ ] 16.2 Recapture, review every image, replace; README gallery
+- [ ] 16.3 Phase gate
+
+#### Phase 17 — .NET 10 LTS
+- [ ] 17.1 SDK 10.0.300 (installed) in `global.json`, `net10.0`, Microsoft/EF/Npgsql 10.x, other packages checked for .NET 10, `dotnet-ef` 10
+- [ ] 17.2 Fix breaking changes and new warnings; migrations/model snapshot consistent (`has-pending-model-changes`)
+- [ ] 17.3 Docker images `10.0`, CI `setup-dotnet` 10, docs/README/plan (tech stack, prerequisites)
+- [ ] 17.4 Verification: all tests, `smoke.sh` (all roles), browser check, PostgreSQL via the live compose stack, container smoke
+- [ ] 17.5 Phase gate + CHANGELOG (2.1.0)
+
+### 11.3 Log
+
+| Date | Phase / task | Notes |
+|---|---|---|
+| 2026-09-28 | Plan | Branch `feature/v2-follow-ups` from `main` (`f6fdc38`, PR #2 merged). .NET SDK 10.0.300 is already installed. Next: 15.1 |
