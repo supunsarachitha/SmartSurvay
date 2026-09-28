@@ -110,9 +110,11 @@ public static class WebSetup
             options.AddPolicy(RateLimitPolicies.Submissions, ctx => RateLimitPartition.GetFixedWindowLimiter(
                 ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
                 _ => new FixedWindowRateLimiterOptions { PermitLimit = 30, Window = TimeSpan.FromMinutes(1) }));
+            // Sign-in, sign-up and join requests per IP and minute (RateLimits:AuthPerMinute, default 20).
+            var authPerMinute = Math.Max(1, configuration.GetValue("RateLimits:AuthPerMinute", 20));
             options.AddPolicy(RateLimitPolicies.Auth, ctx => RateLimitPartition.GetFixedWindowLimiter(
                 ctx.Connection.RemoteIpAddress?.ToString() ?? "unknown",
-                _ => new FixedWindowRateLimiterOptions { PermitLimit = 20, Window = TimeSpan.FromMinutes(1) }));
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = authPerMinute, Window = TimeSpan.FromMinutes(1) }));
         });
 
         return services;

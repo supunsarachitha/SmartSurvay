@@ -62,9 +62,11 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddRoles<IdentityRole<Guid>>()
     .AddClaimsPrincipalFactory<AppClaimsPrincipalFactory>()
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddSignInManager<AppSignInManager>() // refuses members of disabled / pending workspaces
     .AddDefaultTokenProviders()
-    .AddApiEndpoints();
+    .AddApiEndpoints()
+    // After AddApiEndpoints, which registers the default sign-in manager again (last registration wins).
+    // Refuses members of disabled / pending workspaces on every sign-in path.
+    .AddSignInManager<AppSignInManager>();
 
 builder.Services.ConfigureApiFriendlyCookies();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityEmailSender>(); // MapIdentityApi resolves it from the root provider

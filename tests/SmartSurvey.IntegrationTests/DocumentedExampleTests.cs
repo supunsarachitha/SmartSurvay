@@ -1,6 +1,8 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
+using System.Text.RegularExpressions;
 using SmartSurvey.Application.Reports;
 using SmartSurvey.Application.Responses;
 using SmartSurvey.Application.Surveys;
@@ -44,6 +46,30 @@ public sealed class DocumentedExampleTests(ApiFactory factory)
         {
             Assert.Contains($"< ./{file}", http);
             Assert.True(File.Exists(Path.Combine(AppContext.BaseDirectory, "Examples", file)), $"{file} is missing");
+        }
+    }
+
+    [Fact]
+    public async Task Every_request_of_the_http_walkthrough_is_an_operation_of_the_api()
+    {
+        var http = File.ReadAllText(Path.Combine(AppContext.BaseDirectory, "Examples", "smartsurvey.http"));
+        var document = await factory.Anonymous().GetFromJsonAsync<JsonElement>("/swagger/v1/swagger.json");
+
+        // Operation templates as regexes: "/api/v1/surveys/{id}" → ^/api/v1/surveys/[^/]+$
+        var operations = document.GetProperty("paths").EnumerateObject()
+            .SelectMany(path => path.Value.EnumerateObject().Select(method => (
+                Method: method.Name.ToUpperInvariant(),
+                Pattern: new Regex("^" + Regex.Replace(Regex.Escape(path.Name), @"\\\{[^}]+}", "[^/]+") + "$", RegexOptions.IgnoreCase))))
+            .ToList();
+
+        var requests = Regex.Matches(http, @"^(GET|POST|PUT|DELETE) \{\{baseUrl}}(/[^?\s]*)", RegexOptions.Multiline);
+        Assert.True(requests.Count > 30, $"expected the full walkthrough, found {requests.Count} requests");
+        foreach (Match request in requests)
+        {
+            var path = Regex.Replace(request.Groups[2].Value, @"\{\{[^}]+}}", "x"); // {{surveyId}} → a segment value
+            Assert.True(
+                operations.Any(o => o.Method == request.Groups[1].Value && o.Pattern.IsMatch(path)),
+                $"{request.Groups[1].Value} {request.Groups[2].Value} is not an API operation");
         }
     }
 

@@ -24,9 +24,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `SUPERADMIN_PASSWORD`) create the first super admin. Demo data adds a second workspace "Acme Research"
   (`admin@acme.local`, admin password) to show the isolation.
 
+- **Workspace REST API:** `GET/PUT /api/v1/workspace`; `/api/v1/system/*` for super admins (overview, workspaces,
+  accounts, settings, system audit log); public `GET /api/v1/public/settings`, `GET /api/v1/public/workspaces/{slug}`,
+  `POST /api/v1/public/workspaces` (sign-up) and `POST /api/v1/public/workspaces/{slug}/register` (join).
+- Members of disabled or pending workspaces cannot sign in; existing sessions and API tokens are refused at once
+  (pages sign out and show `/workspace-unavailable`), open Blazor circuits within a minute.
+- `RateLimits:AuthPerMinute` setting for the sign-in / sign-up / join rate limit (default 20 per IP and minute).
+
 ### Changed
 - Branding can only be changed by super admins (it is system-wide); `PUT/POST/DELETE /api/v1/branding*` require the
   SuperAdmin role.
+- `POST /api/auth/register` is refused (403): accounts belong to a workspace, so they are created with the workspace
+  sign-up and join endpoints. `GET /api/v1/public/surveys` lists the caller's own workspace, or a workspace's public
+  surveys with `?workspace={slug}`.
 - **User guide** at `/guide`: plain-language, step-by-step help with screenshots for respondents and administrators
   (linked from the top menu, footer, FAQ and admin sidebar).
 - **GitHub links** in the top menu, admin sidebar, home page and footer (`Support:GitHubUrl`); the Buy Me a Coffee page

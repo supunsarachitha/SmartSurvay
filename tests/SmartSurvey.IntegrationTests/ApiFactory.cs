@@ -98,12 +98,16 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Seed:SuperAdminPassword", SuperAdminPassword);
         builder.UseSetting("Seed:DemoData", "false");
         builder.UseSetting("Swagger:Enabled", "true");
+        builder.UseSetting("RateLimits:AuthPerMinute", "1000"); // the workspace tests sign up and sign in a lot
         builder.UseSetting("Https:Redirect", "false");
         builder.UseSetting("DataProtection:KeysPath", _keysPath);
         // Real bot protection, tuned for speed: tiny proof of work, no minimum answering time.
         builder.UseSetting("BotProtection:Difficulty", "2000");
         builder.UseSetting("BotProtection:MinimumSeconds", "0");
     }
+
+    /// <summary>Signs in through the Identity API and returns a client with the bearer token.</summary>
+    public async Task<HttpClient> SignInAsync(string email, string password) => WithToken(await LoginAsync(Anonymous(), email, password));
 
     /// <summary>Creates a member (User role) of the administrator's workspace directly through Identity.</summary>
     public async Task<ApplicationUser> CreateMemberAsync(string email, string password)
