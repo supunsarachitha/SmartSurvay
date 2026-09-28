@@ -1,4 +1,4 @@
-﻿@page "/Account/Manage/DeletePersonalData"
+@page "/Account/Manage/DeletePersonalData"
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
@@ -10,33 +10,27 @@
 @inject IdentityRedirectManager RedirectManager
 @inject ILogger<DeletePersonalData> Logger
 
-<PageTitle>Delete Personal Data</PageTitle>
+<PageTitle>Delete account</PageTitle>
 
 <StatusMessage Message="@message" />
 
-<h3>Delete Personal Data</h3>
-
-<div class="alert alert-warning" role="alert">
-    <p>
-        <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
-    </p>
-</div>
-
-<div>
-    <EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post">
+<SettingsCard Icon="bi-trash" Title="Delete your account" Description="Your account and its personal data are removed permanently. This cannot be undone." Danger="true">
+    <EditForm Model="Input" FormName="delete-user" OnValidSubmit="OnValidSubmitAsync" method="post" class="settings-form">
         <DataAnnotationsValidator />
-        <ValidationSummary class="text-danger" role="alert" />
         @if (requirePassword)
         {
-            <div class="form-floating mb-3">
-                <InputText type="password" @bind-Value="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" placeholder="Please enter your password." />
-                <label for="password" class="form-label">Password</label>
-                <ValidationMessage For="() => Input.Password" class="text-danger" />
+            <div class="mb-4">
+                <label class="form-label" for="delete-password">Confirm with your password</label>
+                <InputText id="delete-password" type="password" @bind-Value="Input.Password" class="form-control" autocomplete="current-password" aria-required="true" />
+                <ValidationMessage For="() => Input.Password" class="text-danger small" />
             </div>
         }
-        <button class="w-100 btn btn-lg btn-danger" type="submit">Delete data and close my account</button>
+        <div class="d-flex flex-wrap gap-2">
+            <button class="btn btn-danger" type="submit"><i class="bi bi-trash"></i>Delete data and close my account</button>
+            <a class="btn btn-light" href="Account/Manage/PersonalData">Cancel</a>
+        </div>
     </EditForm>
-</div>
+</SettingsCard>
 
 @code {
     private string? message;
@@ -47,7 +41,7 @@
     private HttpContext HttpContext { get; set; } = default!;
 
     [SupplyParameterFromForm]
-    private InputModel Input { get; set; } = new();
+    private InputModel Input { get; set; } = default!;
 
     protected override async Task OnInitializedAsync()
     {

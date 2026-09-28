@@ -1,6 +1,6 @@
 # SmartSurvey — Technical & User Documentation
 
-> Version 1.0 · ASP.NET Core 8 · Blazor (Interactive Server) · EF Core 8 · PostgreSQL 16
+> Version 2.1 · ASP.NET Core 10 · Blazor (Interactive Server) · EF Core 10 · PostgreSQL 16
 >
 > This is the single reference document for SmartSurvey: what it does, how it is built, how to run,
 > configure, extend, test and deploy it. The development history lives in
@@ -69,21 +69,22 @@ both behave identically.
 | Responses | Filterable, paged response browser; response detail; deletion; raw export (CSV/XLSX/JSON) |
 | Reports | Saved report definitions per survey; global filters (date range, drafts, answer-based filters with All/Any); 10 widget types (KPIs, question tables, bar/horizontal bar/pie/doughnut charts, responses-over-time line chart, cross-tabulation, text responses, raw grid); numeric statistics incl. NPS; auto-generated default report; live preview builder |
 | Exports | PDF (QuestPDF, charts embedded as SVG), CSV (RFC 4180, Excel-friendly, CSV-injection safe), TXT (ASCII tables + text bar charts), XLSX (ClosedXML, one sheet per widget), JSON |
-| Workspaces | Isolated tenants with their own admins and members; self-service sign-up (optional approval); join link; public workspace page `/w/{slug}` with its public surveys; workspace settings (name, description, contact, join link, public page) |
+| Workspaces | Isolated tenants with their own admins and members; self-service sign-up (optional approval); join link; public workspace page `/w/{slug}` with its public surveys; workspace settings (name, description, contact, join link, public page); starter templates for new workspaces |
+| Accounts | Account settings for everyone: profile (display name, phone) with an account overview, e-mail change with confirmation link, password change, two-factor sign-in with an authenticator app (QR code, recovery codes), personal data download and account deletion |
 | Administration | Per workspace: dashboard (KPIs, 30-day trend, top surveys, recent responses), member management (create, roles, set password, lock/unlock, delete with self- and last-admin protection), audit log, settings |
 | System console | Super admins: overview across workspaces (figures only), workspaces (create with first admin, rename/re-address, approve, disable with a reason, enable, delete), accounts of every workspace and super admins, branding (product name, tagline, icon or logo/favicon), system settings (sign-up, approval, support e-mail), system audit log |
-| Platform | ASP.NET Core Identity (cookie + bearer tokens, lockout, 2FA pages), account e-mails over SMTP, role policies (SuperAdmin, workspace Admin, User), ProblemDetails errors, rate limiting, security headers, **encryption at rest** of respondents' written answers, password-protected surveys, bot/spam protection, health checks, Swagger/OpenAPI, dark mode, responsive UI, Docker, CI |
+| Platform | ASP.NET Core Identity (cookie + bearer tokens, lockout, two-factor sign-in), account e-mails over SMTP, role policies (SuperAdmin, workspace Admin, User), ProblemDetails errors, rate limiting, security headers, **encryption at rest** of respondents' written answers, password-protected surveys, bot/spam protection, health checks, Swagger/OpenAPI, dark mode, responsive UI, Docker, CI |
 | Extras | FAQ page, Buy Me a Coffee support page with QR code |
 
 ## 3. Technology stack
 
 | Concern | Technology |
 |---|---|
-| Runtime | .NET 8 (LTS) / ASP.NET Core 8 — `net8.0`, SDK pinned in `global.json` |
+| Runtime | .NET 10 (LTS, supported until November 2028) / ASP.NET Core 10 — `net10.0`, C# 14, SDK pinned in `global.json` |
 | UI | Blazor Web App: static SSR by default, **Interactive Server** for rich pages |
 | Styling | Bootstrap 5.3.8, Bootstrap Icons 1.13.1, Inter variable font — all self-hosted in `wwwroot/lib` |
-| ORM | Entity Framework Core 8.0.31 |
-| Database | PostgreSQL 16 via Npgsql 8.0.11 (primary); SQLite (demos & tests) |
+| ORM | Entity Framework Core 10.0.12 |
+| Database | PostgreSQL 16 via Npgsql 10.0.3 (primary); SQLite (demos & tests) |
 | Identity | ASP.NET Core Identity with GUID keys; cookie auth (UI) + Identity bearer tokens (API) |
 | Validation | FluentValidation 12 |
 | PDF | QuestPDF 2026.9 (Community license) |
@@ -94,17 +95,16 @@ both behave identically.
 | Tests | xUnit 2.9, bUnit 2.11, `WebApplicationFactory` (DI scope validation on), SQLite in-memory |
 | DevOps | Dockerfile, docker-compose, GitHub Actions |
 
-> ⚠️ **.NET 8 support ends on 10 November 2026.** The target framework is defined once in
-> `Directory.Build.props` (and the SDK in `global.json`), so moving to .NET 10 LTS is a small change:
-> update both, bump the `8.0.*` Microsoft packages in `Directory.Packages.props` to `10.0.*`, rebuild and
-> run the tests.
+> The target framework is defined once in `Directory.Build.props` and the SDK in `global.json`; Microsoft/EF Core
+> packages are versioned centrally in `Directory.Packages.props` (all `10.0.*`). Moving to the next LTS means updating
+> those three files and the Docker base images, then running the tests, `scripts/smoke.sh` and the browser check.
 
 ## 4. Getting started
 
 ### 4.1 Prerequisites
 
-* .NET 8 SDK (8.0.4xx) — <https://dotnet.microsoft.com/download>, `winget install Microsoft.DotNet.SDK.8` (Windows),
-  `brew install --cask dotnet-sdk@8` (macOS) or your Linux distribution's `dotnet-sdk-8.0` package
+* .NET 10 SDK (10.0.3xx) — <https://dotnet.microsoft.com/download>, `winget install Microsoft.DotNet.SDK.10` (Windows),
+  `brew install --cask dotnet-sdk` (macOS) or your Linux distribution's `dotnet-sdk-10.0` package
 * PostgreSQL 16 — native install **or** Docker (easiest: `docker compose up -d db`)
 * (optional) Docker Desktop / Docker Engine for the container stack
 
@@ -124,7 +124,7 @@ CREATE DATABASE smartsurvey OWNER smartsurvey;
 ### 4.3 Run
 
 ```bash
-dotnet tool restore                      # installs the local dotnet-ef 8.0.31 tool
+dotnet tool restore                      # installs the local dotnet-ef 10.0.12 tool
 dotnet run --project src/SmartSurvey.Web # https://localhost:7047 · http://localhost:5057
 ```
 
@@ -276,8 +276,13 @@ Nothing is shared between workspaces. The code and the UI both call it *workspac
    (sign-in, unique e-mail checks). `Workspaces` is not filtered. Services additionally check roles (workspace admin vs.
    super admin).
 
-The workspace status, name and slug are cached for 30 seconds (`WorkspaceStatusCache`) and dropped immediately when
-this process changes them; with several app instances another instance picks a change up within that time.
+The workspace status, name and slug are cached per app instance (`WorkspaceStatusCache`, `Workspaces:StatusCacheSeconds`,
+default 30) and dropped immediately when this instance changes them; with several app instances the others pick a change
+up within that time — lower it (or `0` = no cache) when disabling must take effect everywhere at once.
+
+**Starter templates:** unless switched off in System → Settings (`PlatformSettings.ProvideStarterTemplates`), every new
+workspace — self-service or created by a super admin — starts with three draft templates (customer satisfaction with
+display logic, a members-only team pulse check, event feedback), so "create from template" works on day one.
 
 ## 6. Project structure
 
@@ -444,7 +449,8 @@ completed-response quota (`MaxResponses`) is not reached.
 ### 9.4 Templates, duplication, import/export
 
 * *Duplicate* deep-copies the design with new ids (all logic references remapped); responses are not copied.
-* *Templates* appear in the "start from template" gallery.
+* *Templates* appear in the "start from template" gallery. New workspaces start with three templates (customer
+  satisfaction, team pulse check, event feedback) unless *System → Settings* turns this off.
 * *Export* produces a portable `SurveyExportDocument` (JSON, `schemaVersion: 1`); *Import* creates a new
   draft with fresh ids.
 
@@ -607,8 +613,10 @@ System endpoints; a test checks that every request in the walkthrough is a real 
 ## 15. User interface guide
 
 The app includes a **user guide** for non-technical users at `/guide` (linked in the top menu, the footer, the FAQ and
-the admin sidebar): plain-language, step-by-step chapters with screenshots for respondents and administrators. The
-screenshots live in `wwwroot/img/guide` (WebP) and are also used by the README.
+the admin sidebar): plain-language, step-by-step chapters with screenshots for respondents, workspace admins and super
+admins. The screenshots live in `wwwroot/img/guide` (WebP, 1280×800; the phone image 780×1688) and are also used by the
+README. `scripts/browser/screenshots.js` recaptures all of them from a fresh demo instance, so they can be refreshed
+after UI changes.
 
 ### 15.1 Respondents
 
@@ -662,20 +670,41 @@ its admin — or on a "waiting for approval" page when approval is required.
    workspace's last admin are protected).
 4. **Branding** (`/system/branding`) — product name, tagline, icon or logo (also the favicon), with a live preview;
    applies to the whole site. **Settings** (`/system/settings`) — workspace sign-up on/off, approval of new workspaces,
-   support e-mail. **Audit log** (`/system/audit`) — super admin actions and sign-ups.
+   starter templates for new workspaces on/off, support e-mail. **Audit log** (`/system/audit`) — super admin actions and sign-ups.
 
-### 15.4 Design system
+### 15.4 Account settings (everyone)
+
+The menu with your name (top right) → **Account settings** (`/Account/Manage`). A card with your name, e-mail, role and
+workspace sits above the settings menu (a wrapping row on phones):
+
+1. **Profile** — the display name shown in the top bar, in account lists and next to your responses (empty = your
+   e-mail address), an optional phone number, and an account overview: e-mail status, role, workspace, password,
+   two-factor sign-in, member since, last sign-in.
+2. **E-mail** (`/Account/Manage/Email`) — the current address and whether it is verified (resend the verification
+   link); a change sends a confirmation link to the new address.
+3. **Password** (`/Account/Manage/ChangePassword`) — needs the current password; accounts without a password (external
+   logins) set one instead.
+4. **Two-factor sign-in** (`/Account/Manage/TwoFactorAuthentication`) — set up an authenticator app (QR code
+   generated on the server, the account named after the product, manual key as a fallback, then a 6-digit code),
+   ten recovery codes shown once, generate new codes, forget this browser, disable 2FA, reset the authenticator key.
+5. **Personal data** (`/Account/Manage/PersonalData`) — download a JSON file of your personal data, or delete your
+   account (with your password).
+
+### 15.5 Design system
 
 The UI uses a custom design layer on top of Bootstrap 5.3 (`wwwroot/app.css`): indigo primary colour,
 slate neutrals, Inter typography, soft shadows, light **and dark themes** (toggle in the top bar,
 remembered per browser). Reusable components live in `Components/Shared` (`PageHeader`, `StatusBadge`,
 `EmptyState`, `LoadingSpinner`, `StatCard`, `Modal`, `ConfirmDialog`, `Pager`, `LocalDateTime`,
-`ChartView`, toasts).
+`ChartView`, toasts); the account pages use `SettingsCard` (icon, title, description, optional status badge) and
+`ManageLayout` in `Components/Account/Shared`.
 
 ## 16. Security
 
 * **Authentication:** ASP.NET Core Identity, PBKDF2 password hashing, account lockout (5 attempts / 15 min),
-  optional e-mail confirmation (`Identity:RequireConfirmedAccount`), 2FA pages included.
+  optional e-mail confirmation (`Identity:RequireConfirmedAccount`), two-factor sign-in with an authenticator app
+  (*Account settings → Two-factor sign-in*: a QR code generated on the server, the account named after the product,
+  ten recovery codes). Logging out goes back to the page only when anyone can open it, otherwise to the home page.
 * **Authorization:** roles `SuperAdmin`, `Admin` and `User`; policies `Admin` (Admin role **and** a workspace claim) and
   `SuperAdmin` for pages, `ApiAdmin`/`ApiSuperAdmin`/`ApiUser` for the API. Services re-check roles (defense in depth)
   and response ownership.
@@ -700,7 +729,10 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
   injection.
 * **Clickjacking:** every page sends `X-Frame-Options: SAMEORIGIN` and `Content-Security-Policy:
   frame-ancestors 'self'`, except the embeddable `/embed/*` survey pages (any site by default, or only
-  `Embedding:AllowedOrigins`; `Embedding:Enabled=false` turns embedding off).
+  `Embedding:AllowedOrigins`; `Embedding:Enabled=false` turns embedding off). `SecurityHeadersMiddleware` is the only
+  source of these headers (Blazor's own `frame-ancestors` header is switched off, since a second CSP header would block
+  embedding); while embedding is enabled, WebSocket compression of interactive circuits is off, as recommended for
+  pages other sites can frame.
 * **Account e-mails:** reset and confirmation links are only sent by e-mail; without SMTP they are never logged outside
   Development, and the "confirm here" shortcut after registering only appears in Development. Delivery errors are logged,
   never shown, so the forms don't reveal whether an address has an account. Administrators can set a new password,
@@ -710,8 +742,9 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
   for PostgreSQL, and TLS for database connections across networks (`SSL Mode=Require` in the connection string).
 * **Data protection:** keys can be persisted (`DataProtection:KeysPath`) so cookies/tokens survive restarts.
 * **Transport:** HTTPS redirection and HSTS outside Development; forwarded headers support behind proxies.
-* **Host names:** e-mail links are built from the request's host; set `AllowedHosts` (Docker: `ALLOWED_HOSTS`) to the
-  site's host name(s) in production so a forged `Host` header cannot put a foreign address into confirmation e-mails.
+* **Host names:** set `App:PublicBaseUrl` (Docker: `PUBLIC_BASE_URL`) so every e-mail and share link carries the site's
+  public address whatever `Host` header a request used, and `AllowedHosts` (Docker: `ALLOWED_HOSTS`) to the site's host
+  name(s) so the app ignores requests for other hosts.
 * **Secrets:** no production credentials in configuration — set `Seed:AdminPassword`, `Seed:SuperAdminPassword` and
   connection strings via environment variables or a secret store.
 
@@ -755,6 +788,8 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 | `DataProtection:KeysPath` | *(empty)* | Directory for persisted data-protection keys |
 | `ReverseProxy:Enabled` | `false` | Honour `X-Forwarded-For/Proto` |
 | `Https:Redirect` | `true` | Enable HTTPS redirection |
+| `App:PublicBaseUrl` | *(empty = the request's address)* | Public address (`https://surveys.example.com`) used in account e-mails, survey share links, QR codes, embed snippets and join links; an invalid value stops the app at start-up |
+| `Workspaces:StatusCacheSeconds` | `30` | How long each instance caches a workspace's status (0–3600, `0` = no cache) |
 | `RateLimits:AuthPerMinute` | `20` | Sign-in, sign-up and join requests per IP and minute (Identity API, workspace sign-up/join API and pages) |
 | `AllowedHosts` | `*` | Host names the app answers to (set in production, see §16) |
 | `SMARTSURVEY_MIGRATIONS_CONNECTION` (env) | local PostgreSQL | Connection used by `dotnet ef` |
@@ -768,6 +803,8 @@ bash scripts/smoke.sh --user admin / /admin /admin/surveys   # boot the app and 
 bash scripts/smoke.sh --user superadmin /system /system/workspaces  # users: admin, user, acme, superadmin, anon
 scripts/container-smoke.sh http://localhost:8080             # smoke-test a running container stack
 cd scripts/browser && npm install && npm run check           # headless-browser workspace flows (see the script)
+cd scripts/browser && npm run buttons                        # GUI check of the buttons: key flows + every button of every page (fresh instance!)
+cd scripts/browser && npm run screenshots                    # recapture every guide/README screenshot (fresh instance!)
 ```
 
 * **Unit tests** cover the logic evaluator, condition matcher, answer validator, slug generator, EF model
@@ -782,11 +819,22 @@ cd scripts/browser && npm install && npm run check           # headless-browser 
   super admin and sign-up services, and every API group over HTTP (`WorkspaceApiTests`: isolation, disable/enable,
   approval, role boundaries) plus the pages (`WorkspacePageTests`, incl. a sign-up through the real form).
 * **Smoke test** (`scripts/smoke.sh`) starts the compiled app with demo data, logs in through the real
-  Identity form and checks that pages render on the server without errors. `scripts/container-smoke.sh` accepts
-  `''` as admin / super admin password to skip those checks on a stack whose passwords were changed.
+  Identity form and checks that pages render on the server without errors. `scripts/container-smoke.sh` also checks
+  that every script the pages load (Blazor's `_framework/blazor.web.js` in particular) is served as JavaScript, and
+  accepts `''` as admin / super admin password to skip the sign-in checks on a stack whose passwords were changed.
 * **Browser check** (`scripts/browser/workspaces.check.js`, puppeteer-core + Chrome) drives the interactive Blazor
   circuits through sign-up, settings, disabling/enabling, the System console and the survey runner against a fresh
   instance, and fails on console errors, failed requests or 5xx responses.
+* **GUI button check** (`scripts/browser/buttons.check.js`) checks what the key buttons do — Preview from the survey
+  list, the builder (also with unsaved changes, which are saved first) and the share page, the preview's width toggle
+  and runner buttons, builder editing, exports, copy/QR/print, report live preview, dialogs, branding preview, account
+  settings (profile, password, two-factor sign-in with a computed authenticator code) — and then
+  clicks every visible button and button-styled link on every page for guests, members, admins and super admins
+  (dialogs are cancelled; log out and account deletion are never clicked). Clicks that raise errors fail the run; clicks
+  without a visible effect are listed for review. It changes data, so run it against a fresh demo instance only —
+  preferably a throwaway container of the real image (the script's header has the commands), because Development
+  builds serve Blazor's scripts differently from the published app, and because SQLite completes "async" queries
+  synchronously: a page that renders before its data is loaded only fails on PostgreSQL.
 
 ## 19. Deployment
 
@@ -801,7 +849,8 @@ key encryption (`ProtectKeysWithCertificate`) for stricter environments.
 
 - [ ] Strong `Seed:SuperAdminPassword` and `Seed:AdminPassword` (or create the accounts once and set `Seed:CreateSuperAdmin` / `Seed:CreateAdmin` to `false`); change them after the first sign-in
 - [ ] Decide on self-service sign-up (System → Settings: on, off, or with approval) and set a support e-mail
-- [ ] `AllowedHosts` (Docker: `ALLOWED_HOSTS`) set to the site's host name(s)
+- [ ] `App:PublicBaseUrl` (Docker: `PUBLIC_BASE_URL`) and `AllowedHosts` (Docker: `ALLOWED_HOSTS`) set to the site's address
+- [ ] Several app instances: consider a lower `Workspaces:StatusCacheSeconds` so disabling a workspace takes effect everywhere quickly
 - [ ] `Seed:DemoData=false`
 - [ ] Connection string from a secret store
 - [ ] `DataProtection:KeysPath` on persistent storage (or a shared key ring when scaling out) — it holds the keys that
@@ -812,7 +861,7 @@ key encryption (`ProtectKeysWithCertificate`) for stricter environments.
 - [ ] `Email:Smtp:*` for account e-mails (confirmation, password reset) — or reset passwords from the Users page
 - [ ] `Embedding:AllowedOrigins` (or `Embedding:Enabled=false`) if surveys should only be embedded by your own sites
 
-**CI:** `.github/workflows/ci.yml` builds and tests on every push/PR and fails on known vulnerable packages;
+**CI:** `.github/workflows/ci.yml` builds and tests on pushes to `main` and on pull requests and fails on known vulnerable packages;
 checks that the model has no changes without a migration and applies the migrations to a PostgreSQL service
 container; builds the Docker image, starts it with docker compose and runs `scripts/container-smoke.sh`.
 
@@ -842,6 +891,9 @@ container; builds the Docker image, starts it with docker compose and runs `scri
 | `403` "Registration happens per workspace" from `/api/auth/register` | Use `POST /api/v1/public/workspaces` (new workspace) or `/api/v1/public/workspaces/{slug}/register` (join) |
 | Logged out after every restart (Docker) | Configure `DataProtection:KeysPath` on a volume (compose does this) |
 | Answers show "[encrypted answer — the key to read it is not available]" | The data-protection key ring is missing or from another installation (e.g. a database restored without its `keys` volume). Restore the matching key backup into `DataProtection:KeysPath` and restart |
+| First start on an empty PostgreSQL database logs `fail: … Failed executing DbCommand … FROM "__EFMigrationsHistory"` | Expected (EF Core 9+): it looks for the history table once before creating it; the migrations are applied right after |
+| `Error: libgssapi_krb5.so.2: cannot open shared object file` in the log | The connection string asks for GSS (Kerberos) encryption on a system without libgssapi — remove `GSS Encryption Mode` (SmartSurvey disables it unless set) or install `libgssapi-krb5-2` |
+| Buttons do nothing; the browser console shows `404` for `_framework/blazor.web.js` | The build restored packages without seeing the `.razor` files (e.g. a custom Dockerfile), so .NET 10 left out Blazor's scripts. Keep `<RequiresAspNetWebAssets>true</RequiresAspNetWebAssets>` in `SmartSurvey.Web.csproj` and rebuild |
 | PDF export fails in a custom Linux image | Install `libfontconfig1` and a font package (see Dockerfile) |
 | Docker Desktop "Linux engine" errors on Windows | Enable WSL 2 (`wsl --install`, reboot) or use native PostgreSQL |
 | `409 Conflict` when saving a survey | Someone else saved it — reload the builder and re-apply your changes |

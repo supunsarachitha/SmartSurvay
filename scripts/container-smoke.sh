@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # ---------------------------------------------------------------------------------------------
-# Smoke test for a running SmartSurvey container stack (docker compose up): health, public pages,
-# admin sign-in over the REST API and a PDF export (proves QuestPDF's native libraries and fonts
-# work inside the image). Requires curl and python3.
+# Smoke test for a running SmartSurvey container stack (docker compose up): health, public pages, the scripts
+# the pages load (without _framework/blazor.web.js no button works), admin sign-in over the REST API and a PDF
+# export (proves QuestPDF's native libraries and fonts work inside the image). Requires curl and python3.
 #
 # Usage:   scripts/container-smoke.sh [base-url] [admin-email] [admin-password] [super-admin-email] [super-admin-password]
 # Example: scripts/container-smoke.sh http://localhost:8080 admin@smartsurvey.local 'ChangeMe123!'
@@ -31,6 +31,15 @@ curl -fs "$BASE/health" | grep -q Healthy; check "health endpoint" $?
 for path in / /surveys /faq /s/customer-satisfaction-survey /Account/Login /signup /Account/Register /w/default; do
   code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE$path")
   [ "$code" = "200" ]; check "GET $path ($code)" $?
+done
+
+# Every script the home page loads, and Blazor's script in any case, must be served as JavaScript.
+scripts=$( { echo "_framework/blazor.web.js"; curl -fs "$BASE/" | grep -oE '<script[^>]* src="[^"]+"' | sed -E 's/.* src="([^"]+)".*/\1/'; } \
+  | grep -vE '^(https?:)?//' | sed 's#^/##' | sort -u)
+for src in $scripts; do
+  result=$(curl -s -o /dev/null -w '%{http_code} %{content_type}' "$BASE/$src")
+  case "$result" in "200 "*javascript*) ok=0 ;; *) ok=1 ;; esac
+  check "script /$src ($result)" $ok
 done
 
 curl -fs "$BASE/api/v1/public/settings" | grep -q allowWorkspaceSignup; check "public system settings" $?

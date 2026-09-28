@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using SmartSurvey.Application.Branding;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Domain.Identity;
+using SmartSurvey.Web.Infrastructure;
 
 namespace SmartSurvey.Web.Components.Account;
 
@@ -17,21 +18,23 @@ namespace SmartSurvey.Web.Components.Account;
 /// HTML as they are and decoded for the text part; every other value is encoded here.
 /// Registered as a singleton because <c>MapIdentityApi</c> resolves it from the root provider at start-up;
 /// the (scoped) branding service is therefore resolved in a short-lived scope per e-mail.
+/// Every link goes through <see cref="PublicUrls.Rewrite"/>: with <c>App:PublicBaseUrl</c> it carries the site's
+/// public address instead of the host the request happened to use.
 /// </remarks>
-internal sealed class IdentityEmailSender(IEmailTransport transport, IServiceScopeFactory scopes, ILogger<IdentityEmailSender> logger)
+internal sealed class IdentityEmailSender(IEmailTransport transport, IServiceScopeFactory scopes, PublicUrls publicUrls, ILogger<IdentityEmailSender> logger)
     : IEmailSender<ApplicationUser>
 {
     /// <inheritdoc />
     public Task SendConfirmationLinkAsync(ApplicationUser user, string email, string confirmationLink) =>
         SendAsync(user, email, "Confirm your e-mail address",
             "Please confirm your e-mail address to finish setting up your account.",
-            "Confirm e-mail address", confirmationLink, code: null);
+            "Confirm e-mail address", publicUrls.Rewrite(confirmationLink), code: null);
 
     /// <inheritdoc />
     public Task SendPasswordResetLinkAsync(ApplicationUser user, string email, string resetLink) =>
         SendAsync(user, email, "Reset your password",
             "We received a request to reset the password of your account. Choose a new password with the button below.",
-            "Choose a new password", resetLink, code: null);
+            "Choose a new password", publicUrls.Rewrite(resetLink), code: null);
 
     /// <inheritdoc />
     public Task SendPasswordResetCodeAsync(ApplicationUser user, string email, string resetCode) =>

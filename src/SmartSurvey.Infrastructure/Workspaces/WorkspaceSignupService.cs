@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using SmartSurvey.Application.Audit;
 using SmartSurvey.Application.Common;
 using SmartSurvey.Application.Workspaces;
@@ -19,7 +20,9 @@ public sealed class WorkspaceSignupService(
     IServiceScopeFactory scopeFactory,
     IPlatformSettingsService settings,
     IAuditService audit,
-    TimeProvider time) : IWorkspaceSignupService
+    StarterTemplates starterTemplates,
+    TimeProvider time,
+    ILogger<WorkspaceSignupService> logger) : IWorkspaceSignupService
 {
     /// <summary>Shown when sign-up is switched off.</summary>
     public const string SignupClosedMessage = "Creating new workspaces is currently switched off. Please contact the site administrator.";
@@ -73,6 +76,11 @@ public sealed class WorkspaceSignupService(
             await transaction.CommitAsync(ct);
         }
 
+        if (policy.ProvideStarterTemplates)
+        {
+            await AddStarterTemplatesAsync(starterTemplates, logger, workspace.Id, owner.Id, ct);
+        }
+
         var details = $"Workspace \"{workspace.Name}\" ({workspace.Slug}) created by sign-up of {email}"
             + (workspace.Status == WorkspaceStatus.PendingApproval ? "; waiting for approval." : ".");
         await audit.LogAsync(AuditActions.WorkspaceCreated, WorkspaceMapping.EntityType, workspace.Id.ToString(), details, ct);
@@ -113,6 +121,19 @@ public sealed class WorkspaceSignupService(
         await audit.LogInWorkspaceAsync(workspace.Id, AuditActions.MemberJoined, "User", member.Id.ToString(),
             $"{email} joined the workspace with its link.", ct);
         return new JoinWorkspaceResult(workspace.Id, member.Id);
+    }
+
+    /// <summary>Adds the starter templates; a failure is logged but never undoes the new workspace.</summary>
+    internal static async Task AddStarterTemplatesAsync(StarterTemplates templates, ILogger logger, Guid workspaceId, Guid? ownerId, CancellationToken ct)
+    {
+        try
+        {
+            await templates.AddToAsync(workspaceId, ownerId, ct);
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            logger.LogWarning(ex, "Could not add the starter templates to workspace {WorkspaceId}", workspaceId);
+        }
     }
 
     /// <summary>A new account; the e-mail address is confirmed by the caller's confirmation flow (when required).</summary>

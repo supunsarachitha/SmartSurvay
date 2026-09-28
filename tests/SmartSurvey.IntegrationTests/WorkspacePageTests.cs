@@ -132,6 +132,32 @@ public sealed partial class WorkspacePageTests(ApiFactory factory)
         Assert.Contains("AccessDenied", (await super.GetAsync("/admin")).Headers.Location!.OriginalString);
     }
 
+    [Theory]
+    [InlineData("admin/surveys", "/")]
+    [InlineData("system/workspaces", "/")]
+    [InlineData("my/responses", "/")]
+    [InlineData("Account/Manage", "/")]
+    [InlineData("Account/AccessDenied?ReturnUrl=%2Fadmin", "/")]
+    [InlineData("faq", "/faq")]
+    [InlineData("s/some-survey?embed=1", "/s/some-survey?embed=1")]
+    [InlineData("//evil.example/x", "/evil.example/x")]
+    public async Task Logging_out_returns_only_to_pages_anyone_can_open(string returnUrl, string expected)
+    {
+        // Returning to a sign-in-only page would send whoever signs in next to it (e.g. "Access denied").
+        var browser = await SignInWithCookieAsync(ApiFactory.AdminEmail, ApiFactory.AdminPassword);
+        var page = await browser.GetStringAsync("/faq"); // any page with the user menu and its logout form
+
+        var response = await browser.PostAsync("/Account/Logout", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["__RequestVerificationToken"] = AntiforgeryToken().Match(page).Groups[1].Value,
+            ["ReturnUrl"] = returnUrl,
+        }));
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(expected, response.Headers.Location!.OriginalString);
+        Assert.Contains("Account/Login", (await browser.GetAsync("/admin")).Headers.Location!.OriginalString); // signed out
+    }
+
     /// <summary>Signs in through the login form and returns a cookie-carrying client (no redirects followed).</summary>
     private async Task<HttpClient> SignInWithCookieAsync(string email, string password)
     {

@@ -1,27 +1,21 @@
-﻿@page "/Account/Manage/PersonalData"
+@page "/Account/Manage/PersonalData"
 
 @inject IdentityUserAccessor UserAccessor
 
-<PageTitle>Personal Data</PageTitle>
+<PageTitle>Personal data</PageTitle>
 
 <StatusMessage />
-<h3>Personal Data</h3>
 
-<div class="row">
-    <div class="col-md-6">
-        <p>Your account contains personal data that you have given us. This page allows you to download or delete that data.</p>
-        <p>
-            <strong>Deleting this data will permanently remove your account, and this cannot be recovered.</strong>
-        </p>
-        <form action="Account/Manage/DownloadPersonalData" method="post">
-            <AntiforgeryToken />
-            <button class="btn btn-primary" type="submit">Download</button>
-        </form>
-        <p>
-            <a href="Account/Manage/DeletePersonalData" class="btn btn-danger">Delete</a>
-        </p>
-    </div>
-</div>
+<SettingsCard Icon="bi-download" Title="Download your data" Description="A JSON file with the personal data stored in your account.">
+    <form action="Account/Manage/DownloadPersonalData" method="post">
+        <AntiforgeryToken />
+        <button class="btn btn-light" type="submit"><i class="bi bi-download"></i>Download</button>
+    </form>
+</SettingsCard>
+
+<SettingsCard Icon="bi-trash" Title="Delete account" Description="Permanently removes your account and its personal data. This cannot be undone." Danger="true">
+    <a href="Account/Manage/DeletePersonalData" class="btn btn-soft-danger"><i class="bi bi-trash"></i>Delete my account…</a>
+</SettingsCard>
 
 @code {
     [CascadingParameter]

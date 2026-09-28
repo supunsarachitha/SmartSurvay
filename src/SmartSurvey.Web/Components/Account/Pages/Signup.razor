@@ -104,9 +104,13 @@
     private string? errorMessage;
 
     [SupplyParameterFromForm]
-    private InputModel Input { get; set; } = new();
+    private InputModel Input { get; set; } = default!;
 
-    protected override async Task OnInitializedAsync() => settings = await PlatformSettings.GetAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        Input ??= new();
+        settings = await PlatformSettings.GetAsync();
+    }
 
     public async Task CreateWorkspace()
     {

@@ -122,7 +122,7 @@
     private string? errorMessage;
 
     [SupplyParameterFromForm]
-    private InputModel Input { get; set; } = new();
+    private InputModel Input { get; set; } = default!;
 
     /// <summary>Address of the workspace to join.</summary>
     [SupplyParameterFromQuery(Name = "workspace")]
@@ -133,6 +133,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        Input ??= new();
         if (!string.IsNullOrWhiteSpace(WorkspaceSlug))
         {
             workspace = await Workspaces.FindPublicAsync(WorkspaceSlug);

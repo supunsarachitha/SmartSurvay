@@ -1,0 +1,40 @@
+@* One section of the account settings: an icon, a title and a one-line description above the content. *@
+
+<section class="card settings-card mb-4 @(Danger ? "danger-zone" : null)" aria-labelledby="@headingId">
+    <div class="card-body p-4">
+        <div class="settings-card-head">
+            <span class="settings-icon @(Danger ? "danger" : null)" aria-hidden="true"><i class="bi @Icon"></i></span>
+            <div class="min-w-0 flex-grow-1">
+                <h2 id="@headingId">@Title</h2>
+                @if (!string.IsNullOrWhiteSpace(Description))
+                {
+                    <p class="text-muted small mb-0">@Description</p>
+                }
+            </div>
+            @Badge
+        </div>
+        @ChildContent
+    </div>
+</section>
+
+@code {
+    private readonly string headingId = $"settings-{Guid.NewGuid():N}";
+
+    /// <summary>Bootstrap icon class, e.g. <c>bi-person</c>.</summary>
+    [Parameter, EditorRequired] public string Icon { get; set; } = "bi-gear";
+
+    /// <summary>Section title.</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>One-line description under the title.</summary>
+    [Parameter] public string? Description { get; set; }
+
+    /// <summary>A status badge shown at the right of the heading (e.g. "On").</summary>
+    [Parameter] public RenderFragment? Badge { get; set; }
+
+    /// <summary>Red accents for destructive sections.</summary>
+    [Parameter] public bool Danger { get; set; }
+
+    /// <summary>The section content.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

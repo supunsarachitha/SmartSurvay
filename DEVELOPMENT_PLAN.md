@@ -5,9 +5,11 @@
 > [§ 9 Progress Log](#9-progress-log) and the phase checklists), then `git log --oneline`,
 > and continue with the first unchecked task. Update this file after every completed task/phase.
 
-> **✅ Multi-workspace v2.0.0 is complete (2026-09-28) on branch `feature/multi-workspace`** — all phases 9–14 done,
-> not yet pushed or merged. Next steps are the user's: review, push, open a PR to `main`, tag `v2.0.0` after merging.
-> Open follow-ups: § 7 Backlog (.NET 10 before 2026-11-10) and § 10.6. Phases 0–8 below are v1.0.0.
+> **✔ LATEST WORK (2026-09-28): v2 follow-ups → 2.1.0 on branch `feature/v2-follow-ups` — all phases done**
+> ([§ 11](#11-v2-follow-ups--branch-featurev2-follow-ups)), plus post-phase fixes (Blazor script in the container, account
+> switching after logout), the account settings redesign and a documentation refresh — see the last rows of § 11.3.
+> Pushing, PR and tag `v2.1.0` are the user's call. For new work, start a new section with the § 10.0 protocol.
+> Phases 0–8 = v1.0.0, § 10 = v2.0.0, § 11 = v2.1.0 (all done).
 
 ---
 
@@ -26,10 +28,10 @@ A full-stack, modular, well-commented **survey application**:
 
 | Concern | Choice | Notes |
 |---|---|---|
-| Runtime | **.NET 8 / ASP.NET Core 8** (`net8.0`) | Pinned via `global.json` (SDK 8.0.4xx). TFM centralised in `Directory.Build.props` → upgrading to .NET 10 LTS is a one-line change. ⚠ .NET 8 support ends **2026-11-10**. |
+| Runtime | **.NET 10 LTS / ASP.NET Core 10** (`net10.0`, C# 14) | Pinned via `global.json` (SDK 10.0.3xx). TFM centralised in `Directory.Build.props`. Upgraded from .NET 8 in § 11 Phase 17 (2026-09-28); .NET 10 is supported until November 2028. |
 | Frontend | **Blazor Web App, Interactive Server** render mode (per-page interactivity) | Static SSR for public/marketing pages + Identity pages; `@rendermode InteractiveServer` for builder, runner, reports, admin. |
-| ORM | **EF Core 8.0.31** | Code-first, migrations in Infrastructure. `IDbContextFactory` pattern (Blazor Server safe). |
-| Database | **PostgreSQL 16** (Npgsql EF 8.0.11) | Alternative provider **SQLite** (config switch) for demos/tests (uses `EnsureCreated`). |
+| ORM | **EF Core 10.0.12** | Code-first, migrations in Infrastructure. `IDbContextFactory` pattern (Blazor Server safe). |
+| Database | **PostgreSQL 16** (Npgsql EF 10.0.3) | Alternative provider **SQLite** (config switch) for demos/tests (uses `EnsureCreated`). |
 | Auth | **ASP.NET Core Identity** (Guid keys) — cookie for UI, **Identity bearer tokens** for REST API (`MapIdentityApi`) | Roles: `SuperAdmin` (no workspace), `Admin`, `User` (per workspace); claim `workspace_id`. |
 | API | **Minimal APIs** grouped under `/api/v1`, **Swagger** (Swashbuckle 10) | ProblemDetails error contract. |
 | Validation | **FluentValidation 12** | Request DTO validation inside services. |
@@ -298,8 +300,8 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] README, CHANGELOG release entry — `[1.0.0] - 2026-09-27`
 
 ### Backlog (after 1.0)
-- [ ] **Move to .NET 10 LTS before .NET 8 support ends on 2026-11-10**: `TargetFramework` in `Directory.Build.props`, SDK in `global.json`, `8.0.*` Microsoft/EF packages and Npgsql → `10.0.*` in `Directory.Packages.props`, Docker base images `8.0` → `10.0`; then run all tests, the smoke scripts and a PostgreSQL run
-- [ ] Optional: keep the headless-browser checks used during Phases 6–8 in the repository (Node + puppeteer-core; currently run ad hoc)
+- [x] **Move to .NET 10 LTS before .NET 8 support ends on 2026-11-10** — done in § 11 Phase 17 (branch `feature/v2-follow-ups`)
+- [x] Optional: keep the headless-browser checks in the repository — `scripts/browser` (workspace flows + screenshots)
 - [ ] Optional: bot protection (CAPTCHA / WAF) for very public surveys — interactive submissions are throttled per connection, the API per IP
 
 ## 8. Conventions (for humans and agents)
@@ -533,3 +535,52 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 - Optional: a canonical public base URL setting for e-mail links (today: request host + `AllowedHosts`).
 - Optional: starter survey templates for new workspaces (new workspaces start empty).
 - Multi-instance deployments: workspace status changes reach other instances within the 30 s cache TTL.
+
+---
+
+## 11. v2 follow-ups — branch `feature/v2-follow-ups`
+
+User request (2026-09-28): "fix those follow up pending things in a new branch" — the items of § 10.6 and the § 7
+backlog item (.NET 10 before .NET 8 support ends on 2026-11-10). Pushing, PRs, tags and the live stack's passwords stay
+with the user.
+
+### 11.1 Protocol
+
+As § 10.0 (resume from the last § 11.3 row, `[~]` markers, commit per task, phase gate = build 0 warnings → all tests →
+`docker compose up -d --build` → `scripts/container-smoke.sh http://localhost:8080 admin@smartsurvey.local '' superadmin@smartsurvey.local 'ChangeMe123!'`
+→ commit). Screenshots and browser checks always run against a fresh local SQLite instance, never the live database.
+
+### 11.2 Phases & tasks
+
+#### Phase 15 — Settings, starter templates, housekeeping
+- [x] 15.1 Housekeeping: drop the scratch database `smartsurvey_upgrade_test`; move the pre-upgrade backup out of the session scratchpad to `../backups/` (outside the repository)
+- [x] 15.2 `App:PublicBaseUrl` (Docker `PUBLIC_BASE_URL`): e-mail links (confirmation, reset, change e-mail — every flow, via the e-mail sender) and the join link use it when set
+- [x] 15.3 `Workspaces:StatusCacheSeconds` (default 30) — how quickly other app instances notice a disabled workspace
+- [x] 15.4 Starter templates for new workspaces (sign-up and super admin create): system setting "Give new workspaces starter templates" (migration), templates built from the demo designs with unique links; tests
+- [x] 15.5 Docs + Phase gate
+
+#### Phase 16 — Guide screenshots
+- [x] 16.1 `scripts/browser/screenshots.js`: reproducible capture of every guide image from a fresh demo instance
+- [x] 16.2 Recapture, review every image, replace; README gallery
+- [x] 16.3 Phase gate
+
+#### Phase 17 — .NET 10 LTS
+- [x] 17.1 SDK 10.0.300 (installed) in `global.json`, `net10.0`, Microsoft/EF/Npgsql 10.x, other packages checked for .NET 10, `dotnet-ef` 10
+- [x] 17.2 Fix breaking changes and new warnings; migrations/model snapshot consistent (`has-pending-model-changes`)
+- [x] 17.3 Docker images `10.0`, CI `setup-dotnet` 10, docs/README/plan (tech stack, prerequisites)
+- [x] 17.4 Verification: all tests, `smoke.sh` (all roles), browser check, PostgreSQL via the live compose stack, container smoke
+- [x] 17.5 Phase gate + CHANGELOG (2.1.0)
+
+### 11.3 Log
+
+| Date | Phase / task | Notes |
+|---|---|---|
+| 2026-09-28 | Plan | Branch `feature/v2-follow-ups` from `main` (`f6fdc38`, PR #2 merged). .NET SDK 10.0.300 is already installed. Next: 15.1 |
+| 2026-09-28 | **Phase 15 done** | 15.1: scratch DB `smartsurvey_upgrade_test` dropped; pre-upgrade dump copied (byte-identical, `pg_restore --list` OK) to `../backups/` with a README. 15.2: `App:PublicBaseUrl` → `PublicUrls` (origin rewrite; e-mail sender rewrites every link, share/embed/join/slug preview use it; invalid value fails start-up; tests incl. HTML-encoded links and path base). 15.3: `Workspaces:StatusCacheSeconds` (0–3600, 0 = no cache). 15.4: `StarterTemplates` (Customer satisfaction, Team pulse check, Event feedback from the demo designs, `-template-xxxxxx` slugs) on sign-up and super admin create, `PlatformSettings.ProvideStarterTemplates` + migration `AddStarterTemplatesSetting` (default true for existing rows), System → Settings toggle. 858 unit + 76 integration green; containers rebuilt (migration applied live), smoke OK, live check: new workspace gets 3 templates (cleaned up). Next: 16.1 |
+| 2026-09-28 | **Phase 16 done** | `scripts/browser/screenshots.js` (`npm run screenshots`): all 19 guide/README images from a fresh demo instance (API prep: pending workspace; workspace settings; public address `https://surveys.example.com` via `App:PublicBaseUrl`; waits for circuits; phone 390×844@2×). Every image reviewed; display-logic caption fixed to match its picture (the old one showed a different rule). 858 unit + 76 integration green; containers rebuilt, smoke OK. Next: 17.1 (.NET 10) |
+| 2026-09-28 | **Phase 17 done → 2.1.0** | SDK 10.0.300, `net10.0`, C# 14, packages 10.0.12 / Npgsql 10.0.3, `dotnet-ef` 10, images `10.0`; BL0008 (15 account pages: `= default!` + `Input ??= new()`) and ASPDEPR005 (`KnownIPNetworks`) fixed, build 0 warnings; `has-pending-model-changes` clean. .NET 10 adds a Blazor CSP `frame-ancestors` header → switched off (our middleware is the single source), WebSocket compression off while embedding is enabled; verified in a cross-origin iframe (circuit interactive). Npgsql 9+ GSS encryption logged `libgssapi_krb5.so.2` in the container → `PostgresConnectionString.WithDefaults` disables it unless configured. Verification: 862 unit + 76 integration green, `smoke.sh` all roles, browser check 17/17 without browser errors, fresh PostgreSQL (all migrations + full container smoke incl. PDF export on the Ubuntu 24.04 image), live stack rebuilt (no pending migrations, smoke OK), no vulnerable packages. CHANGELOG 2.1.0, `<Version>` 2.1.0. **Follow-ups complete** |
+| 2026-09-28 | Post-phase fix | The container served no `_framework/blazor.web.js` (404 → no button worked, e.g. Preview): .NET 10 adds Blazor's script package only when restore sees `.razor` files, and the Dockerfile restores with the project files alone → `RequiresAspNetWebAssets=true` in `SmartSurvey.Web.csproj`. Missed because container checks were HTTP-only and browser checks ran on Development builds → `container-smoke.sh` checks every script the pages load; new `scripts/browser/buttons.check.js` (key buttons + crawl of every button per role) runs against a throwaway container of the real image |
+| 2026-09-28 | Post-phase fix | Switching accounts: logging out returned to the page (e.g. `/admin/surveys`) → sign-in page with that `ReturnUrl` → the next account landed on "Access denied". `PostLogoutPath`: back only to pages anyone can open, otherwise home (8 integration cases). GUI check: clicks close open menus first, skip covered elements, refuse to run unless the demo admin password works; 105/105 on the fixed image |
+| 2026-09-28 | Account settings | User request "improve the profile page gui": `ManageLayout` (account card + settings menu, section highlighted on sub-pages, wraps on phones), `SettingsCard`, profile with display name (claim refreshed → top bar) and account overview, all 12 account pages restyled (labels linked to fields, hints, clear messages), navbar labels no longer wrap. Found and fixed on the way: empty optional phone rejected by `[Phone]`; authenticator setup without QR code and with issuer "Microsoft.AspNetCore.Identity.UI" (QRCoder SVG, issuer = product name). GUI check: account scenarios (profile, password, full 2FA with a computed TOTP code) |
+| 2026-09-28 | Docs refresh | User request "make sure all documents and guides are up to date": README (accounts & security, starter templates, browser checks), DOCUMENTATION (feature list, § 9.4 starter templates, § 15.4 account settings, design system, testing incl. the SQLite pitfall, dotnet-ef 10.0.12), in-app Guide (account settings screenshot `account-settings.webp` via `screenshots.js`, Log out step, labels "Log in"/"Forgot password?"), FAQ ("Your account" group, who can see answers in v2 terms, starter templates), CHANGELOG, CLAUDE.md (GUI check on a container for UI changes). Found on the container run: the profile page rendered before its data loaded (NullReferenceException on PostgreSQL only) → sections render once the account is loaded |
+| 2026-09-28 | CI fix | "Apply migrations to PostgreSQL" failed with NETSDK1004 (no `project.assets.json`): the job ran `dotnet ef` right after `dotnet tool restore`, and dotnet-ef 10 reads the project metadata through MSBuild, which needs the restored assets. The job now builds the web project first and runs both ef commands with `--no-build`. All three jobs reproduced in a fresh clone: migrations (no model changes, 6 migrations applied), build & test (Release, 954 tests, no vulnerable packages), Docker (19/19 container smoke incl. PDF and Blazor script) |

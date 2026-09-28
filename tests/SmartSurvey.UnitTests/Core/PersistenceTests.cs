@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using SmartSurvey.Domain.Entities;
 using SmartSurvey.Domain.Enums;
 using SmartSurvey.Domain.ValueObjects;
+using SmartSurvey.Infrastructure.Persistence;
 using SmartSurvey.UnitTests.TestSupport;
 
 namespace SmartSurvey.UnitTests.Core;
@@ -140,5 +141,15 @@ public class PersistenceTests
         await using var ctx = db.CreateContext();
         var raw = await ctx.Database.SqlQueryRaw<string>("SELECT \"Status\" AS \"Value\" FROM \"Surveys\"").SingleAsync();
         Assert.Equal("Published", raw);
+    }
+
+    [Theory]
+    [InlineData("Host=db;Database=s;Username=u;Password=p", "Host=db;Database=s;Username=u;Password=p;GSS Encryption Mode=Disable")]
+    [InlineData("Host=db;Password='a;b';", "Host=db;Password='a;b';GSS Encryption Mode=Disable")]
+    [InlineData("Host=db;GSS Encryption Mode=Require", "Host=db;GSS Encryption Mode=Require")]
+    [InlineData("Host=db;gssencryptionmode=Prefer", "Host=db;gssencryptionmode=Prefer")]
+    public void Postgres_connection_string_disables_implicit_gss_encryption(string configured, string expected)
+    {
+        Assert.Equal(expected, PostgresConnectionString.WithDefaults(configured));
     }
 }

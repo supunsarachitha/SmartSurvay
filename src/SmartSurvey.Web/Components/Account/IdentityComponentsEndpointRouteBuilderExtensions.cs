@@ -14,6 +14,20 @@ namespace Microsoft.AspNetCore.Routing;
 
 internal static class IdentityComponentsEndpointRouteBuilderExtensions
 {
+    // Pages that need an account (or a particular one). Returning there after logging out would only show the sign-in
+    // page with that page as the return address, and whoever signs in next would be sent there (e.g. "Access denied").
+    private static readonly string[] SignInAreas = ["admin", "system", "my", "Account"];
+
+    /// <summary>
+    /// Where logging out leads: back to the page when anyone can open it, otherwise to the home page.
+    /// </summary>
+    internal static string PostLogoutPath(string? returnUrl)
+    {
+        var path = (returnUrl ?? string.Empty).TrimStart('/', '\\');
+        var area = path.Split('/', '?', '#')[0];
+        return SignInAreas.Contains(area, StringComparer.OrdinalIgnoreCase) ? "~/" : $"~/{path}";
+    }
+
     // These endpoints are required by the Identity Razor components defined in the /Components/Account/Pages directory of this project.
     public static IEndpointConventionBuilder MapAdditionalIdentityEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -46,7 +60,7 @@ internal static class IdentityComponentsEndpointRouteBuilderExtensions
             [FromForm] string returnUrl) =>
         {
             await signInManager.SignOutAsync();
-            return TypedResults.LocalRedirect($"~/{returnUrl}");
+            return TypedResults.LocalRedirect(PostLogoutPath(returnUrl));
         });
 
         var manageGroup = accountGroup.MapGroup("/Manage").RequireAuthorization();

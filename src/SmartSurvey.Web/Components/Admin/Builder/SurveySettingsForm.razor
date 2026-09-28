@@ -1,3 +1,4 @@
+@inject PublicUrls PublicUrls
 @inject ISurveyService SurveyService
 @inject BrowserInterop Browser
 @* Survey-level settings of the builder: basics, link, access, schedule and messages. Dates are
@@ -21,7 +22,7 @@
         <div>
             <label class="form-label" for="s-slug">Link</label>
             <div class="input-group">
-                <span class="input-group-text small">@Navigation.BaseUri<wbr />s/</span>
+                <span class="input-group-text small">@PublicUrls.BaseUri(Navigation)<wbr />s/</span>
                 <input id="s-slug" class="form-control @Invalid("Slug") @(slugAvailable == false ? "is-invalid" : slugAvailable == true ? "is-valid" : "")"
                        maxlength="100" placeholder="generated-from-the-title" disabled="@ReadOnly"
                        @bind="Survey.Slug" @bind:after="SlugChangedAsync" />

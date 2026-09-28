@@ -1,5 +1,6 @@
 @inject BrowserInterop Browser
 @inject NavigationManager Navigation
+@inject PublicUrls PublicUrls
 @* The workspace's join link with a copy button (interactive admin pages). *@
 
 <div class="input-group">
@@ -23,7 +24,7 @@
     private bool copied;
 
     /// <summary>Absolute join link: the register page with the workspace preselected.</summary>
-    private string Link => Navigation.ToAbsoluteUri($"Account/Register?workspace={Uri.EscapeDataString(Slug)}").AbsoluteUri;
+    private string Link => PublicUrls.Absolute(Navigation, $"Account/Register?workspace={Uri.EscapeDataString(Slug)}");
 
     private async Task CopyAsync() => copied = await Browser.CopyTextAsync(Link);
 }

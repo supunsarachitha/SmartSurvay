@@ -5,13 +5,13 @@
 **Design smart surveys with conditional logic, collect responses anywhere, and turn them into beautiful, exportable reports.**
 
 [![CI](https://github.com/supunsarachitha/SmartSurvay/actions/workflows/ci.yml/badge.svg)](https://github.com/supunsarachitha/SmartSurvay/actions/workflows/ci.yml)
-![.NET 8](https://img.shields.io/badge/.NET-8.0-512BD4?logo=dotnet)
+![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)
 ![Blazor](https://img.shields.io/badge/Blazor-Interactive%20Server-5C2D91?logo=blazor)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 [![License: PolyForm Noncommercial](https://img.shields.io/badge/license-PolyForm%20Noncommercial%201.0.0-orange)](LICENSE.md)
 
-ASP.NET Core 8 · Blazor (Interactive Server) · EF Core 8 · PostgreSQL · QuestPDF
+ASP.NET Core 10 · Blazor (Interactive Server) · EF Core 10 · PostgreSQL · QuestPDF
 
 <img src="src/SmartSurvey.Web/wwwroot/img/guide/dashboard.webp" alt="SmartSurvey admin dashboard with key numbers, a 30-day chart, top surveys and the latest responses" width="900" />
 
@@ -23,7 +23,7 @@ ASP.NET Core 8 · Blazor (Interactive Server) · EF Core 8 · PostgreSQL · Ques
 
 - **Workspaces** — one installation hosts many fully isolated workspaces, each with its own admins, members, surveys,
   responses and reports. Anyone can create a workspace at `/signup` (optionally with approval) and invite people with
-  a join link.
+  a join link. New workspaces start with three ready-made survey templates.
 - **System console for super admins** — create, approve, disable, enable and delete workspaces, manage every account,
   the branding and the system settings, without seeing any workspace's content.
 - **Survey builder** — 10 question types (text, paragraph, radio, checkbox, dropdown, number, e-mail, date, star rating,
@@ -41,6 +41,8 @@ ASP.NET Core 8 · Blazor (Interactive Server) · EF Core 8 · PostgreSQL · Ques
   stored as hashes.
 - **Dynamic reports** — KPIs, distribution tables, bar/pie/doughnut/line charts, cross-tabs, NPS, text answers and raw
   grids with date and answer filters, live preview, and **PDF / CSV / TXT / Excel / JSON** export.
+- **Accounts & security** — self-service account settings (name, e-mail, password, personal data download or
+  deletion), two-factor sign-in with any authenticator app (QR code, recovery codes), account lockout and rate limits.
 - **Administration** — per workspace: dashboard, response browser, member & role management (incl. password reset),
   audit log and workspace settings; system-wide branding (product name, tagline, logo) in the System console.
 - **Built-in user guide** — step-by-step help for non-technical users at `/guide`.
@@ -142,7 +144,8 @@ every feature step by step.
 |---|---|---|
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | `admin@smartsurvey.local` / `ChangeMe123!` | First workspace admin (created with "Default workspace" on an empty database) |
 | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | `superadmin@smartsurvey.local` / `ChangeMe123!` | First super admin (created when none exists) |
-| `ALLOWED_HOSTS` | `*` | Host name(s) of the site — set it on a server (used for links in e-mails) |
+| `PUBLIC_BASE_URL` | *(empty)* | Public address of the site (e.g. `https://surveys.example.com`) for links in e-mails, share links and QR codes |
+| `ALLOWED_HOSTS` | `*` | Host name(s) of the site — set it on a server |
 | `POSTGRES_PASSWORD` | `smartsurvey` | Database password |
 | `WEB_PORT` | `8080` | Port of the website on your computer |
 | `POSTGRES_PORT` | `5432` | Port of the database on your computer (change it if 5432 is taken) |
@@ -156,7 +159,7 @@ every feature step by step.
 ### Putting it on a server
 
 Run the same stack on a server and put a reverse proxy with HTTPS (for example Caddy, nginx or Traefik) in front of
-port 8080. Before going live: set strong passwords, `DEMO_DATA=false`, `ALLOWED_HOSTS`, decide on `SWAGGER_ENABLED`
+port 8080. Before going live: set strong passwords, `DEMO_DATA=false`, `PUBLIC_BASE_URL`, `ALLOWED_HOSTS`, decide on `SWAGGER_ENABLED`
 and on self-service sign-up (System → Settings), configure e-mail and back up the database regularly. The full checklist is in
 [DOCUMENTATION.md § Deployment](docs/DOCUMENTATION.md#19-deployment).
 
@@ -167,7 +170,7 @@ more in [DOCUMENTATION.md § Troubleshooting](docs/DOCUMENTATION.md#21-troublesh
 ## 💻 Run for development (without Docker)
 
 ```bash
-# Prerequisites: .NET 8 SDK + PostgreSQL 16 (native, or just the database: `docker compose up -d db`)
+# Prerequisites: .NET 10 SDK + PostgreSQL 16 (native, or just the database: `docker compose up -d db`)
 dotnet tool restore
 dotnet run --project src/SmartSurvey.Web
 ```
@@ -213,7 +216,12 @@ The Blazor UI and the REST API share one Application layer, so business rules ar
 dotnet test                                                       # unit + integration tests
 bash scripts/smoke.sh --user admin / /admin /admin/surveys /admin/reports
 scripts/container-smoke.sh http://localhost:8080                  # against a running container stack
+cd scripts/browser && npm install && npm run check                # headless-browser checks of the workspace flows
+BASE=http://localhost:8099 npm run buttons                        # GUI check of every button (fresh demo instance only)
 ```
+
+The GUI check changes data, so it refuses to run unless the demo passwords work; its header shows how to start a
+throwaway container of the real image for it.
 
 ## ☕ Support
 

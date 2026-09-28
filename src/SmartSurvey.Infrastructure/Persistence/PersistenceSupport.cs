@@ -1,3 +1,4 @@
+using System.Data.Common;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
@@ -122,6 +123,23 @@ public sealed class DatabaseOptions
     public bool ApplyMigrationsOnStartup { get; set; } = true;
 }
 
+/// <summary>
+/// Defaults for the PostgreSQL connection string. Npgsql 9+ tries GSS (Kerberos) session encryption first, and on
+/// Linux without libgssapi (the container image) the runtime then logs "Error: libgssapi_krb5.so.2: cannot open
+/// shared object file". Kerberos is opt-in: a connection string that sets <c>GSS Encryption Mode</c> is kept as is.
+/// </summary>
+internal static class PostgresConnectionString
+{
+    /// <summary>The connection string with <c>GSS Encryption Mode=Disable</c> unless it names a mode itself.</summary>
+    public static string WithDefaults(string connectionString)
+    {
+        var keys = new DbConnectionStringBuilder { ConnectionString = connectionString }.Keys.Cast<string>();
+        return keys.Any(key => key.Replace(" ", "").Equals("GssEncryptionMode", StringComparison.OrdinalIgnoreCase))
+            ? connectionString
+            : connectionString.TrimEnd(';', ' ') + ";GSS Encryption Mode=Disable";
+    }
+}
+
 /// <summary>"Seed" configuration section.</summary>
 public sealed class SeedOptions
 {
@@ -184,7 +202,7 @@ internal sealed class DesignTimeDbContextFactory : IDesignTimeDbContextFactory<A
             ?? "Host=localhost;Port=5432;Database=smartsurvey;Username=smartsurvey;Password=smartsurvey";
 
         var options = new DbContextOptionsBuilder<AppDbContext>()
-            .UseNpgsql(connectionString, npgsql => npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName))
+            .UseNpgsql(PostgresConnectionString.WithDefaults(connectionString), npgsql => npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName))
             .Options;
 
         return new AppDbContext(options);

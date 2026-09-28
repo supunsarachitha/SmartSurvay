@@ -75,7 +75,7 @@
                     members, surveys, answers and reports — and nobody outside it can see them.
                 </p>
                 <ul>
-                    <li><strong>Start your own:</strong> choose <em>Create workspace</em> (top right), give it a name and create your account. You become its administrator and can create your first survey right away. On some sites a site administrator approves new workspaces first — you can sign in as soon as that is done.</li>
+                    <li><strong>Start your own:</strong> choose <em>Create workspace</em> (top right), give it a name and create your account. You become its administrator and can create your first survey right away — ready-made templates (customer satisfaction, team pulse check, event feedback) help you start. On some sites a site administrator approves new workspaces first — you can sign in as soon as that is done.</li>
                     <li><strong>Join one:</strong> open the <em>join link</em> the workspace's administrator gave you, and create your account there. Your account then belongs to that workspace.</li>
                     <li><strong>Its page:</strong> every workspace has a page (<em>/w/its-name</em>) that shows who runs it and the surveys anyone may answer.</li>
                     <li>One account belongs to one workspace. If you take part in two workspaces, use a different e-mail address for each.</li>
@@ -86,10 +86,13 @@
                 <p>Many surveys can be answered without an account. You need one to answer members-only surveys, to save your progress and to see your past answers.</p>
                 <ol class="guide-steps">
                     <li><strong>Create an account:</strong> open your workspace's <em>join link</em> (or create a new workspace, see above), enter your e-mail address and a password (at least 8 characters with upper- and lower-case letters, a number and a symbol).</li>
-                    <li><strong>Sign in:</strong> <em>Sign in</em> in the top right corner. After five wrong passwords the account is locked for 15 minutes to keep it safe.</li>
-                    <li><strong>Forgot your password?</strong> Choose <em>Forgot your password?</em> on the sign-in page — you receive an e-mail with a link to choose a new one. If no e-mail arrives, ask an administrator: they can set a new password for you.</li>
-                    <li><strong>Account settings:</strong> open the menu with your name (top right) → <em>Account settings</em> to change your name, e-mail or password, or to turn on two-step sign-in with an authenticator app.</li>
+                    <li><strong>Sign in:</strong> choose <em>Log in</em> in the top right corner. After five wrong passwords the account is locked for 15 minutes to keep it safe.</li>
+                    <li><strong>Forgot your password?</strong> Choose <em>Forgot password?</em> on the sign-in page — you receive an e-mail with a link to choose a new one. If no e-mail arrives, ask an administrator: they can set a new password for you.</li>
+                    <li><strong>Account settings:</strong> open the menu with your name (top right) → <em>Account settings</em> to change your name, e-mail or password, to turn on two-factor sign-in (scan the QR code with an authenticator app), or to download your personal data.</li>
+                    <li><strong>Log out:</strong> the same menu → <em>Log out</em>. On a shared computer, always log out when you are done.</li>
                 </ol>
+                <GuideFigure Image="account-settings.webp" Alt="Account settings: your name, e-mail, role and workspace above the settings menu, the profile form and an account overview"
+                             Caption="Account settings: your profile, e-mail, password, two-factor sign-in and personal data in one place." />
             </GuideSection>
 
             @* ------------------------------------------------------------------ Answering *@
@@ -198,7 +201,7 @@
             </GuideSection>
 
             <GuideSection Id="logic" Icon="bi-diagram-3" Title="Showing questions only when they matter" Audience="admins" Image="builder-logic.webp"
-                          ImageAlt="A question with a display rule that shows it only after a certain answer" Caption="A display rule: this question only appears when the respondent answered “No” to an earlier question.">
+                          ImageAlt="A question with a display rule that shows it only after certain answers" Caption="A display rule: “What could we improve?” only appears for respondents who answered “Dissatisfied” or “Very dissatisfied” earlier.">
                 <p>
                     <strong>Display logic</strong> shows or hides a question — or a whole page — depending on earlier answers. Example:
                     ask “What could we improve?” only to people who were <em>not</em> satisfied.
@@ -338,7 +341,7 @@
                     <li><strong>Disable</strong> a workspace (optionally with a message for its members): nobody of it can sign in any more and its survey links stop working, but nothing is deleted. <strong>Enable</strong> brings everything back.</li>
                     <li><strong>Delete</strong> a workspace only after disabling it — you type its name to confirm, because all its surveys, answers and accounts are removed for good.</li>
                     <li><strong>Accounts</strong> — every account with its workspace: create super admins or members of a workspace, set new passwords, lock or delete accounts.</li>
-                    <li><strong>Settings</strong> — whether people may create workspaces themselves, whether new workspaces need your approval, and a support e-mail address. The <strong>Audit log</strong> lists what super admins did.</li>
+                    <li><strong>Settings</strong> — whether people may create workspaces themselves, whether new workspaces need your approval, whether new workspaces get ready-made survey templates, and a support e-mail address. The <strong>Audit log</strong> lists what super admins did.</li>
                 </ul>
             </GuideSection>
 
@@ -356,7 +359,7 @@
             <GuideSection Id="help" Icon="bi-life-preserver" Title="More help">
                 <ul>
                     <li>The <a href="faq">FAQ</a> answers common questions about surveys, privacy and reports.</li>
-                    <li>Forgot your password or locked out? Use <em>Forgot your password?</em> on the sign-in page, or ask an administrator.</li>
+                    <li>Forgot your password or locked out? Use <em>Forgot password?</em> on the sign-in page, or ask an administrator.</li>
                     @if (!string.IsNullOrWhiteSpace(Support.Value.GitHubUrl))
                     {
                         <li>Found a problem or have an idea? Tell us on <a href="@Support.Value.GitHubUrl" target="_blank" rel="noopener">GitHub</a>.</li>

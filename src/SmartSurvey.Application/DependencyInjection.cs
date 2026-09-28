@@ -39,6 +39,7 @@ public static class DependencyInjection
         services.AddScoped<IBrandingService, BrandingService>();
 
         // Workspaces: status cache is process-wide (checked on every request); services are scoped.
+        services.AddOptions<WorkspaceOptions>();
         services.AddSingleton<IWorkspaceStatusProvider, WorkspaceStatusCache>();
         services.AddScoped<IWorkspaceService, WorkspaceService>();
         services.AddScoped<IPlatformSettingsService, PlatformSettingsService>();

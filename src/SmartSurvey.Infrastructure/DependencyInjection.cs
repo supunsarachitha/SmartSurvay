@@ -32,6 +32,7 @@ public static class DependencyInjection
         services.Configure<DatabaseOptions>(configuration.GetSection(DatabaseOptions.SectionName));
         services.Configure<SeedOptions>(configuration.GetSection(SeedOptions.SectionName));
         services.Configure<BrandingOptions>(configuration.GetSection(BrandingOptions.SectionName));
+        services.Configure<WorkspaceOptions>(configuration.GetSection(WorkspaceOptions.SectionName));
         services.Configure<EmailOptions>(configuration.GetSection(EmailOptions.SectionName));
         services.Configure<FieldEncryptionOptions>(configuration.GetSection(FieldEncryptionOptions.SectionName));
         services.AddSingleton<IFieldProtector, DataProtectionFieldProtector>();
@@ -55,7 +56,7 @@ public static class DependencyInjection
             {
                 // No retrying execution strategy: it forbids user-initiated transactions, which the
                 // services use for atomic operations (e.g. quota-checked submissions).
-                options.UseNpgsql(connectionString, npgsql =>
+                options.UseNpgsql(PostgresConnectionString.WithDefaults(connectionString), npgsql =>
                     npgsql.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
             }
 
@@ -86,6 +87,7 @@ public static class DependencyInjection
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<IPlatformWorkspaceService, PlatformWorkspaceService>();
         services.AddScoped<IWorkspaceSignupService, WorkspaceSignupService>();
+        services.AddScoped<StarterTemplates>();
         services.AddScoped<DbSeeder>();
 
         services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");

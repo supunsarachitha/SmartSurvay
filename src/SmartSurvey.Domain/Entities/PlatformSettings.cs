@@ -23,6 +23,9 @@ public class PlatformSettings : AuditableEntity
     /// <summary>When true, self-service workspaces start as <see cref="WorkspaceStatus.PendingApproval"/>.</summary>
     public bool RequireWorkspaceApproval { get; set; }
 
+    /// <summary>When true, every new workspace starts with a few ready-made survey templates.</summary>
+    public bool ProvideStarterTemplates { get; set; } = true;
+
     /// <summary>Optional address shown when a workspace is unavailable or waiting for approval.</summary>
     public string? SupportEmail { get; set; }
 }

@@ -51,6 +51,24 @@ public static class UiFormat
         };
     }
 
+    /// <summary>Two letters for an avatar: "Jane Doe" → "JD", "admin@example.com" → "ad" (shown upper-case).</summary>
+    public static string Initials(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "?";
+        }
+
+        var local = name.Split('@')[0];
+        var parts = local.Split(['.', '_', '-', ' '], StringSplitOptions.RemoveEmptyEntries);
+        return parts.Length switch
+        {
+            0 => "?",
+            1 => parts[0][..Math.Min(2, parts[0].Length)],
+            _ => $"{parts[0][0]}{parts[1][0]}",
+        };
+    }
+
     /// <summary>"1 response" / "3 responses".</summary>
     public static string Plural(int count, string singular, string? plural = null) =>
         $"{count.ToString("N0", CultureInfo.InvariantCulture)} {(count == 1 ? singular : plural ?? singular + "s")}";

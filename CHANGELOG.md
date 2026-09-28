@@ -7,6 +7,59 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.0] - 2026-09-28
+
+**.NET 10 LTS** (supported until November 2028; .NET 8 support ends on 2026-11-10), a public base URL for every link the
+app hands out, and starter templates for new workspaces. **Upgrading from 2.0:** back up as usual and start the new
+version — the migration `AddStarterTemplatesSetting` runs automatically. Self-hosted installs without Docker need the
+.NET 10 runtime (building needs the .NET 10 SDK).
+
+### Added
+- `App:PublicBaseUrl` (Docker `PUBLIC_BASE_URL`): the public address used in every link the app hands out — account
+  e-mails of every flow (the e-mail sender rewrites them), survey share links, QR codes, embed snippets, join links and
+  the link preview in the survey settings. Invalid values stop the app at start-up.
+- **Starter templates:** new workspaces (sign-up and super admin) start with three draft templates — customer
+  satisfaction, team pulse check and event feedback. System → Settings can switch this off. Migration
+  `AddStarterTemplatesSetting`.
+- `Workspaces:StatusCacheSeconds` (default 30, `0` = no cache): how quickly other app instances notice a disabled
+  workspace.
+- `scripts/browser/screenshots.js` recaptures every guide and README screenshot from a fresh demo instance.
+- `scripts/browser/buttons.check.js` (`npm run buttons`): GUI check of the buttons — what the key buttons do (Preview,
+  runner, builder, exports, copy/QR/print, dialogs, live previews, account settings incl. two-factor sign-in) and a crawl that clicks every button of every page
+  for each role. `scripts/container-smoke.sh` now also checks that every script the pages load is served.
+
+### Changed
+- **.NET 10 LTS:** `net10.0`, C# 14, ASP.NET Core / EF Core 10.0.12, Npgsql 10.0.3, container images `sdk:10.0` /
+  `aspnet:10.0` (Ubuntu 24.04), `dotnet-ef` 10. No schema changes from the upgrade. .NET 10 serves Blazor's script as a
+  static web asset that the SDK only adds when it sees `.razor` files during restore; the web project now requests it
+  explicitly (`RequiresAspNetWebAssets`), because the Docker build restores with the project files alone.
+- The framing headers (`X-Frame-Options` / CSP `frame-ancestors`) come from one place: Blazor's own `frame-ancestors`
+  header is switched off, because a second CSP header would block embedded surveys. While embedding is enabled,
+  WebSocket compression of the interactive circuit is off, as recommended for pages other sites can frame.
+- PostgreSQL connections no longer try GSS (Kerberos) encryption unless the connection string sets
+  `GSS Encryption Mode` — Npgsql 9+ tries it by default, which logged a `libgssapi_krb5.so.2` error in the container.
+- **Account settings redesigned:** a card with your name, e-mail, role and workspace next to the settings menu; the
+  profile page lets you change your display name (shown in the top bar and account lists) and shows the account at a
+  glance — e-mail status, role, workspace, password, two-factor sign-in, member since, last sign-in. Every account page
+  uses the app's layout, with labelled fields, hints and clearer messages. The top navigation no longer wraps its
+  labels at medium widths.
+- User guide and FAQ: account settings (with a screenshot), logging out, two-factor sign-in, a "Your account" FAQ
+  group; the wording matches the buttons ("Log in", "Forgot password?"), and the answer on who can see responses
+  reflects workspaces.
+- All user-guide and README screenshots recaptured for v2 (workspace name in the sidebar, Workspace settings, System
+  console, public address in share links); the display-logic caption now matches its picture.
+
+### Fixed
+- Saving the profile with an empty (optional) phone number was refused as "not a valid phone number".
+- Setting up two-factor sign-in showed no QR code (the page expected a script that wasn't there) and named the account
+  "Microsoft.AspNetCore.Identity.UI" in authenticator apps. The QR code is now generated on the server and the account
+  carries the product name.
+- Form labels on the account pages are linked to their fields (screen readers).
+- The report builder's "Add widget" menu no longer runs off the bottom of the window (it scrolls inside).
+- Logging out of a page that needs an account (admin area, System console, account pages, My responses) now leads to
+  the home page. Before, the sign-in page kept that page as its return address, so the next person who signed in with
+  a different account was sent there — e.g. to "Access denied".
+
 ## [2.0.0] - 2026-09-28
 
 **Workspaces.** One installation now hosts many fully isolated workspaces with their own admins and members, a
@@ -22,7 +75,7 @@ Breaking changes: branding is managed by super admins (`/system/branding`, API r
 `GET /api/v1/public/surveys` needs `?workspace={slug}` for anonymous callers.
 
 ### Added
-- **Workspaces (multi-tenancy, in progress on `feature/multi-workspace`):** every survey, response, report and audit
+- **Workspaces (multi-tenancy):** every survey, response, report and audit
   entry now belongs to a workspace, and the data layer only ever returns the current workspace's rows (fail-closed
   query filters plus a save guard that stamps and checks `WorkspaceId`). Share links stay `/s/{slug}`; people who are
   not members of a survey's workspace answer as guests, and surveys of disabled workspaces are unavailable.

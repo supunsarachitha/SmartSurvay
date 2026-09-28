@@ -33,6 +33,8 @@ services:
       # Host names the app answers to (e.g. surveys.example.com). Set it in production: e-mail links are built from
       # the request's host, so "*" lets a forged Host header put a foreign address into confirmation e-mails.
       AllowedHosts: ${ALLOWED_HOSTS:-*}
+      # Public address used in e-mails, share links, QR codes and join links (e.g. https://surveys.example.com).
+      App__PublicBaseUrl: ${PUBLIC_BASE_URL:-}
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=smartsurvey;Username=smartsurvey;Password=${POSTGRES_PASSWORD:-smartsurvey}"
       Database__Provider: PostgreSQL
       Database__ApplyMigrationsOnStartup: "true"

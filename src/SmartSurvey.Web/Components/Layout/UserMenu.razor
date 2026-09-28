@@ -8,7 +8,7 @@
         @{ var displayName = context.User.FindFirst(AppClaimsPrincipalFactory.DisplayNameClaim)?.Value ?? context.User.Identity?.Name; }
         <div class="dropdown">
             <button class="btn btn-light d-flex align-items-center gap-2 px-2 py-1" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                <span class="avatar avatar-sm">@Initials(displayName)</span>
+                <span class="avatar avatar-sm">@UiFormat.Initials(displayName)</span>
                 <span class="d-none d-xl-inline small fw-semibold text-truncate" style="max-width:160px">@displayName</span>
                 <i class="bi bi-chevron-down small text-muted"></i>
             </button>
@@ -64,16 +64,4 @@
 
     protected override void OnParametersSet() =>
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);
-
-    private static string Initials(string? name)
-    {
-        if (string.IsNullOrWhiteSpace(name))
-        {
-            return "?";
-        }
-
-        var local = name.Split('@')[0];
-        var parts = local.Split(['.', '_', '-', ' '], StringSplitOptions.RemoveEmptyEntries);
-        return parts.Length >= 2 ? $"{parts[0][0]}{parts[1][0]}" : local[..Math.Min(2, local.Length)];
-    }
 }

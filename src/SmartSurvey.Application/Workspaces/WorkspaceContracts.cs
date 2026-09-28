@@ -287,6 +287,9 @@ public sealed record PlatformSettingsDto
     /// <summary>Self-service workspaces wait for a super admin's approval.</summary>
     public bool RequireWorkspaceApproval { get; init; }
 
+    /// <summary>New workspaces start with ready-made survey templates.</summary>
+    public bool ProvideStarterTemplates { get; init; } = true;
+
     /// <summary>Address shown when a workspace is unavailable.</summary>
     public string? SupportEmail { get; init; }
 }
@@ -299,6 +302,9 @@ public sealed class UpdatePlatformSettingsRequest
 
     /// <summary>Self-service workspaces wait for approval.</summary>
     public bool RequireWorkspaceApproval { get; set; }
+
+    /// <summary>New workspaces start with ready-made survey templates.</summary>
+    public bool ProvideStarterTemplates { get; set; } = true;
 
     /// <summary>Support address.</summary>
     public string? SupportEmail { get; set; }

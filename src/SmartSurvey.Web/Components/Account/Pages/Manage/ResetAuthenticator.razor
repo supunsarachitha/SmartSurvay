@@ -1,4 +1,4 @@
-﻿@page "/Account/Manage/ResetAuthenticator"
+@page "/Account/Manage/ResetAuthenticator"
 
 @using Microsoft.AspNetCore.Identity
 @using SmartSurvey.Domain.Identity
@@ -12,23 +12,18 @@
 <PageTitle>Reset authenticator key</PageTitle>
 
 <StatusMessage />
-<h3>Reset authenticator key</h3>
-<div class="alert alert-warning" role="alert">
-    <p>
-        <span class="glyphicon glyphicon-warning-sign"></span>
-        <strong>If you reset your authenticator key your authenticator app will not work until you reconfigure it.</strong>
-    </p>
-    <p>
-        This process disables 2FA until you verify your authenticator app.
-        If you do not complete your authenticator app configuration you may lose access to your account.
-    </p>
-</div>
-<div>
-    <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post">
+
+<SettingsCard Icon="bi-arrow-counterclockwise" Title="Reset authenticator key" Description="Your authenticator app stops working for this account until you set it up again." Danger="true">
+    <div class="alert alert-warning small d-flex gap-2" role="alert">
+        <i class="bi bi-exclamation-triangle"></i>
+        <span>Resetting turns two-factor authentication off until you verify your app again. If you don't finish the setup, you may lose access to your account.</span>
+    </div>
+    <form @formname="reset-authenticator" @onsubmit="OnSubmitAsync" method="post" class="d-flex flex-wrap gap-2">
         <AntiforgeryToken />
-        <button class="btn btn-danger" type="submit">Reset authenticator key</button>
+        <button class="btn btn-danger" type="submit"><i class="bi bi-arrow-counterclockwise"></i>Reset authenticator key</button>
+        <a class="btn btn-light" href="Account/Manage/TwoFactorAuthentication">Cancel</a>
     </form>
-</div>
+</SettingsCard>
 
 @code {
     [CascadingParameter]
@@ -46,7 +41,7 @@
 
         RedirectManager.RedirectToWithStatus(
             "Account/Manage/EnableAuthenticator",
-            "Your authenticator app key has been reset, you will need to configure your authenticator app using the new key.",
+            "Your authenticator key was reset. Set up your authenticator app again with the new key below.",
             HttpContext);
     }
 }
