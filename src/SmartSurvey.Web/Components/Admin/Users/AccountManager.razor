@@ -221,9 +221,9 @@ else
         {
             <div class="mb-3">
                 <label class="form-label small" for="nu-kind">Account type</label>
-                <select class="form-select" id="nu-kind" @bind="newUserIsSuperAdmin">
-                    <option value="false">Member of a workspace</option>
-                    <option value="true">Super admin (runs the system, belongs to no workspace)</option>
+                <select class="form-select" id="nu-kind" @bind="newUserKind">
+                    <option value="@MemberKind">Member of a workspace</option>
+                    <option value="@SuperAdminKind">Super admin (runs the system, belongs to no workspace)</option>
                 </select>
             </div>
             @if (!newUserIsSuperAdmin)
@@ -325,7 +325,11 @@ else
 
     private IReadOnlyList<WorkspaceSummaryDto> workspaceOptions = [];
     private string workspaceFilter = string.Empty;
-    private bool newUserIsSuperAdmin;
+    private const string MemberKind = "member";
+    private const string SuperAdminKind = "superadmin";
+    private string newUserKind = MemberKind;
+
+    private bool newUserIsSuperAdmin => newUserKind == SuperAdminKind;
     private string newUserWorkspace = string.Empty;
 
     private PagedResult<UserDto>? result;
@@ -435,7 +439,7 @@ else
     {
         newUser = new CreateUserRequest();
         newUserIsAdmin = false;
-        newUserIsSuperAdmin = false;
+        newUserKind = MemberKind;
         newUserWorkspace = workspaceFilter;
         createErrors = new Dictionary<string, string[]>();
         createError = null;

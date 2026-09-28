@@ -34,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `/Account/Register?workspace={slug}`, public workspace page `/w/{slug}` with its public surveys, and
   `/admin/settings` for workspace admins (name, description, contact, join link, public survey page). Menus show the
   member's workspace; the survey runner's "Create account" joins the workspace that runs the survey.
+- **System console** for super admins at `/system`: overview (figures, pending approvals), workspaces (create with
+  first admin, rename / re-address, approve, disable with a reason, enable, delete when disabled), accounts of every
+  workspace (create super admins or members, roles, password, lock, delete), branding, system settings and the system
+  audit log.
 
 ### Changed
 - Branding can only be changed by super admins (it is system-wide); `PUT/POST/DELETE /api/v1/branding*` require the
@@ -43,6 +47,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   surveys with `?workspace={slug}`.
 - `/surveys` shows the signed-in member's workspace; guests are pointed to survey links and workspace pages. The
   admin sidebar has "Workspace settings" instead of "Branding".
+- Branding moved from `/admin/branding` to `/system/branding`.
 - **User guide** at `/guide`: plain-language, step-by-step help with screenshots for respondents and administrators
   (linked from the top menu, footer, FAQ and admin sidebar).
 - **GitHub links** in the top menu, admin sidebar, home page and footer (`Support:GitHubUrl`); the Buy Me a Coffee page

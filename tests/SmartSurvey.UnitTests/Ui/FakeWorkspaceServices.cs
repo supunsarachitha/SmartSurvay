@@ -86,3 +86,88 @@ public sealed class FakePlatformSettingsService : IPlatformSettingsService
         return Task.FromResult(Settings);
     }
 }
+
+/// <summary><see cref="IPlatformWorkspaceService"/> keeping workspaces in memory and recording calls.</summary>
+public sealed class FakePlatformWorkspaceService : IPlatformWorkspaceService
+{
+    /// <summary>Workspaces.</summary>
+    public List<WorkspaceSummaryDto> Workspaces { get; } = [];
+
+    /// <summary>Calls as "Action:id" strings.</summary>
+    public List<string> Calls { get; } = [];
+
+    /// <summary>Last list query.</summary>
+    public WorkspaceListQuery? LastQuery { get; private set; }
+
+    /// <summary>Last created workspace request.</summary>
+    public CreateWorkspaceRequest? Created { get; private set; }
+
+    /// <inheritdoc />
+    public Task<PagedResult<WorkspaceSummaryDto>> ListAsync(WorkspaceListQuery query, CancellationToken ct = default)
+    {
+        LastQuery = query;
+        var items = Workspaces.Where(w => query.Status is null || w.Status == query.Status).ToList();
+        return Task.FromResult(new PagedResult<WorkspaceSummaryDto>(items, items.Count, query.Page, query.PageSize));
+    }
+
+    /// <inheritdoc />
+    public Task<WorkspaceSummaryDto> GetAsync(Guid id, CancellationToken ct = default) =>
+        Task.FromResult(Workspaces.SingleOrDefault(w => w.Id == id) ?? throw new NotFoundException("Workspace", id));
+
+    /// <inheritdoc />
+    public Task<WorkspaceSummaryDto> CreateAsync(CreateWorkspaceRequest request, CancellationToken ct = default)
+    {
+        Created = request;
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            throw new AppValidationException(nameof(request.Name), "Please enter a name for the workspace.");
+        }
+
+        var created = new WorkspaceSummaryDto { Id = Guid.NewGuid(), Name = request.Name, Slug = request.Slug ?? "new", Status = WorkspaceStatus.Active };
+        Workspaces.Add(created);
+        return Task.FromResult(created);
+    }
+
+    /// <inheritdoc />
+    public Task<WorkspaceSummaryDto> UpdateAsync(Guid id, UpdateWorkspaceRequest request, CancellationToken ct = default) =>
+        Replace(id, "Update", w => w with { Name = request.Name, Slug = request.Slug, Description = request.Description, ContactEmail = request.ContactEmail });
+
+    /// <inheritdoc />
+    public Task<WorkspaceSummaryDto> EnableAsync(Guid id, CancellationToken ct = default) =>
+        Replace(id, "Enable", w => w with { Status = WorkspaceStatus.Active, StatusReason = null });
+
+    /// <inheritdoc />
+    public Task<WorkspaceSummaryDto> ApproveAsync(Guid id, CancellationToken ct = default) =>
+        Replace(id, "Approve", w => w with { Status = WorkspaceStatus.Active });
+
+    /// <inheritdoc />
+    public Task<WorkspaceSummaryDto> DisableAsync(Guid id, string? reason, CancellationToken ct = default) =>
+        Replace(id, "Disable", w => w with { Status = WorkspaceStatus.Disabled, StatusReason = reason });
+
+    /// <inheritdoc />
+    public Task DeleteAsync(Guid id, string confirmName, CancellationToken ct = default)
+    {
+        Calls.Add($"Delete:{id}:{confirmName}");
+        Workspaces.RemoveAll(w => w.Id == id);
+        return Task.CompletedTask;
+    }
+
+    /// <inheritdoc />
+    public Task<SystemOverviewDto> GetOverviewAsync(CancellationToken ct = default) => Task.FromResult(new SystemOverviewDto
+    {
+        WorkspaceCount = Workspaces.Count,
+        ActiveCount = Workspaces.Count(w => w.Status == WorkspaceStatus.Active),
+        DisabledCount = Workspaces.Count(w => w.Status == WorkspaceStatus.Disabled),
+        PendingCount = Workspaces.Count(w => w.Status == WorkspaceStatus.PendingApproval),
+        RecentWorkspaces = Workspaces.ToList(),
+        PendingWorkspaces = Workspaces.Where(w => w.Status == WorkspaceStatus.PendingApproval).ToList(),
+    });
+
+    private Task<WorkspaceSummaryDto> Replace(Guid id, string action, Func<WorkspaceSummaryDto, WorkspaceSummaryDto> change)
+    {
+        Calls.Add($"{action}:{id}");
+        var index = Workspaces.FindIndex(w => w.Id == id);
+        Workspaces[index] = change(Workspaces[index]);
+        return Task.FromResult(Workspaces[index]);
+    }
+}

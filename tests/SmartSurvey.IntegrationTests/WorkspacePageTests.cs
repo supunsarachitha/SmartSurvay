@@ -87,6 +87,50 @@ public sealed partial class WorkspacePageTests(ApiFactory factory)
         Assert.Contains($"Form Team {suffix}", await dashboard.Content.ReadAsStringAsync()); // the sidebar shows the new workspace
     }
 
+    [Theory]
+    [InlineData("/system")]
+    [InlineData("/system/workspaces")]
+    [InlineData("/system/accounts")]
+    [InlineData("/system/branding")]
+    public async Task System_console_pages_send_guests_to_sign_in(string path)
+    {
+        var response = await factory.Anonymous().GetAsync(path);
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Contains("Account/Login", response.Headers.Location!.OriginalString);
+    }
+
+    [Fact]
+    public async Task Workspace_admins_cannot_open_the_system_console_and_super_admins_cannot_open_workspace_admin()
+    {
+        var admin = await SignInWithCookieAsync(ApiFactory.AdminEmail, ApiFactory.AdminPassword);
+        var denied = await admin.GetAsync("/system");
+        Assert.Equal(HttpStatusCode.Redirect, denied.StatusCode);
+        Assert.Contains("AccessDenied", denied.Headers.Location!.OriginalString);
+        await AssertStatusAsync(await admin.GetAsync("/admin/settings"), HttpStatusCode.OK);
+        await AssertStatusAsync(await admin.GetAsync("/admin/branding"), HttpStatusCode.NotFound); // moved to the System console
+
+        var super = await SignInWithCookieAsync(ApiFactory.SuperAdminEmail, ApiFactory.SuperAdminPassword);
+        await AssertStatusAsync(await super.GetAsync("/system/workspaces"), HttpStatusCode.OK);
+        Assert.Contains("AccessDenied", (await super.GetAsync("/admin")).Headers.Location!.OriginalString);
+    }
+
+    /// <summary>Signs in through the login form and returns a cookie-carrying client (no redirects followed).</summary>
+    private async Task<HttpClient> SignInWithCookieAsync(string email, string password)
+    {
+        var browser = factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false, HandleCookies = true });
+        var form = await browser.GetStringAsync("/Account/Login");
+        var response = await browser.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
+        {
+            ["_handler"] = "login",
+            ["__RequestVerificationToken"] = AntiforgeryToken().Match(form).Groups[1].Value,
+            ["Input.Email"] = email,
+            ["Input.Password"] = password,
+        }));
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        return browser;
+    }
+
     [GeneratedRegex("class=\"(?:validation-message|alert[^\"]*)\"[^>]*>([^<]{3,})")]
     private static partial Regex FormMessages();
 
