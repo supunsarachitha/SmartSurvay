@@ -141,6 +141,10 @@ public sealed class RecordingAuditService : IAuditService
     /// <inheritdoc />
     public Task<PagedResult<AuditLogDto>> ListAsync(AuditQuery query, CancellationToken ct = default) =>
         Task.FromResult(PagedResult<AuditLogDto>.Empty(query.Page, query.PageSize));
+
+    /// <inheritdoc />
+    public Task<PagedResult<AuditLogDto>> ListSystemAsync(AuditQuery query, CancellationToken ct = default) =>
+        Task.FromResult(PagedResult<AuditLogDto>.Empty(query.Page, query.PageSize));
 }
 
 /// <summary>Read-only <see cref="IBrandingService"/> returning a fixed product name.</summary>

@@ -3,6 +3,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using SmartSurvey.Application.Audit;
 using SmartSurvey.Application.Branding;
+using SmartSurvey.Application.Workspaces;
 using SmartSurvey.Application.Dashboard;
 using SmartSurvey.Application.Reports;
 using SmartSurvey.Application.Reports.Charts;
@@ -36,6 +37,11 @@ public static class DependencyInjection
         services.AddOptions<BrandingOptions>();
         services.AddSingleton<BrandingCache>();
         services.AddScoped<IBrandingService, BrandingService>();
+
+        // Workspaces: status cache is process-wide (checked on every request); services are scoped.
+        services.AddSingleton<IWorkspaceStatusProvider, WorkspaceStatusCache>();
+        services.AddScoped<IWorkspaceService, WorkspaceService>();
+        services.AddScoped<IPlatformSettingsService, PlatformSettingsService>();
 
         return services;
     }

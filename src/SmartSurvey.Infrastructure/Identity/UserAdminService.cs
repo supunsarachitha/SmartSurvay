@@ -547,45 +547,8 @@ public sealed class UserAdminService(
         }
     }
 
-    /// <summary>
-    /// Translates a failed <see cref="IdentityResult"/> into an application exception: duplicates and
-    /// concurrency failures are conflicts, password / e-mail problems are validation errors keyed
-    /// "Password" / "Email", anything else violates a business rule.
-    /// </summary>
-    private static void ThrowIfFailed(IdentityResult result)
-    {
-        if (result.Succeeded)
-        {
-            return;
-        }
-
-        var errors = result.Errors.ToList();
-        var conflict = errors.FirstOrDefault(e => e.Code is "DuplicateEmail" or "DuplicateUserName" or "ConcurrencyFailure");
-        if (conflict is not null)
-        {
-            throw new ConflictException(conflict.Description);
-        }
-
-        var validation = errors
-            .Select(e => (Key: ValidationKey(e.Code), e.Description))
-            .Where(e => e.Key is not null)
-            .GroupBy(e => e.Key!)
-            .ToDictionary(g => g.Key, g => g.Select(e => e.Description).Distinct().ToArray());
-        if (validation.Count > 0)
-        {
-            throw new AppValidationException(validation);
-        }
-
-        throw new BusinessRuleException(string.Join(" ", errors.Select(e => e.Description)));
-    }
-
-    /// <summary>Maps Identity error codes (see <see cref="IdentityErrorDescriber"/>) to request properties.</summary>
-    private static string? ValidationKey(string code) => code switch
-    {
-        _ when code.StartsWith("Password", StringComparison.Ordinal) => nameof(CreateUserRequest.Password),
-        "InvalidEmail" or "InvalidUserName" => nameof(CreateUserRequest.Email),
-        _ => null,
-    };
+    private static void ThrowIfFailed(IdentityResult result) =>
+        IdentityErrors.ThrowIfFailed(result, nameof(CreateUserRequest.Email), nameof(CreateUserRequest.Password));
 
     /// <summary>Converts FluentValidation failures into an <see cref="AppValidationException"/> keyed by property.</summary>
     private static void ThrowIfInvalid(ValidationResult result)

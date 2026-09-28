@@ -87,8 +87,30 @@ public sealed class AuditService(
 
         ThrowIfInvalid(QueryValidator.Validate(query));
 
+        // The data scope limits the log to the admin's workspace.
         await using var db = await dbFactory.CreateAsync(ct);
-        var entries = ApplyFilters(db.AuditLogs.AsNoTracking(), query);
+        return await PageAsync(db.AuditLogs.AsNoTracking(), query, ct);
+    }
+
+    /// <inheritdoc />
+    public async Task<PagedResult<AuditLogDto>> ListSystemAsync(AuditQuery query, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        if (!currentUser.IsSuperAdmin)
+        {
+            throw new ForbiddenException("Only super admins can view the system audit log.");
+        }
+
+        ThrowIfInvalid(QueryValidator.Validate(query));
+
+        // System events only: workspaces' own logs stay private to them.
+        await using var db = await dbFactory.CreateSystemAsync(ct);
+        return await PageAsync(db.AuditLogs.AsNoTracking().Where(e => e.WorkspaceId == null), query, ct);
+    }
+
+    private static async Task<PagedResult<AuditLogDto>> PageAsync(IQueryable<AuditLogEntry> source, AuditQuery query, CancellationToken ct)
+    {
+        var entries = ApplyFilters(source, query);
 
         var total = await entries.CountAsync(ct);
         var items = await entries

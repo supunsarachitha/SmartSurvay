@@ -186,6 +186,9 @@ public sealed class FakeAuditService : Application.Audit.IAuditService
         Queries.Add(query);
         return Task.FromResult(new PagedResult<Application.Audit.AuditLogDto>(Entries, Entries.Count, query.Page, query.PageSize));
     }
+
+    public Task<PagedResult<Application.Audit.AuditLogDto>> ListSystemAsync(Application.Audit.AuditQuery query, CancellationToken ct = default) =>
+        ListAsync(query, ct);
 }
 
 /// <summary><see cref="Application.Branding.IBrandingService"/> keeping branding in memory and recording updates.</summary>
