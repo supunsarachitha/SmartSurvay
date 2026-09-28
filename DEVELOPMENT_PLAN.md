@@ -479,11 +479,11 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 - [x] 12.4 bUnit tests; Phase gate
 
 #### Phase 13 — UI: System (super admin) console
-- [ ] 13.1 `SystemLayout` + nav, `/system` overview (KPIs, recent workspaces, pending approvals)
-- [ ] 13.2 Workspaces list/detail/create, enable/disable (reason), approve, delete (type-to-confirm)
-- [ ] 13.3 Accounts (search, workspace/role filters, lock/unlock, set password, roles, create super admin, delete)
-- [ ] 13.4 `/system/branding` (moved page), `/system/settings`, `/system/audit`
-- [ ] 13.5 bUnit tests; Phase gate
+- [x] 13.1 `SystemLayout` + nav, `/system` overview (KPIs, recent workspaces, pending approvals)
+- [x] 13.2 Workspaces list/detail/create, enable/disable (reason), approve, delete (type-to-confirm)
+- [x] 13.3 Accounts (search, workspace/role filters, lock/unlock, set password, roles, create super admin, delete)
+- [x] 13.4 `/system/branding` (moved page), `/system/settings`, `/system/audit`
+- [~] 13.5 bUnit tests; Phase gate
 
 #### Phase 14 — Verification & release 2.0.0
 - [ ] 14.1 Full build/tests; PostgreSQL run incl. upgrade of a v1.0 database; `scripts/smoke.sh` + `container-smoke.sh` extended (super admin, second workspace)

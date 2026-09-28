@@ -1,0 +1,329 @@
+@page "/system/workspaces/{Id:guid}"
+@rendermode InteractiveServer
+@inject IPlatformWorkspaceService Platform
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+@* One workspace for super admins: figures, status (approve / disable with a reason / enable), details
+   (name, address, description, contact), its admins, and deleting it once it is disabled. *@
+
+@if (workspace is null)
+{
+    @if (notFound)
+    {
+        <EmptyState Icon="bi-question-circle" Title="Workspace not found" Message="It may have been deleted.">
+            <a class="btn btn-light" href="system/workspaces"><i class="bi bi-arrow-left"></i>All workspaces</a>
+        </EmptyState>
+    }
+    else
+    {
+        <ErrorAlert Message="@error" Class="mb-3" />
+        @if (error is null)
+        {
+            <LoadingSpinner Text="Loading the workspace…" />
+        }
+    }
+}
+else
+{
+    <PageHeader Title="@workspace.Name" Subtitle="@($"/w/{workspace.Slug} · created {UiFormat.Relative(workspace.CreatedAt)}")">
+        <Breadcrumb>
+            <li class="breadcrumb-item"><a href="system">System</a></li>
+            <li class="breadcrumb-item"><a href="system/workspaces">Workspaces</a></li>
+            <li class="breadcrumb-item active" aria-current="page">@workspace.Name</li>
+        </Breadcrumb>
+        <Actions>
+            <a class="btn btn-light" href="system/accounts?workspace=@workspace.Id"><i class="bi bi-people"></i>Accounts</a>
+            @if (workspace.Status == WorkspaceStatus.Active)
+            {
+                <a class="btn btn-light" href="w/@workspace.Slug" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>Workspace page</a>
+            }
+        </Actions>
+    </PageHeader>
+
+    <div class="kpi-grid mb-4">
+        <StatCard Icon="bi-people" Label="Members" Value="@UiFormat.Number(workspace.MemberCount)" Hint="@($"{workspace.AdminCount} admin{(workspace.AdminCount == 1 ? "" : "s")}")" />
+        <StatCard Icon="bi-ui-checks-grid" Label="Surveys" Value="@UiFormat.Number(workspace.SurveyCount)" />
+        <StatCard Icon="bi-inboxes" Variant="success" Label="Completed responses" Value="@UiFormat.Number(workspace.ResponseCount)" />
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <div class="d-flex align-items-center gap-2 mb-3">
+                        <h2 class="h6 mb-0 me-auto"><i class="bi bi-toggles me-1"></i>Status</h2>
+                        <WorkspaceStatusBadge Status="workspace.Status" />
+                    </div>
+                    @switch (workspace.Status)
+                    {
+                        case WorkspaceStatus.PendingApproval:
+                            <p class="small text-muted">Created by self-service sign-up. Nobody can sign in until you approve it.</p>
+                            <div class="d-flex flex-wrap gap-2">
+                                <button class="btn btn-primary" disabled="@busy" @onclick="ApproveAsync"><i class="bi bi-check2-circle"></i>Approve</button>
+                                <button class="btn btn-light" disabled="@busy" @onclick="OpenDisable"><i class="bi bi-slash-circle"></i>Reject (disable)</button>
+                            </div>
+                            break;
+                        case WorkspaceStatus.Active:
+                            <p class="small text-muted">Members can sign in and its surveys accept responses.</p>
+                            <button class="btn btn-soft-danger" disabled="@busy" @onclick="OpenDisable"><i class="bi bi-slash-circle"></i>Disable workspace…</button>
+                            break;
+                        default:
+                            <p class="small text-muted mb-2">
+                                Members cannot sign in and its survey links show "not available". All data is kept.
+                                @if (workspace.StatusChangedAt is { } changed)
+                                {
+                                    <span>Disabled @UiFormat.Relative(changed).</span>
+                                }
+                            </p>
+                            @if (!string.IsNullOrWhiteSpace(workspace.StatusReason))
+                            {
+                                <div class="alert alert-light border small py-2"><i class="bi bi-chat-left-text me-1"></i>@workspace.StatusReason</div>
+                            }
+                            <button class="btn btn-primary" disabled="@busy" @onclick="EnableAsync"><i class="bi bi-play-circle"></i>Enable workspace</button>
+                            break;
+                    }
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-pencil-square me-1"></i>Details</h2>
+                    <div class="mb-3">
+                        <label class="form-label small" for="wd-name">Name <span class="text-danger">*</span></label>
+                        <input class="form-control @Invalid(nameof(UpdateWorkspaceRequest.Name))" id="wd-name" maxlength="100" @bind="form.Name" @bind:event="oninput" @bind:after="MarkDirty" />
+                        <FieldErrors Messages="@ErrorsFor(nameof(UpdateWorkspaceRequest.Name))" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small" for="wd-slug">Address <span class="text-danger">*</span></label>
+                        <div class="input-group">
+                            <span class="input-group-text text-muted small">/w/</span>
+                            <input class="form-control @Invalid(nameof(UpdateWorkspaceRequest.Slug))" id="wd-slug" maxlength="60" @bind="form.Slug" @bind:event="oninput" @bind:after="MarkDirty" />
+                        </div>
+                        <div class="form-text">Changing it changes the workspace page and its join link. Survey links (/s/…) are not affected.</div>
+                        <FieldErrors Messages="@ErrorsFor(nameof(UpdateWorkspaceRequest.Slug))" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small" for="wd-description">Description</label>
+                        <textarea class="form-control @Invalid(nameof(UpdateWorkspaceRequest.Description))" id="wd-description" rows="2" maxlength="2000"
+                                  @bind="form.Description" @bind:event="oninput" @bind:after="MarkDirty"></textarea>
+                        <FieldErrors Messages="@ErrorsFor(nameof(UpdateWorkspaceRequest.Description))" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small" for="wd-contact">Contact e-mail</label>
+                        <input class="form-control @Invalid(nameof(UpdateWorkspaceRequest.ContactEmail))" id="wd-contact" type="email" maxlength="256"
+                               @bind="form.ContactEmail" @bind:event="oninput" @bind:after="MarkDirty" />
+                        <FieldErrors Messages="@ErrorsFor(nameof(UpdateWorkspaceRequest.ContactEmail))" />
+                    </div>
+                    <button class="btn btn-primary" disabled="@(busy || !dirty)" @onclick="SaveAsync"><i class="bi bi-check2"></i>@(dirty ? "Save changes" : "Saved")</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-person-badge me-1"></i>Admins</h2>
+                    @if (workspace.AdminEmails.Count == 0)
+                    {
+                        <p class="small text-muted mb-0">This workspace has no admin. Add one on the <a href="system/accounts?workspace=@workspace.Id">Accounts</a> page.</p>
+                    }
+                    else
+                    {
+                        <ul class="list-unstyled small mb-0">
+                            @foreach (var email in workspace.AdminEmails)
+                            {
+                                <li class="mb-1"><a href="mailto:@email"><i class="bi bi-envelope me-1"></i>@email</a></li>
+                            }
+                        </ul>
+                    }
+                </div>
+            </div>
+
+            <div class="card border-danger-subtle">
+                <div class="card-body">
+                    <h2 class="h6 mb-2 text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Delete workspace</h2>
+                    <p class="small text-muted">
+                        Removes the workspace with all its surveys, responses, reports, audit entries and member accounts — permanently.
+                        @if (workspace.Status != WorkspaceStatus.Disabled)
+                        {
+                            <strong>Disable it first.</strong>
+                        }
+                    </p>
+                    <button class="btn btn-outline-danger" disabled="@(busy || workspace.Status != WorkspaceStatus.Disabled)" @onclick="OpenDelete">
+                        <i class="bi bi-trash"></i>Delete workspace…
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <Modal Visible="disableVisible" Title="@($"Disable {workspace.Name}?")" Icon="bi-slash-circle" OnClose="() => disableVisible = false">
+        <ChildContent>
+            <p class="small text-muted">Members are signed out at once and cannot sign in; its survey links show "not available". Nothing is deleted — you can enable it again any time.</p>
+            <label class="form-label small" for="wd-reason">Message for its members <span class="text-muted">(optional)</span></label>
+            <textarea class="form-control" id="wd-reason" rows="2" maxlength="500" @bind="disableReason" @bind:event="oninput"></textarea>
+        </ChildContent>
+        <Footer>
+            <button type="button" class="btn btn-light" @onclick="() => disableVisible = false">Cancel</button>
+            <button type="button" class="btn btn-danger" disabled="@busy" @onclick="DisableAsync"><i class="bi bi-slash-circle"></i>Disable</button>
+        </Footer>
+    </Modal>
+
+    <Modal Visible="deleteVisible" Title="Delete workspace permanently?" Icon="bi-trash" OnClose="() => deleteVisible = false">
+        <ChildContent>
+            <p class="small">
+                This deletes <strong>@workspace.Name</strong> with @UiFormat.Plural(workspace.SurveyCount, "survey"),
+                @UiFormat.Plural(workspace.ResponseCount, "response") and @UiFormat.Plural(workspace.MemberCount, "account"). It cannot be undone.
+            </p>
+            <label class="form-label small" for="wd-confirm">Type <strong>@workspace.Name</strong> to confirm</label>
+            <input class="form-control @(deleteError is null ? null : "is-invalid")" id="wd-confirm" autocomplete="off" @bind="confirmName" @bind:event="oninput" />
+            @if (deleteError is not null)
+            {
+                <div class="invalid-feedback d-block">@deleteError</div>
+            }
+        </ChildContent>
+        <Footer>
+            <button type="button" class="btn btn-light" @onclick="() => deleteVisible = false">Cancel</button>
+            <button type="button" class="btn btn-danger" disabled="@(busy || confirmName.Trim() != workspace.Name)" @onclick="DeleteAsync"><i class="bi bi-trash"></i>Delete forever</button>
+        </Footer>
+    </Modal>
+}
+
+@code {
+    /// <summary>Workspace id.</summary>
+    [Parameter] public Guid Id { get; set; }
+
+    private WorkspaceSummaryDto? workspace;
+    private UpdateWorkspaceRequest form = new();
+    private IReadOnlyDictionary<string, string[]> errors = new Dictionary<string, string[]>();
+    private string? error;
+    private string? deleteError;
+    private string disableReason = string.Empty;
+    private string confirmName = string.Empty;
+    private bool notFound;
+    private bool busy;
+    private bool dirty;
+    private bool disableVisible;
+    private bool deleteVisible;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        try
+        {
+            Apply(await Platform.GetAsync(Id));
+        }
+        catch (NotFoundException)
+        {
+            notFound = true;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            error = UiErrors.Describe(ex);
+        }
+    }
+
+    private void Apply(WorkspaceSummaryDto summary)
+    {
+        workspace = summary;
+        form = new UpdateWorkspaceRequest { Name = summary.Name, Slug = summary.Slug, Description = summary.Description, ContactEmail = summary.ContactEmail };
+        errors = new Dictionary<string, string[]>();
+        dirty = false;
+    }
+
+    private string? Invalid(string field) => errors.ContainsKey(field) ? "is-invalid" : null;
+
+    private IReadOnlyList<string> ErrorsFor(string field) => errors.TryGetValue(field, out var messages) ? messages : [];
+
+    private void MarkDirty() => dirty = true;
+
+    private void OpenDisable()
+    {
+        disableReason = workspace?.StatusReason ?? string.Empty;
+        disableVisible = true;
+    }
+
+    private void OpenDelete()
+    {
+        confirmName = string.Empty;
+        deleteError = null;
+        deleteVisible = true;
+    }
+
+    private Task ApproveAsync() => RunAsync(async () =>
+    {
+        Apply(await Platform.ApproveAsync(Id));
+        Toasts.Success("Workspace approved", "Its members can sign in now.");
+    });
+
+    private Task EnableAsync() => RunAsync(async () =>
+    {
+        Apply(await Platform.EnableAsync(Id));
+        Toasts.Success("Workspace enabled", "Its members can sign in again.");
+    });
+
+    private Task DisableAsync() => RunAsync(async () =>
+    {
+        Apply(await Platform.DisableAsync(Id, disableReason));
+        disableVisible = false;
+        Toasts.Success("Workspace disabled", "Its members were signed out.");
+    });
+
+    private async Task SaveAsync()
+    {
+        busy = true;
+        try
+        {
+            Apply(await Platform.UpdateAsync(Id, form));
+            Toasts.Success("Workspace saved");
+        }
+        catch (AppValidationException ex)
+        {
+            errors = ex.Errors;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not save the workspace", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task DeleteAsync()
+    {
+        busy = true;
+        try
+        {
+            var name = workspace!.Name;
+            await Platform.DeleteAsync(Id, confirmName);
+            Toasts.Success("Workspace deleted", name);
+            Navigation.NavigateTo("system/workspaces");
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            deleteError = UiErrors.Describe(ex);
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+
+    private async Task RunAsync(Func<Task> action)
+    {
+        busy = true;
+        try
+        {
+            await action();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Something went wrong", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            busy = false;
+        }
+    }
+}

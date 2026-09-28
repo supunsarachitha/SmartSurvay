@@ -1,0 +1,6 @@
+@* Every page in this folder is part of the System console: super admins only. *@
+@layout SystemLayout
+@attribute [Authorize(Policy = AuthPolicies.SuperAdmin)]
+@using SmartSurvey.Web.Components.Admin.Audit
+@using SmartSurvey.Web.Components.Admin.Users
+@using SmartSurvey.Domain.Entities

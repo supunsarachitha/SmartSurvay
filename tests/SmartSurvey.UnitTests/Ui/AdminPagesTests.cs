@@ -18,7 +18,7 @@ using SmartSurvey.Web.Components.Pages.Admin.Responses;
 using SmartSurvey.Web.Components.Pages.Admin.Surveys;
 using SmartSurvey.Web.Components.Pages.Admin.Users;
 using SmartSurvey.Web.Components.Shared;
-using BrandingPage = SmartSurvey.Web.Components.Pages.Admin.Branding;
+using BrandingPage = SmartSurvey.Web.Components.Pages.SystemConsole.Branding;
 
 namespace SmartSurvey.UnitTests.Ui;
 
@@ -280,7 +280,7 @@ public sealed class AdminPagesTests : UiTestBase
     [InlineData("survey.status_changed", "Survey status changed")]
     [InlineData("branding.updated", "Branding updated")]
     [InlineData("", "")]
-    public void Audit_actions_get_readable_labels(string action, string expected) => Assert.Equal(expected, AuditLog.ActionLabel(action));
+    public void Audit_actions_get_readable_labels(string action, string expected) => Assert.Equal(expected, SmartSurvey.Web.Components.Admin.Audit.AuditLogView.ActionLabel(action));
 
     [Fact]
     public void Branding_page_saves_name_and_icon_and_refreshes_the_layout()

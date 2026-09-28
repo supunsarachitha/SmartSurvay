@@ -1,0 +1,112 @@
+@page "/system"
+@rendermode InteractiveServer
+@inject IPlatformWorkspaceService Platform
+@inject ToastService Toasts
+@* System overview: figures across all workspaces (never their content), workspaces waiting for approval
+   (approve in place) and the newest workspaces. *@
+
+<PageHeader Title="System overview" Subtitle="Every workspace at a glance. Workspace content stays private to each workspace." />
+
+<ErrorAlert Message="@error" Class="mb-3" />
+
+@if (overview is null)
+{
+    @if (error is null)
+    {
+        <LoadingSpinner Text="Loading the overview…" />
+    }
+}
+else
+{
+    <div class="kpi-grid mb-4">
+        <StatCard Icon="bi-buildings" Label="Workspaces" Value="@UiFormat.Number(overview.WorkspaceCount)"
+                  Hint="@($"{UiFormat.Number(overview.ActiveCount)} active · {UiFormat.Number(overview.DisabledCount)} disabled")" />
+        <StatCard Icon="bi-hourglass-split" Variant="info" Label="Waiting for approval" Value="@UiFormat.Number(overview.PendingCount)" />
+        <StatCard Icon="bi-people" Variant="success" Label="Member accounts" Value="@UiFormat.Number(overview.MemberCount)"
+                  Hint="@($"{UiFormat.Number(overview.SuperAdminCount)} super admin{(overview.SuperAdminCount == 1 ? "" : "s")}")" />
+        <StatCard Icon="bi-ui-checks-grid" Label="Surveys" Value="@UiFormat.Number(overview.SurveyCount)"
+                  Hint="@($"{UiFormat.Number(overview.ResponseCount)} completed responses")" />
+    </div>
+
+    @if (overview.PendingWorkspaces.Count > 0)
+    {
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h6 mb-3"><i class="bi bi-hourglass-split me-1"></i>Waiting for approval</h2>
+                <ul class="list-group list-group-flush">
+                    @foreach (var ws in overview.PendingWorkspaces)
+                    {
+                        <li class="list-group-item px-0 d-flex flex-wrap align-items-center gap-2" @key="ws.Id">
+                            <div class="me-auto min-w-0">
+                                <a class="fw-semibold" href="system/workspaces/@ws.Id">@ws.Name</a>
+                                <div class="small text-muted text-truncate">
+                                    /w/@ws.Slug · @string.Join(", ", ws.AdminEmails) · created @UiFormat.Relative(ws.CreatedAt)
+                                </div>
+                            </div>
+                            <button class="btn btn-sm btn-primary" disabled="@(busyId == ws.Id)" @onclick="() => ApproveAsync(ws)">
+                                <i class="bi bi-check2-circle"></i>Approve
+                            </button>
+                        </li>
+                    }
+                </ul>
+            </div>
+        </div>
+    }
+
+    <div class="card table-card">
+        <div class="card-body pb-0 d-flex justify-content-between align-items-center">
+            <h2 class="h6 mb-0"><i class="bi bi-stars me-1"></i>Newest workspaces</h2>
+            <a class="small" href="system/workspaces">All workspaces</a>
+        </div>
+        @if (overview.RecentWorkspaces.Count == 0)
+        {
+            <EmptyState Icon="bi-buildings" Title="No workspaces yet" Message="Create the first one, or let people sign up.">
+                <a class="btn btn-primary" href="system/workspaces/new"><i class="bi bi-building-add"></i>New workspace</a>
+            </EmptyState>
+        }
+        else
+        {
+            <WorkspaceTable Workspaces="overview.RecentWorkspaces" />
+        }
+    </div>
+}
+
+@code {
+    private SystemOverviewDto? overview;
+    private string? error;
+    private Guid? busyId;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            overview = await Platform.GetOverviewAsync();
+            error = null;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            error = UiErrors.Describe(ex);
+        }
+    }
+
+    private async Task ApproveAsync(WorkspaceSummaryDto workspace)
+    {
+        busyId = workspace.Id;
+        try
+        {
+            await Platform.ApproveAsync(workspace.Id);
+            Toasts.Success("Workspace approved", $"{workspace.Name} can be used now.");
+            await LoadAsync();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not approve the workspace", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            busyId = null;
+        }
+    }
+}

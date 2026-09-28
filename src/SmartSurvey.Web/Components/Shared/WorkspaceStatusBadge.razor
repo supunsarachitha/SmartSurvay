@@ -1,0 +1,26 @@
+@using SmartSurvey.Domain.Entities
+@* Status pill of a workspace. *@
+
+<span class="badge-status @Css @Class">@Label</span>
+
+@code {
+    /// <summary>Status.</summary>
+    [Parameter, EditorRequired] public WorkspaceStatus Status { get; set; }
+
+    /// <summary>Extra CSS classes.</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private string Css => Status switch
+    {
+        WorkspaceStatus.Active => "badge-published",
+        WorkspaceStatus.PendingApproval => "badge-inprogress",
+        _ => "badge-closed",
+    };
+
+    private string Label => Status switch
+    {
+        WorkspaceStatus.Active => "Active",
+        WorkspaceStatus.PendingApproval => "Waiting for approval",
+        _ => "Disabled",
+    };
+}

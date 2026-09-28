@@ -1,0 +1,10 @@
+@page "/system/accounts"
+@rendermode InteractiveServer
+@* Every account of every workspace plus the super admins (see AccountManager in system mode). *@
+
+<AccountManager SystemMode="true" InitialWorkspace="@Workspace" />
+
+@code {
+    /// <summary>Preselected workspace filter (from a workspace's detail page).</summary>
+    [SupplyParameterFromQuery(Name = "workspace")] public Guid? Workspace { get; set; }
+}

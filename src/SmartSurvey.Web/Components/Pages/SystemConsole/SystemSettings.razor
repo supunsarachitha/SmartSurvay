@@ -1,0 +1,96 @@
+@page "/system/settings"
+@rendermode InteractiveServer
+@inject IPlatformSettingsService Settings
+@inject ToastService Toasts
+@* System settings: whether people can create workspaces themselves, whether new workspaces need approval,
+   and the support address shown when a workspace is unavailable. *@
+
+<PageHeader Title="System settings" Subtitle="How new workspaces come to life, and where people get help.">
+    <Breadcrumb><li class="breadcrumb-item"><a href="system">System</a></li><li class="breadcrumb-item active" aria-current="page">Settings</li></Breadcrumb>
+    <Actions>
+        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(saving || !dirty)">
+            @if (saving)
+            {
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Saving…</span>
+            }
+            else
+            {
+                <i class="bi bi-check2"></i><span>@(dirty ? "Save changes" : "Saved")</span>
+            }
+        </button>
+    </Actions>
+</PageHeader>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="h6 mb-3"><i class="bi bi-building-add me-1"></i>New workspaces</h2>
+                <div class="form-check form-switch mb-2">
+                    <input class="form-check-input" type="checkbox" role="switch" id="st-signup" @bind="form.AllowWorkspaceSignup" @bind:after="MarkDirty" />
+                    <label class="form-check-label" for="st-signup">Anyone can create a workspace at <span class="font-monospace">/signup</span></label>
+                </div>
+                <div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" role="switch" id="st-approval" @bind="form.RequireWorkspaceApproval" @bind:after="MarkDirty"
+                           disabled="@(!form.AllowWorkspaceSignup)" />
+                    <label class="form-check-label" for="st-approval">New workspaces wait for my approval before they can be used</label>
+                </div>
+                <p class="small text-muted mt-3 mb-0">Workspaces you create yourself (Workspaces → New workspace) are always active right away.</p>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6 mb-3"><i class="bi bi-life-preserver me-1"></i>Support</h2>
+                <label class="form-label small" for="st-support">Support e-mail <span class="text-muted">(shown when a workspace is unavailable or sign-up is closed)</span></label>
+                <input class="form-control @(errors.Count > 0 ? "is-invalid" : null)" id="st-support" type="email" maxlength="256"
+                       placeholder="support@example.com" @bind="form.SupportEmail" @bind:event="oninput" @bind:after="MarkDirty" />
+                <FieldErrors Messages="errors" />
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private UpdatePlatformSettingsRequest form = new();
+    private IReadOnlyList<string> errors = [];
+    private bool dirty;
+    private bool saving;
+
+    protected override async Task OnInitializedAsync() => Apply(await Settings.GetAsync());
+
+    private void Apply(PlatformSettingsDto settings)
+    {
+        form = new UpdatePlatformSettingsRequest
+        {
+            AllowWorkspaceSignup = settings.AllowWorkspaceSignup,
+            RequireWorkspaceApproval = settings.RequireWorkspaceApproval,
+            SupportEmail = settings.SupportEmail,
+        };
+        errors = [];
+        dirty = false;
+    }
+
+    private void MarkDirty() => dirty = true;
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        try
+        {
+            Apply(await Settings.UpdateAsync(form));
+            Toasts.Success("Settings saved");
+        }
+        catch (AppValidationException ex)
+        {
+            errors = ex.Errors.SelectMany(e => e.Value).Distinct().ToList();
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not save the settings", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}
