@@ -35,6 +35,8 @@ services:
       Database__ApplyMigrationsOnStartup: "true"
       Seed__AdminEmail: ${ADMIN_EMAIL:-admin@smartsurvey.local}
       Seed__AdminPassword: ${ADMIN_PASSWORD:-ChangeMe123!}
+      Seed__SuperAdminEmail: ${SUPERADMIN_EMAIL:-superadmin@smartsurvey.local}
+      Seed__SuperAdminPassword: ${SUPERADMIN_PASSWORD:-ChangeMe123!}
       Seed__DemoData: ${DEMO_DATA:-true}
       Swagger__Enabled: ${SWAGGER_ENABLED:-true}
       Support__BuyMeACoffeeUsername: ${BMC_USERNAME:-jkhy9gtjs}

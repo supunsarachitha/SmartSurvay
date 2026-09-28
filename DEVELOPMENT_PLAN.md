@@ -461,7 +461,7 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 - [x] 10.3 `IWorkspaceService` (own settings, public lookup by slug) + `IWorkspaceStatusProvider` (cached status, invalidated on change)
 - [x] 10.4 `IPlatformWorkspaceService` (list with counts, create with admin account, update, enable/disable/approve, delete disabled) + `IPlatformSettingsService` + overview stats
 - [x] 10.5 `IWorkspaceSignupService`: sign-up (workspace + owner admin, approval setting) and join (member registration when allowed)
-- [ ] 10.6 Seeder: super admin bootstrap (`Seed:SuperAdmin*`), demo data in "Demo workspace" + second demo workspace (`admin@acme.local`) to show isolation; `.env.example`/compose variables
+- [x] 10.6 Seeder: super admin bootstrap (`Seed:SuperAdmin*`), demo data in "Demo workspace" + second demo workspace (`admin@acme.local`) to show isolation; `.env.example`/compose variables
 - [ ] 10.7 Unit tests: cross-workspace isolation for every service, platform services, sign-up/join rules
 - [ ] 10.8 Phase gate
 

@@ -147,11 +147,15 @@ public sealed class ReportAndAdminApiTests(ApiFactory factory)
     }
 
     [Fact]
-    public async Task Branding_is_public_to_read_and_admin_only_to_change()
+    public async Task Branding_is_public_to_read_and_super_admin_only_to_change()
     {
+        var super = factory.SuperAdmin();
         try
         {
-            var updated = await ReadAsync<BrandingDto>(await _admin.PutAsJsonAsync("/api/v1/branding", new UpdateBrandingRequest
+            // Branding is system-wide: workspace admins cannot change it.
+            await AssertStatusAsync(await _admin.PostAsync("/api/v1/branding/reset", null), HttpStatusCode.Forbidden);
+
+            var updated = await ReadAsync<BrandingDto>(await super.PutAsJsonAsync("/api/v1/branding", new UpdateBrandingRequest
             {
                 ProductName = "Pulse Check",
                 Tagline = "Listen better",
@@ -164,22 +168,22 @@ public sealed class ReportAndAdminApiTests(ApiFactory factory)
             Assert.Equal("bi-heart-pulse", publicView.IconName);
 
             // A PNG signature is required; random bytes are rejected.
-            await ProblemAsync(await _admin.PostAsJsonAsync("/api/v1/branding/logo", new { fileName = "logo.png", content = Convert.ToBase64String([1, 2, 3, 4]) }),
+            await ProblemAsync(await super.PostAsJsonAsync("/api/v1/branding/logo", new { fileName = "logo.png", content = Convert.ToBase64String([1, 2, 3, 4]) }),
                 HttpStatusCode.BadRequest);
 
             var png = Convert.FromBase64String("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==");
-            var withLogo = await ReadAsync<BrandingDto>(await _admin.PostAsJsonAsync("/api/v1/branding/logo", new { fileName = "logo.png", content = Convert.ToBase64String(png) }));
+            var withLogo = await ReadAsync<BrandingDto>(await super.PostAsJsonAsync("/api/v1/branding/logo", new { fileName = "logo.png", content = Convert.ToBase64String(png) }));
             Assert.True(withLogo.HasLogo);
 
             var logo = await factory.Anonymous().GetAsync("/" + withLogo.LogoUrl);
             await AssertStatusAsync(logo, HttpStatusCode.OK);
             Assert.Equal("image/png", logo.Content.Headers.ContentType?.MediaType);
 
-            Assert.False((await ReadAsync<BrandingDto>(await _admin.DeleteAsync("/api/v1/branding/logo"))).HasLogo);
+            Assert.False((await ReadAsync<BrandingDto>(await super.DeleteAsync("/api/v1/branding/logo"))).HasLogo);
         }
         finally
         {
-            await AssertStatusAsync(await _admin.PostAsync("/api/v1/branding/reset", null), HttpStatusCode.OK);
+            await AssertStatusAsync(await super.PostAsync("/api/v1/branding/reset", null), HttpStatusCode.OK);
         }
     }
 }

@@ -12,14 +12,20 @@ namespace SmartSurvey.Web.Infrastructure;
 /// <summary>Authorization policy names.</summary>
 public static class AuthPolicies
 {
-    /// <summary>Admin UI pages (cookie authentication).</summary>
+    /// <summary>Workspace admin UI pages (cookie authentication).</summary>
     public const string Admin = "Admin";
+
+    /// <summary>System (super admin) UI pages (cookie authentication).</summary>
+    public const string SuperAdmin = "SuperAdmin";
 
     /// <summary>Authenticated API caller (cookie or bearer token).</summary>
     public const string ApiUser = "ApiUser";
 
-    /// <summary>Admin API caller (cookie or bearer token).</summary>
+    /// <summary>Workspace admin API caller (cookie or bearer token).</summary>
     public const string ApiAdmin = "ApiAdmin";
+
+    /// <summary>Super admin API caller (cookie or bearer token).</summary>
+    public const string ApiSuperAdmin = "ApiSuperAdmin";
 }
 
 /// <summary>Authentication scheme names defined by the Web host.</summary>
@@ -82,14 +88,20 @@ public static class WebSetup
         services.AddScoped<SubmissionThrottle>();
         services.AddScoped<PasswordAttemptThrottle>();
 
+        // Workspace admins need the Admin role *and* a workspace; super admins belong to no workspace.
         services.AddAuthorizationBuilder()
-            .AddPolicy(AuthPolicies.Admin, p => p.RequireRole(AppRoles.Admin))
+            .AddPolicy(AuthPolicies.Admin, p => p.RequireRole(AppRoles.Admin).RequireClaim(AppClaimTypes.WorkspaceId))
+            .AddPolicy(AuthPolicies.SuperAdmin, p => p.RequireRole(AppRoles.SuperAdmin))
             .AddPolicy(AuthPolicies.ApiUser, p => p
                 .AddAuthenticationSchemes(IdentityConstants.ApplicationScheme, IdentityConstants.BearerScheme)
                 .RequireAuthenticatedUser())
             .AddPolicy(AuthPolicies.ApiAdmin, p => p
                 .AddAuthenticationSchemes(IdentityConstants.ApplicationScheme, IdentityConstants.BearerScheme)
-                .RequireRole(AppRoles.Admin));
+                .RequireRole(AppRoles.Admin)
+                .RequireClaim(AppClaimTypes.WorkspaceId))
+            .AddPolicy(AuthPolicies.ApiSuperAdmin, p => p
+                .AddAuthenticationSchemes(IdentityConstants.ApplicationScheme, IdentityConstants.BearerScheme)
+                .RequireRole(AppRoles.SuperAdmin));
 
         services.AddRateLimiter(options =>
         {

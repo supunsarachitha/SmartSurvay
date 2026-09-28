@@ -5,7 +5,7 @@ using SmartSurvey.Application.Users;
 
 namespace SmartSurvey.Web.Api;
 
-/// <summary><c>/api/v1/dashboard</c>, <c>/users</c>, <c>/audit</c> and <c>/branding</c> (admin).</summary>
+/// <summary><c>/api/v1/dashboard</c>, <c>/users</c>, <c>/audit</c> (workspace admin) and <c>/branding</c> (super admin).</summary>
 public static class AdminEndpoints
 {
     /// <summary>Maps the dashboard endpoint.</summary>

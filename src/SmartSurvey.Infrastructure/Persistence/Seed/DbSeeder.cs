@@ -15,12 +15,16 @@ namespace SmartSurvey.Infrastructure.Persistence.Seed;
 /// Steps:
 /// <list type="number">
 /// <item>Every role of <see cref="AppRoles.All"/> exists.</item>
+/// <item>When no super admin exists and <see cref="SeedOptions.CreateSuperAdmin"/> is set, the account
+/// <see cref="SeedOptions.SuperAdminEmail"/> is created (no workspace) with <see cref="SeedOptions.SuperAdminPassword"/>.</item>
 /// <item>When no user is a workspace admin and <see cref="SeedOptions.CreateAdmin"/> is set, the workspace
 /// <see cref="SeedOptions.WorkspaceSlug"/> is ensured and the account <see cref="SeedOptions.AdminEmail"/>
 /// is created in it with <see cref="SeedOptions.AdminPassword"/>.</item>
 /// <item>With <see cref="SeedOptions.DemoData"/>: in the (oldest) admin's workspace the demo user is ensured
 /// and — only while that workspace contains no surveys — demo surveys, demo respondent accounts,
-/// responses and a sample report are inserted in one transaction.</item>
+/// responses and a sample report are inserted in one transaction. With
+/// <see cref="SeedOptions.DemoSecondWorkspace"/> the workspace "Acme Research" (one published survey) is added
+/// once, so the demo shows two isolated workspaces.</item>
 /// </list>
 /// </remarks>
 public sealed class DbSeeder(
@@ -34,6 +38,12 @@ public sealed class DbSeeder(
     /// <summary>Display name of the seeded administrator.</summary>
     public const string AdminDisplayName = "Administrator";
 
+    /// <summary>Display name of the seeded super admin.</summary>
+    public const string SuperAdminDisplayName = "Super admin";
+
+    /// <summary>Slug of the second demo workspace.</summary>
+    public const string DemoSecondWorkspaceSlug = "acme";
+
     /// <summary>Display name of the demo respondent.</summary>
     public const string DemoUserDisplayName = "Demo User";
 
@@ -46,6 +56,7 @@ public sealed class DbSeeder(
         var settings = options.Value;
 
         await EnsureRolesAsync();
+        await EnsureSuperAdminAsync(settings);
         var admin = await EnsureAdminAsync(settings, ct);
 
         if (!settings.DemoData)
@@ -56,6 +67,107 @@ public sealed class DbSeeder(
         var workspaceId = admin?.WorkspaceId ?? await EnsureWorkspaceAsync(settings, ct);
         var demoUserId = await EnsureDemoUserAsync(settings, workspaceId);
         await SeedDemoContentAsync(settings, workspaceId, admin?.Id, demoUserId, ct);
+        if (settings.DemoSecondWorkspace)
+        {
+            await SeedSecondDemoWorkspaceAsync(settings, ct);
+        }
+    }
+
+    /// <summary>Creates the initial super admin (no workspace) when none exists and it is configured.</summary>
+    private async Task EnsureSuperAdminAsync(SeedOptions settings)
+    {
+        if ((await userManager.GetUsersInRoleAsync(AppRoles.SuperAdmin)).Count > 0)
+        {
+            return;
+        }
+
+        if (!settings.CreateSuperAdmin)
+        {
+            logger.LogWarning("No super admin account exists and Seed:CreateSuperAdmin is disabled");
+            return;
+        }
+
+        var email = settings.SuperAdminEmail?.Trim();
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(settings.SuperAdminPassword))
+        {
+            logger.LogWarning(
+                "No super admin account exists. Set Seed:SuperAdminEmail and Seed:SuperAdminPassword (e.g. via environment variables or user secrets) to create one at start-up");
+            return;
+        }
+
+        // Never promote an existing account (see EnsureAdminAsync).
+        if (await FindByEmailOrNameAsync(email) is not null)
+        {
+            logger.LogWarning(
+                "No super admin exists, but the account {Email} already exists; it is not promoted automatically. Configure another Seed:SuperAdminEmail",
+                email);
+            return;
+        }
+
+        if (await CreateUserAsync(NewUser(email, SuperAdminDisplayName, workspaceId: null), settings.SuperAdminPassword, [AppRoles.SuperAdmin]))
+        {
+            logger.LogInformation("Created super admin account {Email}", email);
+        }
+    }
+
+    /// <summary>
+    /// Adds the second demo workspace "Acme Research" with its admin and one published survey — once
+    /// (skipped when the slug exists, the admin address is taken or no admin password is configured).
+    /// </summary>
+    private async Task SeedSecondDemoWorkspaceAsync(SeedOptions settings, CancellationToken ct)
+    {
+        var email = settings.DemoSecondAdminEmail?.Trim();
+        if (string.IsNullOrWhiteSpace(email) || string.IsNullOrWhiteSpace(settings.AdminPassword))
+        {
+            return;
+        }
+
+        await using (var system = (await dbFactory.CreateDbContextAsync(ct)).UseScope(DataScope.System))
+        {
+            if (await system.Workspaces.AnyAsync(w => w.Slug == DemoSecondWorkspaceSlug, ct))
+            {
+                return;
+            }
+        }
+
+        if (await FindByEmailOrNameAsync(email) is not null)
+        {
+            logger.LogWarning("Second demo workspace skipped: the account {Email} already exists", email);
+            return;
+        }
+
+        var now = time.GetUtcNow().UtcDateTime;
+        var workspace = new Workspace
+        {
+            Name = "Acme Research",
+            Slug = DemoSecondWorkspaceSlug,
+            Description = "A second demo workspace. Its surveys, responses and members are invisible to every other workspace.",
+            StatusChangedAt = now,
+        };
+        await using (var system = (await dbFactory.CreateDbContextAsync(ct)).UseScope(DataScope.System))
+        {
+            system.Workspaces.Add(workspace);
+            await system.SaveChangesAsync(ct);
+        }
+
+        var admin = NewUser(email, "Acme Admin", workspace.Id);
+        if (!await CreateUserAsync(admin, settings.AdminPassword, [AppRoles.Admin, AppRoles.User]))
+        {
+            return;
+        }
+
+        // One published survey (the event-feedback design) with its own system-wide unique link.
+        var survey = DemoSurveyFactory.Create(now, admin.Id).EventTemplate;
+        survey.IsTemplate = false;
+        survey.Status = Domain.Enums.SurveyStatus.Published;
+        survey.PublishedAt = now.AddDays(-3);
+        survey.Title = "Team Offsite Feedback";
+        survey.Slug = "acme-team-offsite-feedback";
+
+        await using var db = (await dbFactory.CreateDbContextAsync(ct)).UseScope(DataScope.ForWorkspace(workspace.Id));
+        db.Surveys.Add(survey);
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Seeded the second demo workspace {Slug} with the admin {Email}", workspace.Slug, email);
     }
 
     /// <summary>Returns the id of the seed workspace (<see cref="SeedOptions.WorkspaceSlug"/>), creating it when missing.</summary>

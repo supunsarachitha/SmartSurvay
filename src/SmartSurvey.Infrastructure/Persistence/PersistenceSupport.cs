@@ -118,6 +118,15 @@ public sealed class SeedOptions
     /// <summary>Initial admin e-mail.</summary>
     public string AdminEmail { get; set; } = "admin@smartsurvey.local";
 
+    /// <summary>Create the initial super admin when none exists (requires <see cref="SuperAdminPassword"/>).</summary>
+    public bool CreateSuperAdmin { get; set; } = true;
+
+    /// <summary>Initial super admin e-mail.</summary>
+    public string SuperAdminEmail { get; set; } = "superadmin@smartsurvey.local";
+
+    /// <summary>Initial super admin password. Leave empty in production and set it via environment/secrets.</summary>
+    public string? SuperAdminPassword { get; set; }
+
     /// <summary>Name of the workspace created for the initial admin and the demo data.</summary>
     public string WorkspaceName { get; set; } = "Default workspace";
 
@@ -135,6 +144,15 @@ public sealed class SeedOptions
 
     /// <summary>Demo respondent password.</summary>
     public string DemoUserPassword { get; set; } = "User123!";
+
+    /// <summary>
+    /// With <see cref="DemoData"/>: also create the second demo workspace "Acme Research" (admin
+    /// <see cref="DemoSecondAdminEmail"/>, password <see cref="AdminPassword"/>) to show workspace isolation.
+    /// </summary>
+    public bool DemoSecondWorkspace { get; set; } = true;
+
+    /// <summary>Admin of the second demo workspace.</summary>
+    public string DemoSecondAdminEmail { get; set; } = "admin@acme.local";
 }
 
 /// <summary>
