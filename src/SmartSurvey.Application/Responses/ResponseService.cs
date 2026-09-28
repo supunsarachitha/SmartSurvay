@@ -26,6 +26,7 @@ namespace SmartSurvey.Application.Responses;
 /// <param name="audit">Audit trail.</param>
 /// <param name="requestValidator">Structural validation of draft/submission payloads.</param>
 /// <param name="queryValidator">Validation of the admin list filters.</param>
+/// <param name="accessKeys">Access keys of password-protected surveys.</param>
 /// <param name="logger">Logger.</param>
 public sealed class ResponseService(
     IAppDbContextFactory dbFactory,
@@ -34,6 +35,7 @@ public sealed class ResponseService(
     IAuditService audit,
     IValidator<SaveResponseRequest> requestValidator,
     IValidator<ResponseQuery> queryValidator,
+    ISurveyAccessKeys accessKeys,
     ILogger<ResponseService> logger) : IResponseService
 {
     /// <summary>Maximum stored user-agent length (matches the database column).</summary>
@@ -43,6 +45,7 @@ public sealed class ResponseService(
     public const int SecondsPerQuestion = 20;
 
     private const string AnonymousName = "Anonymous";
+    private const string PasswordRequiredMessage = "This survey is protected with a password. Please enter the password to continue.";
     private const string ResponseEntity = "Response";
     private const string SurveyEntity = "Survey";
 
@@ -66,8 +69,9 @@ public sealed class ResponseService(
 
         // Status and schedule are pre-filtered in SQL; the eligibility checker below then applies the
         // complete rule set (quota, one response per user) exactly like StartOrResumeAsync does.
+        // Password-protected surveys are for people who received the link and password: never listed publicly.
         var candidates = db.Surveys.AsNoTracking()
-            .Where(s => s.Status == SurveyStatus.Published && !s.IsTemplate)
+            .Where(s => s.Status == SurveyStatus.Published && !s.IsTemplate && s.AccessPasswordHash == null)
             .Where(s => (s.OpensAt == null || s.OpensAt <= now) && (s.ClosesAt == null || s.ClosesAt > now));
         if (userId is null)
         {
@@ -98,7 +102,7 @@ public sealed class ResponseService(
     }
 
     /// <inheritdoc />
-    public async Task<SurveySessionDto> StartOrResumeAsync(string slug, CancellationToken ct = default)
+    public async Task<SurveySessionDto> StartOrResumeAsync(string slug, string? accessKey = null, CancellationToken ct = default)
     {
         if (string.IsNullOrWhiteSpace(slug))
         {
@@ -119,6 +123,16 @@ public sealed class ResponseService(
             return session; // the design is only handed out to eligible respondents
         }
 
+        if (survey.AccessPasswordHash is { } passwordHash && !accessKeys.IsValid(accessKey, survey.Id, passwordHash))
+        {
+            session.Eligibility = SurveyEligibility.PasswordRequired;
+            session.Message = PasswordRequiredMessage;
+            session.SurveyTitle = survey.Title;
+            return session;
+        }
+
+        session.SurveyTitle = survey.Title;
+
         var definition = survey.ToDefinitionDto();
         session.Survey = definition;
         if (UserId is { } userId)
@@ -130,6 +144,32 @@ public sealed class ResponseService(
     }
 
     /// <inheritdoc />
+    public async Task<SurveyUnlockResult> UnlockAsync(string slug, string password, CancellationToken ct = default)
+    {
+        var normalizedSlug = slug?.Trim().ToLowerInvariant() ?? string.Empty;
+        await using var db = await dbFactory.CreateAsync(ct);
+        var survey = await db.Surveys.AsNoTracking()
+            .Where(s => s.Slug.ToLower() == normalizedSlug && !s.IsTemplate && s.Status != SurveyStatus.Draft)
+            .Select(s => new { s.Id, s.AccessPasswordHash })
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException(SurveyEntity, slug ?? string.Empty);
+
+        if (survey.AccessPasswordHash is null)
+        {
+            // Nothing to unlock; any key works for an unprotected survey.
+            return new SurveyUnlockResult(string.Empty, UtcNow.Add(accessKeys.Lifetime));
+        }
+
+        if (!SurveyPasswordHasher.Verify(password, survey.AccessPasswordHash))
+        {
+            logger.LogInformation("Wrong password entered for survey {SurveyId}.", survey.Id);
+            throw new AppValidationException("Password", "That password is not correct. Please check it and try again.");
+        }
+
+        return new SurveyUnlockResult(accessKeys.Issue(survey.Id, survey.AccessPasswordHash), UtcNow.Add(accessKeys.Lifetime));
+    }
+
+    /// <inheritdoc />
     public async Task<Guid> SaveDraftAsync(Guid surveyId, SaveResponseRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -137,7 +177,7 @@ public sealed class ResponseService(
         await ValidateAsync(requestValidator, request, ct);
 
         await using var db = await dbFactory.CreateAsync(ct);
-        var survey = await LoadEligibleSurveyAsync(db, surveyId, ct);
+        var survey = await LoadEligibleSurveyAsync(db, surveyId, request.AccessKey, ct);
         var definition = survey.ToDefinitionDto();
         var questions = IndexQuestions(definition);
 
@@ -163,7 +203,7 @@ public sealed class ResponseService(
         await ValidateAsync(requestValidator, request, ct);
 
         await using var db = await dbFactory.CreateAsync(ct);
-        var survey = await LoadEligibleSurveyAsync(db, surveyId, ct);
+        var survey = await LoadEligibleSurveyAsync(db, surveyId, request.AccessKey, ct);
         var definition = survey.ToDefinitionDto();
         var questions = IndexQuestions(definition);
         var answers = SanitizeAndValidateSubmission(definition, questions, request.Answers);
@@ -206,7 +246,9 @@ public sealed class ResponseService(
         var normalizedSlug = slug.Trim().ToLowerInvariant();
         await using var db = await dbFactory.CreateAsync(ct);
         var survey = await db.Surveys.AsNoTracking().FirstOrDefaultAsync(s => s.Slug.ToLower() == normalizedSlug, ct);
-        if (survey is null || survey.IsTemplate || survey.Status == SurveyStatus.Draft || (!survey.AllowAnonymous && UserId is null))
+        // Password-protected surveys show their thank-you message inside the survey page instead (this page is public).
+        if (survey is null || survey.IsTemplate || survey.Status == SurveyStatus.Draft || survey.AccessPasswordHash is not null
+            || (!survey.AllowAnonymous && UserId is null))
         {
             return null;
         }
@@ -399,7 +441,7 @@ public sealed class ResponseService(
     /// <see cref="NotFoundException"/> for unknown surveys, <see cref="ForbiddenException"/> when a login
     /// is required and <see cref="BusinessRuleException"/> for every other reason.
     /// </summary>
-    private async Task<Survey> LoadEligibleSurveyAsync(IAppDbContext db, Guid surveyId, CancellationToken ct)
+    private async Task<Survey> LoadEligibleSurveyAsync(IAppDbContext db, Guid surveyId, string? accessKey, CancellationToken ct)
     {
         var survey = await db.LoadSurveyGraphAsync(s => s.Id == surveyId, ct)
             ?? throw new NotFoundException(SurveyEntity, surveyId);
@@ -407,6 +449,11 @@ public sealed class ResponseService(
         var verdict = await CheckEligibilityAsync(db, survey, ct);
         if (verdict.IsEligible)
         {
+            if (survey.AccessPasswordHash is { } passwordHash && !accessKeys.IsValid(accessKey, survey.Id, passwordHash))
+            {
+                throw new ForbiddenException(PasswordRequiredMessage);
+            }
+
             return survey;
         }
 

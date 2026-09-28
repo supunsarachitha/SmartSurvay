@@ -412,6 +412,16 @@ responses are allowed).
 survey and when they click *Save & finish later*; opening the survey again restores the answers and page
 ("Welcome back", with an option to start over). Guests are warned before leaving a survey with unsent answers.
 
+**Password protection:** a survey can require a password (*Settings → Require a password to open the survey*). Only a
+salted PBKDF2 hash (`Surveys.AccessPasswordHash`) is stored. Respondents enter the password once
+(`IResponseService.UnlockAsync`, `POST /api/v1/public/surveys/{slug}/unlock`) and receive a signed access key (ASP.NET
+Core Data Protection, valid 12 hours, tied to the survey and its current password — changing the password invalidates
+old keys). The key must accompany opening (`X-Survey-Access-Key` header / runner state), saving drafts and submitting
+(`accessKey`); without it the session reports `PasswordRequired` and the design is withheld, and saves/submissions are
+refused (403). Wrong guesses are limited per connection (10 per 5 minutes) and per IP on the API. Protected surveys are
+not listed publicly and show their thank-you message inside the survey page. Duplicates keep the password; exported
+definitions never contain it.
+
 **Option order:** choice questions with *Randomise options* are shuffled once per respondent (the order stays
 the same while they answer); "Other → free text" options always stay last.
 
@@ -542,6 +552,8 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
   authentication (20/min/IP) and submissions (30/min/IP). Submissions from the interactive survey runner are limited
   per connection (5 per minute) — not per IP, because many respondents can share one address. For very public
   surveys that attract spam, put a WAF / bot protection in front of the site.
+* **Password-protected surveys:** salted PBKDF2-SHA256 hashes (100,000 iterations), constant-time comparison,
+  signed time-limited access keys checked on every open/save/submit, brute-force limits per connection and per IP.
 * **Headers:** `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin` and
   clickjacking protection (below) on every response.
 * **Input handling:** server-side validation of every survey design and answer; logic re-evaluated on the

@@ -11,6 +11,7 @@ using SmartSurvey.Infrastructure.Exports;
 using SmartSurvey.Infrastructure.Identity;
 using SmartSurvey.Infrastructure.Persistence;
 using SmartSurvey.Infrastructure.Persistence.Seed;
+using SmartSurvey.Infrastructure.Security;
 
 namespace SmartSurvey.Infrastructure;
 
@@ -66,6 +67,7 @@ public static class DependencyInjection
         services.AddScoped<IResponseExportService, ResponseExportService>();
 
         services.AddSingleton<IEmailTransport, SmtpEmailTransport>();
+        services.AddSingleton<ISurveyAccessKeys, DataProtectionSurveyAccessKeys>();
         services.AddScoped<IUserAdminService, UserAdminService>();
         services.AddScoped<DbSeeder>();
 

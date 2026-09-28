@@ -51,6 +51,12 @@ public class Survey : AuditableEntity
     /// <summary>Message shown after submission.</summary>
     public string? ThankYouMessage { get; set; }
 
+    /// <summary>
+    /// Salted PBKDF2 hash of the access password (null = no password). Respondents must enter the password
+    /// before they can open, save or submit the survey. The password itself is never stored.
+    /// </summary>
+    public string? AccessPasswordHash { get; set; }
+
     /// <summary>UTC timestamp of the (latest) publication.</summary>
     public DateTime? PublishedAt { get; set; }
 

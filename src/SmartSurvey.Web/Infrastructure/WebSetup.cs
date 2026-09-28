@@ -80,6 +80,7 @@ public static class WebSetup
         services.AddScoped<ToastService>();
         services.AddScoped<BrowserInterop>();
         services.AddScoped<SubmissionThrottle>();
+        services.AddScoped<PasswordAttemptThrottle>();
 
         services.AddAuthorizationBuilder()
             .AddPolicy(AuthPolicies.Admin, p => p.RequireRole(AppRoles.Admin))

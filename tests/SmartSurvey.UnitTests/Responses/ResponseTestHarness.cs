@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging.Abstractions;
 using SmartSurvey.Application.Common;
@@ -6,6 +7,7 @@ using SmartSurvey.Application.Surveys;
 using SmartSurvey.Domain.Entities;
 using SmartSurvey.Domain.Enums;
 using SmartSurvey.Domain.Identity;
+using SmartSurvey.Infrastructure.Security;
 using SmartSurvey.UnitTests.TestSupport;
 
 namespace SmartSurvey.UnitTests.Responses;
@@ -37,10 +39,16 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
             Audit,
             new SaveResponseRequestValidator(),
             new ResponseQueryValidator(),
+            AccessKeys,
             NullLogger<ResponseService>.Instance);
     }
 
     public SqliteTestDatabase Db { get; } = new();
+
+    /// <summary>Access keys of password-protected surveys (ephemeral key ring).</summary>
+    public DataProtectionSurveyAccessKeys AccessKeys => _accessKeys ??= new DataProtectionSurveyAccessKeys(new EphemeralDataProtectionProvider(), Db.Time);
+
+    private DataProtectionSurveyAccessKeys? _accessKeys;
 
     public RecordingAuditService Audit { get; } = new();
 

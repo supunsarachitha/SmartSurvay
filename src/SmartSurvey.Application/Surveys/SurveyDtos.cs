@@ -51,6 +51,9 @@ public sealed record SurveySummaryDto
 
     /// <summary>Latest completed response timestamp (UTC).</summary>
     public DateTime? LastResponseAt { get; init; }
+
+    /// <summary>Respondents need a password to open the survey.</summary>
+    public bool IsPasswordProtected { get; init; }
 }
 
 /// <summary>
@@ -105,6 +108,18 @@ public sealed class SurveyDefinitionDto
 
     /// <summary>Thank-you message.</summary>
     public string? ThankYouMessage { get; set; }
+
+    /// <summary>
+    /// Respondents need a password to open the survey. When reading: whether a password is set. When saving:
+    /// false removes the password; true keeps the current one or sets <see cref="AccessPassword"/>.
+    /// </summary>
+    public bool PasswordProtected { get; set; }
+
+    /// <summary>
+    /// New access password (write-only, 4–128 characters; never returned). Leave empty to keep the current
+    /// password. Required when <see cref="PasswordProtected"/> is switched on for the first time.
+    /// </summary>
+    public string? AccessPassword { get; set; }
 
     /// <summary>Concurrency version; send back the value you loaded when updating.</summary>
     public int Version { get; set; }

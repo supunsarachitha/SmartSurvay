@@ -27,6 +27,8 @@ ASP.NET Core 8 · Blazor (Interactive Server) · EF Core 8 · PostgreSQL · Ques
   evaluated live in the browser and re-validated on the server.
 - **Great respondent experience** — mobile-friendly runner, progress bar, live validation, auto-saved drafts with
   resume, anonymous links, QR codes and embedding in any website.
+- **Password-protected links** — optionally require a password to open a survey (stored as a salted hash, enforced
+  on the server for opening, saving and submitting).
 - **Dynamic reports** — KPIs, distribution tables, bar/pie/doughnut/line charts, cross-tabs, NPS, text answers and raw
   grids with date and answer filters, live preview, and **PDF / CSV / TXT / Excel / JSON** export.
 - **Administration** — dashboard, response browser, user & role management (incl. password reset), audit log and

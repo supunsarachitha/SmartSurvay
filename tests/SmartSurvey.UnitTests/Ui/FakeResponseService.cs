@@ -40,11 +40,33 @@ public sealed class FakeResponseService : IResponseService
     public Task<IReadOnlyList<MyResponseDto>> ListMineAsync(CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<MyResponseDto>>(Mine);
 
-    public Task<SurveySessionDto> StartOrResumeAsync(string slug, CancellationToken ct = default)
+    /// <summary>When set, the survey is password-protected with this password (access key "valid-key").</summary>
+    public string? Password { get; set; }
+
+    /// <summary>Access keys passed to <see cref="StartOrResumeAsync"/>.</summary>
+    public List<string?> AccessKeys { get; } = [];
+
+    public Task<SurveySessionDto> StartOrResumeAsync(string slug, string? accessKey = null, CancellationToken ct = default)
     {
         StartedSlugs.Add(slug);
+        AccessKeys.Add(accessKey);
+        if (Password is not null && accessKey != "valid-key")
+        {
+            return Task.FromResult(new SurveySessionDto
+            {
+                Eligibility = SurveyEligibility.PasswordRequired,
+                Message = "This survey is protected with a password.",
+                SurveyTitle = Session.Survey?.Title,
+            });
+        }
+
         return Task.FromResult(Session);
     }
+
+    public Task<SurveyUnlockResult> UnlockAsync(string slug, string password, CancellationToken ct = default) =>
+        password == Password
+            ? Task.FromResult(new SurveyUnlockResult("valid-key", DateTime.UtcNow.AddHours(12)))
+            : Task.FromException<SurveyUnlockResult>(new AppValidationException("Password", "That password is not correct. Please check it and try again."));
 
     public Task<SurveyCompletionDto?> GetCompletionAsync(string slug, CancellationToken ct = default) => Task.FromResult(Completion);
 

@@ -194,7 +194,8 @@ DoughnutChart, LineChart (responses over time), CrossTab, TextResponses, RawResp
 | `GET /api/v1/responses/{id}` | admin/owner | Response detail |
 | `DELETE /api/v1/responses/{id}` | admin | Delete response |
 | `GET /api/v1/public/surveys` | public/user | Available surveys |
-| `GET /api/v1/public/surveys/{slug}` | per survey | Survey session (definition + draft + eligibility) |
+| `GET /api/v1/public/surveys/{slug}` | per survey | Survey session (definition + draft + eligibility); header `X-Survey-Access-Key` for password-protected surveys |
+| `POST /api/v1/public/surveys/{slug}/unlock` | per survey | Check a survey password → access key (rate-limited) |
 | `POST /api/v1/public/surveys/{surveyId}/responses` | per survey | Submit response |
 | `PUT /api/v1/public/surveys/{surveyId}/draft` | user | Save draft |
 | `GET /api/v1/me/responses` | user | My responses |

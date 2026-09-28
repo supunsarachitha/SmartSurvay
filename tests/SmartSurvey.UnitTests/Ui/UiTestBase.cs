@@ -30,6 +30,7 @@ public abstract class UiTestBase : BunitContext
         Services.AddScoped<BrowserInterop>();
         Services.AddSingleton(TimeProvider.System);
         Services.AddScoped<SubmissionThrottle>();
+        Services.AddScoped<PasswordAttemptThrottle>();
         Auth = AddAuthorization();
     }
 

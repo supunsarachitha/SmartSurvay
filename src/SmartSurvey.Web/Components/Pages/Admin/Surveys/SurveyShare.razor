@@ -72,6 +72,13 @@ else
                         <a class="btn btn-light" href="@url" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right"></i>Open</a>
                         <a class="btn btn-light" href="admin/surveys/@survey.Id/preview"><i class="bi bi-eye"></i>Preview</a>
                     </div>
+                    @if (survey.PasswordProtected)
+                    {
+                        <div class="alert alert-warning small d-flex gap-2 mt-3 mb-0">
+                            <i class="bi bi-lock"></i>
+                            <span>This survey is protected with a password. Send the password to your respondents separately — ideally in a different message than the link.</span>
+                        </div>
+                    }
                     <div class="small text-muted mt-3">
                         @if (survey.AllowAnonymous)
                         {
@@ -157,7 +164,9 @@ else
             qrSvg = RenderSvg(url);
             embedUrl = Navigation.ToAbsoluteUri($"embed/s/{survey.Slug}").AbsoluteUri;
             embedCode = $"<iframe src=\"{embedUrl}\" title=\"{System.Net.WebUtility.HtmlEncode(survey.Title)}\" width=\"100%\" height=\"720\" style=\"border:0;max-width:820px\" loading=\"lazy\"></iframe>";
-            invitation = $"Hi,\n\nWe'd love to hear your thoughts. Please take a few minutes to answer our survey “{survey.Title}”:\n{url}\n\nThank you!";
+            invitation = $"Hi,\n\nWe'd love to hear your thoughts. Please take a few minutes to answer our survey “{survey.Title}”:\n{url}\n\n"
+                + (survey.PasswordProtected ? "The survey is password-protected — use the password we've shared with you.\n\n" : string.Empty)
+                + "Thank you!";
         }
         catch (Exception ex) when (UiErrors.IsExpected(ex))
         {

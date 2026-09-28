@@ -45,6 +45,8 @@ public static class SurveyDefinitionCloner
             MaxResponses = source.MaxResponses,
             WelcomeMessage = source.WelcomeMessage,
             ThankYouMessage = source.ThankYouMessage,
+            PasswordProtected = source.PasswordProtected,
+            AccessPassword = source.AccessPassword,
             Version = source.Version,
             CreatedAt = source.CreatedAt,
             UpdatedAt = source.UpdatedAt,

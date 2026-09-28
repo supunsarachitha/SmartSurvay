@@ -118,4 +118,42 @@ public sealed class PublicApiTests(ApiFactory factory)
         Assert.NotEqual(SurveyEligibility.Eligible, session.Eligibility);
         Assert.Null(session.Survey);
     }
+
+    [Fact]
+    public async Task Password_protected_survey_needs_the_access_key_from_unlock()
+    {
+        var design = Survey("Protected API survey");
+        design.PasswordProtected = true;
+        design.AccessPassword = "api-pass-123";
+        var created = await ReadAsync<Application.Surveys.SurveyDefinitionDto>(
+            await _admin.PostAsJsonAsync("/api/v1/surveys", design, ApiFactory.Json), HttpStatusCode.Created);
+        var survey = await ReadAsync<Application.Surveys.SurveyDefinitionDto>(
+            await _admin.PostAsJsonAsync($"/api/v1/surveys/{created.Id}/status", new { status = "Published" }, ApiFactory.Json));
+        Assert.True(survey.PasswordProtected);
+        Assert.Null(survey.AccessPassword);
+        var anonymous = factory.Anonymous();
+
+        var locked = await ReadAsync<SurveySessionDto>(await anonymous.GetAsync($"/api/v1/public/surveys/{survey.Slug}"));
+        Assert.Equal(SurveyEligibility.PasswordRequired, locked.Eligibility);
+        Assert.Null(locked.Survey);
+
+        await ProblemAsync(await anonymous.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Slug}/unlock", new { password = "wrong" }, ApiFactory.Json),
+            HttpStatusCode.BadRequest);
+        await ProblemAsync(await anonymous.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", Answers(survey), ApiFactory.Json),
+            HttpStatusCode.Forbidden);
+
+        var unlock = await ReadAsync<SurveyUnlockResult>(
+            await anonymous.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Slug}/unlock", new { password = "api-pass-123" }, ApiFactory.Json));
+        using var withKey = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/public/surveys/{survey.Slug}");
+        withKey.Headers.Add("X-Survey-Access-Key", unlock.AccessKey);
+        var open = await ReadAsync<SurveySessionDto>(await anonymous.SendAsync(withKey));
+        Assert.Equal(SurveyEligibility.Eligible, open.Eligibility);
+
+        var request = Answers(survey);
+        request.AccessKey = unlock.AccessKey;
+        await ReadAsync<SubmitResponseResult>(await anonymous.PostAsJsonAsync($"/api/v1/public/surveys/{survey.Id}/responses", request, ApiFactory.Json));
+
+        var listed = await ReadAsync<List<AvailableSurveyDto>>(await anonymous.GetAsync("/api/v1/public/surveys"));
+        Assert.DoesNotContain(listed, s => s.SurveyId == survey.Id);
+    }
 }
