@@ -29,6 +29,11 @@ jobs:
       - name: Test
         run: dotnet test SmartSurvey.sln --no-build -c Release --logger "trx;LogFileName=results.trx" --collect:"XPlat Code Coverage" --results-directory ./TestResults
 
+      - name: Check for vulnerable packages
+        run: |
+          dotnet list SmartSurvey.sln package --vulnerable --include-transitive | tee vulnerable.txt
+          ! grep -q "has the following vulnerable packages" vulnerable.txt
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
@@ -56,6 +61,8 @@ jobs:
         with:
           global-json-file: global.json
       - run: dotnet tool restore
+      - name: No model changes without a migration
+        run: dotnet ef migrations has-pending-model-changes --project src/SmartSurvey.Infrastructure --startup-project src/SmartSurvey.Web
       - name: Apply EF Core migrations
         env:
           SMARTSURVEY_MIGRATIONS_CONNECTION: Host=localhost;Port=5432;Database=smartsurvey;Username=smartsurvey;Password=smartsurvey
@@ -73,4 +80,15 @@ jobs:
         with:
           context: .
           push: false
-          tags: smartsurvey:ci
+          load: true
+          tags: smartsurvey:latest
+      - name: Start the stack (app + PostgreSQL)
+        run: docker compose up -d --no-build
+      - name: Smoke test the container
+        run: scripts/container-smoke.sh http://localhost:8080 admin@smartsurvey.local 'ChangeMe123!'
+      - name: Container logs
+        if: always()
+        run: docker compose logs web
+      - name: Stop the stack
+        if: always()
+        run: docker compose down -v

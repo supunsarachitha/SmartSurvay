@@ -16,14 +16,15 @@ ASP.NET Core 8 · Blazor (Interactive Server) · EF Core 8 · PostgreSQL · Ques
   linear scale/NPS), answer options, combined *"Other → free text"* options, multi-page sections, per-question settings.
 - **Conditional logic** — show/hide questions and whole pages based on earlier answers (10 operators, All/Any),
   evaluated live in the browser and re-validated on the server.
-- **Great respondent experience** — mobile-friendly runner, progress bar, per-page validation, save & resume drafts,
-  anonymous links, QR codes, embed snippet.
+- **Great respondent experience** — mobile-friendly runner, progress bar, live validation, auto-saved drafts with
+  resume, anonymous links, QR codes and embedding in any website.
 - **Dynamic reports** — KPIs, distribution tables, bar/pie/doughnut/line charts, cross-tabs, NPS, text answers and raw
   grids with date and answer filters, live preview, and **PDF / CSV / TXT / Excel / JSON** export.
-- **Administration** — dashboard, response browser, user & role management, audit log.
+- **Administration** — dashboard, response browser, user & role management (incl. password reset), audit log and
+  branding (product name, tagline, logo).
 - **REST API** — every capability over `/api/v1` with bearer tokens, Swagger and ProblemDetails.
-- **Production-ready** — Clean Architecture, FluentValidation, rate limiting, health checks, dark mode, Docker, CI,
-  hundreds of automated tests.
+- **Production-ready** — Clean Architecture, FluentValidation, SMTP account e-mails, rate limiting, security headers,
+  health checks, dark mode, Docker, CI, 750+ automated tests.
 - Plus a **FAQ** page and a **Buy Me a Coffee** support page.
 
 ## 🚀 Quick start
@@ -42,12 +43,15 @@ example surveys, ~200 responses and a sample report). API docs: `/swagger`.
 
 No PostgreSQL? Run with SQLite:
 
-```powershell
-$env:Database__Provider="Sqlite"; $env:ConnectionStrings__DefaultConnection="Data Source=smartsurvey.db"
-dotnet run --project src/SmartSurvey.Web
+```bash
+Database__Provider=Sqlite ConnectionStrings__DefaultConnection="Data Source=smartsurvey.db" \
+  dotnet run --project src/SmartSurvey.Web
 ```
 
-Everything in containers: `docker compose up --build` → <http://localhost:8080>.
+(PowerShell: `$env:Database__Provider="Sqlite"; $env:ConnectionStrings__DefaultConnection="Data Source=smartsurvey.db"`.)
+
+Everything in containers: `docker compose up --build` → <http://localhost:8080> (admin password `ChangeMe123!` unless
+you set `ADMIN_PASSWORD`).
 
 ## 🧱 Architecture
 
@@ -72,8 +76,9 @@ The Blazor UI and the REST API share one Application layer, so business rules ar
 ## 🧪 Tests
 
 ```bash
-dotnet test
+dotnet test                                                       # unit + integration tests
 bash scripts/smoke.sh --user admin / /admin /admin/surveys /admin/reports
+scripts/container-smoke.sh http://localhost:8080                  # against a running container stack
 ```
 
 ## ☕ Support

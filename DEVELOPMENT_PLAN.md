@@ -269,10 +269,15 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 - [x] Code review + security review → fixes: (1) DI bug — the e-mail sender was scoped but `MapIdentityApi` resolves it from the root provider (crash in Development) → singleton, and the integration host now runs with `ValidateScopes`/`ValidateOnBuild`; (2) expected API errors (400/403/404/409/422) were logged as errors with stack traces by the .NET 8 exception middleware → `ApiErrorFilter` on `/api/v1` + regression test; (3) interactive submissions bypassed the per-IP limiter → per-circuit `SubmissionThrottle` (5/min; deliberately not per IP because of shared NAT addresses); (4) `nosniff` + referrer policy on every response (`SecurityHeadersMiddleware`); (5) `dotnet list package --vulnerable`: AngleSharp advisory via bUnit 1.40 → bUnit 2.11.3 (tests migrated); now clean. Verified: admin pages reject guests/users, services re-check admin, SVG logos screened + sandboxed, no links in production logs
 
 ### Phase 8 — DevOps & docs
-- [ ] Dockerfile + docker-compose (app + postgres)
-- [ ] GitHub Actions CI
-- [ ] `docs/DOCUMENTATION.md` complete (architecture, schema, API, UI, reports, exports, examples, ops)
-- [ ] README, CHANGELOG release entry
+- [x] Dockerfile + docker-compose (app + postgres) — verified on Docker 29: image builds, `docker compose up` runs the stack on PostgreSQL 16, `scripts/container-smoke.sh` passes (health, pages, admin sign-in, 143 KB PDF export → QuestPDF works in the Linux image), browser check of the published build (interactive runner, admin dashboard, no failed requests). Fixed: `ASPNETCORE_URLS` → `ASPNETCORE_HTTP_PORTS` (start-up warning)
+- [x] GitHub Actions CI — added gates: known vulnerable packages, model changes without a migration (`has-pending-model-changes`), container smoke test (image loaded, `docker compose up --no-build`, logs, teardown). YAML validated locally; runs on GitHub on the next push
+- [x] `docs/DOCUMENTATION.md` complete (architecture, schema, API, UI, reports, exports, examples, ops) — updated for runner, reports UI, admin pages, embedding, e-mail, security hardening, cross-platform setup, CI and container smoke
+- [x] README, CHANGELOG release entry — `[1.0.0] - 2026-09-27`
+
+### Backlog (after 1.0)
+- [ ] **Move to .NET 10 LTS before .NET 8 support ends on 2026-11-10**: `TargetFramework` in `Directory.Build.props`, SDK in `global.json`, `8.0.*` Microsoft/EF packages and Npgsql → `10.0.*` in `Directory.Packages.props`, Docker base images `8.0` → `10.0`; then run all tests, the smoke scripts and a PostgreSQL run
+- [ ] Optional: keep the headless-browser checks used during Phases 6–8 in the repository (Node + puppeteer-core; currently run ad hoc)
+- [ ] Optional: bot protection (CAPTCHA / WAF) for very public surveys — interactive submissions are throttled per connection, the API per IP
 
 ## 8. Conventions (for humans and agents)
 
@@ -358,3 +363,4 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Phase 6E done | Admin pages above. Browser check found a real issue: create-user fields bound on `change` lost the password when the button was triggered without blurring the field → bound on input. 15 new tests (737 green); verified in headless Chrome (dashboard, response filters, CSV export, detail, create/lock user, audit entries, branding save refreshes sidebar/title, reset). **Phase 6 complete.** Next: Phase 7 |
 | 2026-09-27 | Phase 7: e-mail | `IEmailTransport` (Application) + `SmtpEmailTransport` (MailKit), branded `IdentityEmailSender`, dev-only confirmation link without SMTP, admin set-password. 16 new tests (754 green). Verified against a local SMTP catcher in Production mode (reset link works; no links in the log) |
 | 2026-09-27 | Phase 7 done | Environment is now macOS: PostgreSQL 16 runs from the project's docker-compose (`docker compose up -d db`). Full verification against PostgreSQL (UI + API), review findings fixed (see Phase 7 checklist). 757 tests green, 0 warnings, no vulnerable packages. Next: Phase 8 |
+| 2026-09-27 | Phase 8 done — **v1.0.0** | Container stack verified end to end (smoke script + browser), Dockerfile port warning fixed, CI gates added (vulnerable packages, pending migrations, container smoke), documentation/README brought up to date, CHANGELOG 1.0.0. All phases complete; see the Backlog above (.NET 10 migration before 2026-11-10). Local `main` is ahead of `origin` until pushed |

@@ -59,13 +59,13 @@ both behave identically.
 | Survey design | 10 question types (short text, long text, radio, checkbox, dropdown, number, e-mail, date, star rating, linear scale/NPS); answer options with export values; *"Other (please specify)"* free-text options; required flags; help texts; per-type settings (placeholders, length limits, min/max values, whole numbers, min/max selections, rating size, scale range and labels, date range, randomised options); multi-page sections; question codes for exports |
 | Logic | Show/hide rules for questions **and** sections; conditions on earlier answers with 10 operators; All/Any matching; chained logic; server-side re-evaluation |
 | Lifecycle | Draft → Published → Closed → Archived; reopen; schedule (opens/closes at); response quota; templates; duplicate; JSON import/export of survey definitions; optimistic concurrency |
-| Distribution | Public link `/s/{slug}`, QR code, embed snippet, anonymous or login-required surveys, one-response-per-user option |
-| Responding | Multi-page runner, progress bar, live branching, per-page and final validation, drafts with resume for logged-in users, thank-you page, "My responses" |
+| Distribution | Public link `/s/{slug}`, QR code, invitation text, embedding in other websites (`/embed/s/{slug}` + snippet), anonymous or login-required surveys, one-response-per-user option |
+| Responding | Multi-page runner, progress bar, live branching, per-page and final validation (errors clear as answers are fixed), per-respondent option shuffling, drafts with auto-save and resume for logged-in users, thank-you page, "My responses", admin preview (desktop/phone) |
 | Responses | Filterable, paged response browser; response detail; deletion; raw export (CSV/XLSX/JSON) |
 | Reports | Saved report definitions per survey; global filters (date range, drafts, answer-based filters with All/Any); 10 widget types (KPIs, question tables, bar/horizontal bar/pie/doughnut charts, responses-over-time line chart, cross-tabulation, text responses, raw grid); numeric statistics incl. NPS; auto-generated default report; live preview builder |
 | Exports | PDF (QuestPDF, charts embedded as SVG), CSV (RFC 4180, Excel-friendly, CSV-injection safe), TXT (ASCII tables + text bar charts), XLSX (ClosedXML, one sheet per widget), JSON |
-| Administration | Dashboard (KPIs, 30-day trend, top surveys, recent responses), user management (create, roles, lock/unlock, delete with self-protection), audit log |
-| Platform | ASP.NET Core Identity (cookie + bearer tokens, lockout, 2FA pages), role policies, ProblemDetails errors, rate limiting, health checks, Swagger/OpenAPI, dark mode, responsive UI, Docker, CI |
+| Administration | Dashboard (KPIs, 30-day trend, top surveys, recent responses), user management (create, roles, set password, lock/unlock, delete with self-protection), audit log, branding (product name, tagline, icon or logo/favicon) |
+| Platform | ASP.NET Core Identity (cookie + bearer tokens, lockout, 2FA pages), account e-mails over SMTP, role policies, ProblemDetails errors, rate limiting, security headers, health checks, Swagger/OpenAPI, dark mode, responsive UI, Docker, CI |
 | Extras | FAQ page, Buy Me a Coffee support page with QR code |
 
 ## 3. Technology stack
@@ -82,8 +82,9 @@ both behave identically.
 | PDF | QuestPDF 2026.9 (Community license) |
 | Excel | ClosedXML 0.105 |
 | QR codes | QRCoder 1.8 |
+| E-mail | MailKit 4.18 (SMTP) |
 | API docs | Swashbuckle 10 (OpenAPI) |
-| Tests | xUnit 2.9, bUnit 1.40, `WebApplicationFactory`, SQLite in-memory |
+| Tests | xUnit 2.9, bUnit 2.11, `WebApplicationFactory` (DI scope validation on), SQLite in-memory |
 | DevOps | Dockerfile, docker-compose, GitHub Actions |
 
 > ⚠️ **.NET 8 support ends on 10 November 2026.** The target framework is defined once in
@@ -95,13 +96,15 @@ both behave identically.
 
 ### 4.1 Prerequisites
 
-* .NET 8 SDK (8.0.4xx) — `winget install Microsoft.DotNet.SDK.8` / <https://dotnet.microsoft.com/download>
-* PostgreSQL 16 — native install **or** Docker
-* (optional) Docker Desktop for the container stack
+* .NET 8 SDK (8.0.4xx) — <https://dotnet.microsoft.com/download>, `winget install Microsoft.DotNet.SDK.8` (Windows),
+  `brew install --cask dotnet-sdk@8` (macOS) or your Linux distribution's `dotnet-sdk-8.0` package
+* PostgreSQL 16 — native install **or** Docker (easiest: `docker compose up -d db`)
+* (optional) Docker Desktop / Docker Engine for the container stack
 
 ### 4.2 Database
 
-**Native PostgreSQL** (e.g. `winget install PostgreSQL.PostgreSQL.16`), then create the role and database:
+**Native PostgreSQL** (e.g. `winget install PostgreSQL.PostgreSQL.16`, `brew install postgresql@16` or
+`apt install postgresql-16`), then create the role and database:
 
 ```sql
 CREATE ROLE smartsurvey LOGIN PASSWORD 'smartsurvey' CREATEDB;
@@ -131,6 +134,12 @@ Swagger UI: `/swagger` · Health: `/health`.
 ### 4.4 Zero-install demo mode (SQLite)
 
 ```bash
+# bash / zsh
+Database__Provider=Sqlite ConnectionStrings__DefaultConnection="Data Source=smartsurvey.db" \
+  dotnet run --project src/SmartSurvey.Web
+```
+
+```powershell
 # PowerShell
 $env:Database__Provider="Sqlite"; $env:ConnectionStrings__DefaultConnection="Data Source=smartsurvey.db"
 dotnet run --project src/SmartSurvey.Web
@@ -142,6 +151,7 @@ SQLite mode creates the schema with `EnsureCreated` (no migrations) and is inten
 
 ```bash
 docker compose up --build        # http://localhost:8080  (admin password: ChangeMe123! unless ADMIN_PASSWORD is set)
+scripts/container-smoke.sh       # health, pages, admin sign-in and a PDF export against the running stack
 ```
 
 ## 5. Architecture
@@ -157,7 +167,7 @@ flowchart LR
         ID["Identity UI + /api/auth"]
     end
     subgraph App["SmartSurvey.Application"]
-        SVC["Services<br/>Survey · Response · Report · Dashboard · Audit"]
+        SVC["Services<br/>Survey · Response · Report · Dashboard · Audit · Branding"]
         LOGIC["LogicEvaluator · ResponseValidator"]
         ENG["ReportEngine · SvgChartRenderer"]
         CONTRACTS["DTOs · interfaces · validators"]
@@ -166,6 +176,7 @@ flowchart LR
         DB["AppDbContext (EF Core)<br/>migrations · interceptor"]
         EXP["Exporters<br/>PDF · CSV · TXT · XLSX · JSON"]
         USR["UserAdminService · DbSeeder"]
+        MAIL["SmtpEmailTransport (MailKit)"]
     end
     subgraph Domain["SmartSurvey.Domain"]
         ENT["Entities · enums · value objects"]
@@ -199,7 +210,11 @@ flowchart LR
   `IAppDbContextFactory` → EF Core → PostgreSQL. `ICurrentUser` is populated by a `CircuitHandler`.
 * **Static page** (e.g. FAQ): HTTP request → Razor component rendered once on the server (SSR).
 * **REST call**: HTTP request → authentication (cookie or bearer) → `CurrentUserMiddleware` → endpoint →
-  service; failures become RFC 7807 ProblemDetails via `ApiExceptionHandler`.
+  service; expected failures become RFC 7807 ProblemDetails in `ApiErrorFilter` (endpoint filter on `/api/v1`),
+  anything unexpected in `ApiExceptionHandler` (logged, details hidden outside Development).
+* **Survey runner**: the page is prerendered (the session and the option-shuffle seed are handed to the interactive
+  render through persisted component state), then answers are edited in `SurveyRunState`, which runs the same
+  `LogicEvaluator` / `ResponseValidator` as the server.
 
 ## 6. Project structure
 
@@ -215,13 +230,15 @@ SmartSurvey.sln
 │   ├── SmartSurvey.Infrastructure/    Persistence (AppDbContext, Configurations, Converters, Migrations,
 │   │                                  Seed), Exports (PDF/CSV/TXT/XLSX/JSON, raw responses), Identity
 │   └── SmartSurvey.Web/               Program.cs, Api/ (endpoints), Infrastructure/ (current user, auth,
-│                                      exception handler, browser interop), Components/ (Layout, Shared,
-│                                      Pages, Builder, Survey, Reports, Account), wwwroot/
+│                                      error handling, security headers/embedding, throttle, browser
+│                                      interop), Components/ (Layout, Shared, Pages, Admin/Builder,
+│                                      Admin/Reports, Runner, Account), wwwroot/
 ├── tests/
 │   ├── SmartSurvey.UnitTests/         Core logic, services (SQLite in-memory), exporters, bUnit components
 │   └── SmartSurvey.IntegrationTests/  REST API end-to-end through WebApplicationFactory
 ├── docs/                              DOCUMENTATION.md (this file), examples/ (API payloads, .http file)
 ├── scripts/smoke.sh                   Boots the app on SQLite and smoke-tests pages
+├── scripts/container-smoke.sh         Smoke-tests a running container stack (incl. PDF export)
 ├── Dockerfile · docker-compose.yml · .github/workflows/ci.yml
 └── Directory.Build.props · Directory.Packages.props · global.json · DEVELOPMENT_PLAN.md · CHANGELOG.md
 ```
@@ -263,6 +280,7 @@ erDiagram
 | `AnswerSelections` | Selected options | `FreeText`; unique (`AnswerId`,`OptionId`) |
 | `Reports` / `ReportWidgets` | Saved report definitions | `Filters` and `Settings` (**jsonb**); widget question FKs **SET NULL** |
 | `AuditLogs` | Audit trail | indexed by `Timestamp` and (`EntityType`,`EntityId`) |
+| `BrandingSettings` | Product branding (single row) | `ProductName`, `Tagline`, `IconName`, `LogoContent` (bytes) + content type, `Version` (cache busting) |
 | `AspNet*` | ASP.NET Core Identity | GUID keys; `AspNetUsers` adds `DisplayName`, `CreatedAt`, `LastLoginAt`, `IsActive` |
 
 Delete behaviour: deleting a survey cascades to its design, responses and reports; deleting a question
@@ -314,7 +332,9 @@ while the option is selected. Reports list these texts separately.
 
 ### 9.2 Sections
 
-Sections are pages. The runner shows one visible section per page; sections can be hidden by logic.
+Sections are pages. The runner shows one visible section per page; sections can be hidden by logic, and a page
+whose questions are all hidden for the current answers is skipped (a page without any questions is shown as an
+information page).
 
 ### 9.3 Lifecycle
 
@@ -567,6 +587,7 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 dotnet test                                   # unit + integration tests
 dotnet test tests/SmartSurvey.UnitTests       # fast unit tests only
 bash scripts/smoke.sh --user admin / /admin /admin/surveys   # boot the app and smoke-test pages
+scripts/container-smoke.sh http://localhost:8080             # smoke-test a running container stack
 ```
 
 * **Unit tests** cover the logic evaluator, condition matcher, answer validator, slug generator, EF model
@@ -574,15 +595,18 @@ bash scripts/smoke.sh --user admin / /admin /admin/surveys   # boot the app and 
   `AppDbContext`), the report engine, the SVG renderer, every exporter, seeding and Blazor components (bUnit).
 * **Integration tests** drive the real HTTP pipeline (`WebApplicationFactory`) against an in-memory SQLite
   database: authentication, authorization, survey lifecycle, public submission, reports and exports, users,
-  audit, health and Swagger.
+  audit, branding, respondent pages and security headers, health and Swagger. The test host validates DI scopes and
+  registrations (like Development) and captures logs, e.g. to assert that expected API errors aren't logged as errors.
 * **Smoke test** (`scripts/smoke.sh`) starts the compiled app with demo data, logs in through the real
   Identity form and checks that pages render on the server without errors.
 
 ## 19. Deployment
 
-**Docker:** `docker build -t smartsurvey .` produces a Linux image (non-root user, port 8080, fontconfig for
-PDF rendering). `docker-compose.yml` runs the app with PostgreSQL, persists the database and the
-data-protection keys in volumes, and configures the admin via `ADMIN_EMAIL` / `ADMIN_PASSWORD`.
+**Docker:** `docker build -t smartsurvey .` produces a Linux image (non-root user, port 8080, fontconfig and
+DejaVu fonts for PDF rendering). `docker-compose.yml` runs the app with PostgreSQL, persists the database and the
+data-protection keys in volumes, and configures the admin via `ADMIN_EMAIL` / `ADMIN_PASSWORD`. The keys are
+stored unencrypted on their volume (the container logs a warning about it): keep the volume private, or configure
+key encryption (`ProtectKeysWithCertificate`) for stricter environments.
 
 **Production checklist**
 
@@ -593,10 +617,12 @@ data-protection keys in volumes, and configures the admin via `ADMIN_EMAIL` / `A
 - [ ] TLS at the proxy + `ReverseProxy:Enabled=true`, or Kestrel HTTPS
 - [ ] Decide on `Swagger:Enabled`
 - [ ] Database backups; apply migrations as part of the release (`dotnet ef migrations script --idempotent`)
-- [ ] Configure a real `IEmailSender` if e-mail confirmation / password reset is required
+- [ ] `Email:Smtp:*` for account e-mails (confirmation, password reset) — or reset passwords from the Users page
+- [ ] `Embedding:AllowedOrigins` (or `Embedding:Enabled=false`) if surveys should only be embedded by your own sites
 
-**CI:** `.github/workflows/ci.yml` builds and tests on every push/PR, applies migrations to a PostgreSQL
-service container and builds the Docker image.
+**CI:** `.github/workflows/ci.yml` builds and tests on every push/PR and fails on known vulnerable packages;
+checks that the model has no changes without a migration and applies the migrations to a PostgreSQL service
+container; builds the Docker image, starts it with docker compose and runs `scripts/container-smoke.sh`.
 
 ## 20. Extending SmartSurvey
 
@@ -604,10 +630,11 @@ service container and builds the Docker image.
   `Infrastructure/DependencyInjection.cs`, add the enum value to `ExportFormat` (+ content type/extension).
   The report service, API and UI pick it up.
 * **New widget type** — add a `WidgetType` value (+ display helpers in `QuestionTypeExtensions`), compute
-  it in `ReportEngine`, render it in `WidgetView` (UI) — exporters work automatically because they consume the
-  generic `WidgetResult` (stats, chart, tables).
+  it in `ReportEngine`, say which questions it supports in `ReportDesign.Supports` (builder) and render it in
+  `WidgetView` (UI) — exporters work automatically because they consume the generic `WidgetResult` (stats, chart,
+  tables).
 * **New question type** — add a `QuestionType` value, classify it in `QuestionTypeExtensions`
-  (`IsText/IsNumeric/IsChoice/IsDate`), extend `ResponseValidator`, `QuestionInput` (runner), the builder
+  (`IsText/IsNumeric/IsChoice/IsDate`), extend `ResponseValidator`, `QuestionField` (runner input), the builder
   settings panel and, if needed, report aggregation.
 * **New condition operator** — extend `ConditionOperator`, `ConditionMatcher` and `SupportedOperators`.
 
@@ -622,10 +649,12 @@ service container and builds the Docker image.
 | PDF export fails in a custom Linux image | Install `libfontconfig1` and a font package (see Dockerfile) |
 | Docker Desktop "Linux engine" errors on Windows | Enable WSL 2 (`wsl --install`, reboot) or use native PostgreSQL |
 | `409 Conflict` when saving a survey | Someone else saved it — reload the builder and re-apply your changes |
+| Password-reset / confirmation e-mails don't arrive | `Email:Smtp:Host` is empty (the log says so) or the server rejects the sender — check `Email:FromAddress`, credentials and `Email:Smtp:Security`; meanwhile set a password from the Users page |
+| An embedded survey shows "refused to connect" | Embedding is disabled or the site isn't in `Embedding:AllowedOrigins`; the snippet must use `/embed/s/{slug}` |
 
 ## 22. Licensing notes
 
 * **QuestPDF** is used under the *Community* license (free for individuals, open-source projects and
   companies with < USD 1M annual gross revenue). Larger organisations need a commercial QuestPDF license.
-* Bootstrap, Bootstrap Icons (MIT), Inter (SIL OFL 1.1), ClosedXML (MIT), QRCoder (MIT), FluentValidation
-  (Apache 2.0), Npgsql (PostgreSQL License), Swashbuckle (MIT), bUnit (MIT), xUnit (Apache 2.0).
+* Bootstrap, Bootstrap Icons (MIT), Inter (SIL OFL 1.1), ClosedXML (MIT), QRCoder (MIT), MailKit/MimeKit (MIT),
+  FluentValidation (Apache 2.0), Npgsql (PostgreSQL License), Swashbuckle (MIT), bUnit (MIT), xUnit (Apache 2.0).

@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-09-27
+
+First complete release: survey design with conditional logic, respondent runner, reports and exports,
+administration, REST API, e-mail, Docker and CI.
+
 ### Added
 - Project repository, development plan (`DEVELOPMENT_PLAN.md`) and changelog.
 - .NET 8 SDK pinned via `global.json`; central package management (`Directory.Packages.props`);
