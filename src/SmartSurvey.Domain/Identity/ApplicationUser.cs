@@ -52,3 +52,10 @@ public static class AppRoles
     /// <summary>Roles that can be held inside a workspace.</summary>
     public static readonly IReadOnlyList<string> WorkspaceRoles = [Admin, User];
 }
+
+/// <summary>Custom claim types issued at sign-in.</summary>
+public static class AppClaimTypes
+{
+    /// <summary>Id of the user's workspace (absent for super admins).</summary>
+    public const string WorkspaceId = "workspace_id";
+}

@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
 using SmartSurvey.Application;
 using SmartSurvey.Application.Common;
+using SmartSurvey.Domain.Entities;
 using SmartSurvey.Domain.Identity;
 using SmartSurvey.Infrastructure;
 using SmartSurvey.Infrastructure.Persistence;
@@ -84,12 +85,16 @@ public sealed class IdentityTestHost : IAsyncDisposable
         var host = new IdentityTestHost(path, provider, user, time);
         await using var db = await host.CreateDbContextAsync();
         await db.Database.EnsureCreatedAsync();
+        db.Workspaces.AddRange(
+            new Workspace { Id = TestWorkspaces.DefaultId, Name = "Test workspace", Slug = "test" },
+            new Workspace { Id = TestWorkspaces.OtherId, Name = "Other workspace", Slug = "other" });
+        await db.SaveChangesAsync();
         return host;
     }
 
-    /// <summary>A new database context (caller disposes).</summary>
-    public Task<AppDbContext> CreateDbContextAsync() =>
-        _contextScope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync();
+    /// <summary>A new unfiltered database context (caller disposes).</summary>
+    public async Task<AppDbContext> CreateDbContextAsync() =>
+        (await _contextScope.ServiceProvider.GetRequiredService<IDbContextFactory<AppDbContext>>().CreateDbContextAsync()).UseScope(DataScope.System);
 
     /// <summary>Runs <paramref name="action"/> with a service resolved from a fresh scope.</summary>
     public async Task<TResult> WithAsync<TService, TResult>(Func<TService, Task<TResult>> action)
@@ -107,8 +112,12 @@ public sealed class IdentityTestHost : IAsyncDisposable
         await action(scope.ServiceProvider.GetRequiredService<TService>());
     }
 
-    /// <summary>Creates a user with the given roles (roles are created when missing).</summary>
+    /// <summary>Creates a member of <see cref="TestWorkspaces.DefaultId"/> with the given roles (roles are created when missing).</summary>
     public Task<ApplicationUser> AddUserAsync(Guid id, string email, params string[] roles) =>
+        AddUserAsync(id, email, TestWorkspaces.DefaultId, roles);
+
+    /// <summary>Creates a user in the given workspace (null = none, e.g. a super admin) with the given roles.</summary>
+    public Task<ApplicationUser> AddUserAsync(Guid id, string email, Guid? workspaceId, params string[] roles) =>
         WithAsync<IServiceProvider, ApplicationUser>(async sp =>
         {
             var roleManager = sp.GetRequiredService<RoleManager<IdentityRole<Guid>>>();
@@ -121,7 +130,7 @@ public sealed class IdentityTestHost : IAsyncDisposable
             }
 
             var users = sp.GetRequiredService<UserManager<ApplicationUser>>();
-            var user = new ApplicationUser { Id = id, UserName = email, Email = email, CreatedAt = Time.GetUtcNow().UtcDateTime };
+            var user = new ApplicationUser { Id = id, UserName = email, Email = email, WorkspaceId = workspaceId, CreatedAt = Time.GetUtcNow().UtcDateTime };
             var created = await users.CreateAsync(user, "Passw0rd!");
             Assert.True(created.Succeeded, string.Join(" ", created.Errors.Select(e => e.Description)));
             if (roles.Length > 0)

@@ -184,7 +184,7 @@ public sealed class SurveyService(
         }
 
         await ValidateAsync(design, ct);
-        survey.Slug = await ResolveUpdatedSlugAsync(db, survey, design.Slug, ct);
+        survey.Slug = await ResolveUpdatedSlugAsync(survey, design.Slug, ct);
 
         SurveyDesignReconciler.Apply(db, survey, design);
         survey.Version++;
@@ -320,8 +320,7 @@ public sealed class SurveyService(
             return false;
         }
 
-        await using var db = await dbFactory.CreateAsync(ct);
-        return !await IsSlugTakenAsync(db, normalized, excludeSurveyId, ct);
+        return !await IsSlugTakenAsync(normalized, excludeSurveyId, ct);
     }
 
     /// <inheritdoc />
@@ -350,7 +349,7 @@ public sealed class SurveyService(
             throw new ConflictException("A survey with the same id already exists. Use Duplicate or Import to create a copy of an existing survey.");
         }
 
-        var slug = await ResolveNewSlugAsync(db, design, slugPolicy, ct);
+        var slug = await ResolveNewSlugAsync(design, slugPolicy, ct);
         var survey = SurveyEntityMapper.ToNewSurvey(design, slug);
         db.Surveys.Add(survey);
         await SaveChangesAsync(db, survey.Id, ct);
@@ -450,41 +449,41 @@ public sealed class SurveyService(
         return dto;
     }
 
-    private static async Task<string> ResolveNewSlugAsync(
-        IAppDbContext db, SurveyDefinitionDto design, SlugConflictPolicy policy, CancellationToken ct)
+    private async Task<string> ResolveNewSlugAsync(
+        SurveyDefinitionDto design, SlugConflictPolicy policy, CancellationToken ct)
     {
         if (design.Slug is null)
         {
-            return await GenerateUniqueSlugAsync(db, design.Title, ct);
+            return await GenerateUniqueSlugAsync(design.Title, ct);
         }
 
-        if (!await IsSlugTakenAsync(db, design.Slug, null, ct))
+        if (!await IsSlugTakenAsync(design.Slug, null, ct))
         {
             return design.Slug;
         }
 
         return policy == SlugConflictPolicy.Replace
-            ? await GenerateUniqueSlugAsync(db, design.Title, ct)
+            ? await GenerateUniqueSlugAsync(design.Title, ct)
             : throw SlugTaken(design.Slug);
     }
 
     /// <summary>An empty slug keeps the current one; a new slug must not be used by another survey.</summary>
-    private static async Task<string> ResolveUpdatedSlugAsync(IAppDbContext db, Survey survey, string? requested, CancellationToken ct)
+    private async Task<string> ResolveUpdatedSlugAsync(Survey survey, string? requested, CancellationToken ct)
     {
         if (requested is null || string.Equals(requested, survey.Slug, StringComparison.OrdinalIgnoreCase))
         {
             return survey.Slug;
         }
 
-        return await IsSlugTakenAsync(db, requested, survey.Id, ct) ? throw SlugTaken(requested) : requested;
+        return await IsSlugTakenAsync(requested, survey.Id, ct) ? throw SlugTaken(requested) : requested;
     }
 
     /// <summary>Slug from the title, made unique with -2, -3, … suffixes.</summary>
-    private static async Task<string> GenerateUniqueSlugAsync(IAppDbContext db, string title, CancellationToken ct)
+    private async Task<string> GenerateUniqueSlugAsync(string title, CancellationToken ct)
     {
         var baseSlug = SlugGenerator.Generate(title);
         var candidate = baseSlug;
-        for (var suffix = 2; await IsSlugTakenAsync(db, candidate, null, ct); suffix++)
+        for (var suffix = 2; await IsSlugTakenAsync(candidate, null, ct); suffix++)
         {
             candidate = SlugGenerator.WithSuffix(baseSlug, suffix);
         }
@@ -492,16 +491,21 @@ public sealed class SurveyService(
         return candidate;
     }
 
-    private static Task<bool> IsSlugTakenAsync(IAppDbContext db, string slug, Guid? excludeSurveyId, CancellationToken ct)
+    /// <summary>
+    /// Slugs are unique system-wide because share links (<c>/s/{slug}</c>) carry no workspace, so this is
+    /// checked across all workspaces — the only information read from them is "taken or not".
+    /// </summary>
+    private async Task<bool> IsSlugTakenAsync(string slug, Guid? excludeSurveyId, CancellationToken ct)
     {
         var normalized = slug.ToLowerInvariant();
-        var matches = db.Surveys.Where(s => s.Slug.ToLower() == normalized);
+        await using var system = await dbFactory.CreateSystemAsync(ct);
+        var matches = system.Surveys.Where(s => s.Slug.ToLower() == normalized);
         if (excludeSurveyId is { } excluded)
         {
             matches = matches.Where(s => s.Id != excluded);
         }
 
-        return matches.AnyAsync(ct);
+        return await matches.AnyAsync(ct);
     }
 
     private static ConflictException SlugTaken(string slug) =>

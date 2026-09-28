@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using SmartSurvey.Domain.Entities;
 using SmartSurvey.Domain.Identity;
 
 namespace SmartSurvey.Infrastructure.Persistence.Seed;
@@ -14,11 +15,12 @@ namespace SmartSurvey.Infrastructure.Persistence.Seed;
 /// Steps:
 /// <list type="number">
 /// <item>Every role of <see cref="AppRoles.All"/> exists.</item>
-/// <item>When no user is an administrator and <see cref="SeedOptions.CreateAdmin"/> is set, the account
-/// <see cref="SeedOptions.AdminEmail"/> is created with <see cref="SeedOptions.AdminPassword"/>.</item>
-/// <item>With <see cref="SeedOptions.DemoData"/>: the demo user is ensured and — only while the database
-/// contains no surveys at all — demo surveys, demo respondent accounts, responses and a sample report
-/// are inserted in one transaction.</item>
+/// <item>When no user is a workspace admin and <see cref="SeedOptions.CreateAdmin"/> is set, the workspace
+/// <see cref="SeedOptions.WorkspaceSlug"/> is ensured and the account <see cref="SeedOptions.AdminEmail"/>
+/// is created in it with <see cref="SeedOptions.AdminPassword"/>.</item>
+/// <item>With <see cref="SeedOptions.DemoData"/>: in the (oldest) admin's workspace the demo user is ensured
+/// and — only while that workspace contains no surveys — demo surveys, demo respondent accounts,
+/// responses and a sample report are inserted in one transaction.</item>
 /// </list>
 /// </remarks>
 public sealed class DbSeeder(
@@ -44,15 +46,37 @@ public sealed class DbSeeder(
         var settings = options.Value;
 
         await EnsureRolesAsync();
-        var adminId = await EnsureAdminAsync(settings);
+        var admin = await EnsureAdminAsync(settings, ct);
 
         if (!settings.DemoData)
         {
             return;
         }
 
-        var demoUserId = await EnsureDemoUserAsync(settings);
-        await SeedDemoContentAsync(settings, adminId, demoUserId, ct);
+        var workspaceId = admin?.WorkspaceId ?? await EnsureWorkspaceAsync(settings, ct);
+        var demoUserId = await EnsureDemoUserAsync(settings, workspaceId);
+        await SeedDemoContentAsync(settings, workspaceId, admin?.Id, demoUserId, ct);
+    }
+
+    /// <summary>Returns the id of the seed workspace (<see cref="SeedOptions.WorkspaceSlug"/>), creating it when missing.</summary>
+    private async Task<Guid> EnsureWorkspaceAsync(SeedOptions settings, CancellationToken ct)
+    {
+        var slug = string.IsNullOrWhiteSpace(settings.WorkspaceSlug) ? "default" : settings.WorkspaceSlug.Trim().ToLowerInvariant();
+        await using var db = (await dbFactory.CreateDbContextAsync(ct)).UseScope(DataScope.System);
+        if (await db.Workspaces.Where(w => w.Slug == slug).Select(w => (Guid?)w.Id).FirstOrDefaultAsync(ct) is { } existing)
+        {
+            return existing;
+        }
+
+        var workspace = new Workspace
+        {
+            Name = string.IsNullOrWhiteSpace(settings.WorkspaceName) ? "Default workspace" : settings.WorkspaceName.Trim(),
+            Slug = slug,
+        };
+        db.Workspaces.Add(workspace);
+        await db.SaveChangesAsync(ct);
+        logger.LogInformation("Created workspace {Slug}", slug);
+        return workspace.Id;
     }
 
     /// <summary>Creates missing roles. Failing here is fatal: authorization depends on the roles.</summary>
@@ -75,13 +99,17 @@ public sealed class DbSeeder(
         }
     }
 
-    /// <summary>Returns the id of the (oldest) administrator, creating the initial one when needed and allowed.</summary>
-    private async Task<Guid?> EnsureAdminAsync(SeedOptions settings)
+    /// <summary>
+    /// Returns the (oldest) workspace admin and their workspace, creating the initial admin (and the seed
+    /// workspace) when needed and allowed.
+    /// </summary>
+    private async Task<(Guid Id, Guid WorkspaceId)?> EnsureAdminAsync(SeedOptions settings, CancellationToken ct)
     {
-        var admins = await userManager.GetUsersInRoleAsync(AppRoles.Admin);
+        var admins = (await userManager.GetUsersInRoleAsync(AppRoles.Admin)).Where(a => a.WorkspaceId.HasValue).ToList();
         if (admins.Count > 0)
         {
-            return admins.OrderBy(a => a.CreatedAt).First().Id;
+            var oldest = admins.OrderBy(a => a.CreatedAt).First();
+            return (oldest.Id, oldest.WorkspaceId!.Value);
         }
 
         if (!settings.CreateAdmin)
@@ -108,18 +136,19 @@ public sealed class DbSeeder(
             return null;
         }
 
-        var admin = NewUser(email, AdminDisplayName);
+        var workspaceId = await EnsureWorkspaceAsync(settings, ct);
+        var admin = NewUser(email, AdminDisplayName, workspaceId);
         if (!await CreateUserAsync(admin, settings.AdminPassword, [AppRoles.Admin, AppRoles.User]))
         {
             return null;
         }
 
         logger.LogInformation("Created administrator account {Email}", email);
-        return admin.Id;
+        return (admin.Id, workspaceId);
     }
 
-    /// <summary>Returns the id of the demo respondent, creating it when missing.</summary>
-    private async Task<Guid?> EnsureDemoUserAsync(SeedOptions settings)
+    /// <summary>Returns the id of the demo respondent (a member of the demo workspace), creating it when missing.</summary>
+    private async Task<Guid?> EnsureDemoUserAsync(SeedOptions settings, Guid workspaceId)
     {
         var email = settings.DemoUserEmail?.Trim();
         if (string.IsNullOrWhiteSpace(email))
@@ -130,7 +159,13 @@ public sealed class DbSeeder(
 
         if (await FindByEmailOrNameAsync(email) is { } existing)
         {
-            return existing.Id;
+            if (existing.WorkspaceId == workspaceId)
+            {
+                return existing.Id;
+            }
+
+            logger.LogWarning("The demo user {Email} belongs to another workspace; demo responses are not linked to it", email);
+            return null;
         }
 
         if (string.IsNullOrWhiteSpace(settings.DemoUserPassword))
@@ -139,7 +174,7 @@ public sealed class DbSeeder(
             return null;
         }
 
-        var user = NewUser(email, DemoUserDisplayName);
+        var user = NewUser(email, DemoUserDisplayName, workspaceId);
         if (!await CreateUserAsync(user, settings.DemoUserPassword, [AppRoles.User]))
         {
             return null;
@@ -154,19 +189,20 @@ public sealed class DbSeeder(
     /// transaction, so an interrupted run leaves no half-seeded database behind (which the "no surveys"
     /// check would otherwise never repair).
     /// </summary>
-    private async Task SeedDemoContentAsync(SeedOptions settings, Guid? adminId, Guid? demoUserId, CancellationToken ct)
+    private async Task SeedDemoContentAsync(SeedOptions settings, Guid workspaceId, Guid? adminId, Guid? demoUserId, CancellationToken ct)
     {
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
+        // Workspace scope: every survey, response and report is stamped with the demo workspace.
+        await using var db = (await dbFactory.CreateDbContextAsync(ct)).UseScope(DataScope.ForWorkspace(workspaceId));
         if (await db.Surveys.AnyAsync(ct))
         {
-            logger.LogInformation("Demo content skipped: the database already contains surveys");
+            logger.LogInformation("Demo content skipped: the workspace already contains surveys");
             return;
         }
 
         var now = time.GetUtcNow().UtcDateTime;
         await using var transaction = await db.Database.BeginTransactionAsync(ct);
 
-        var employeeIds = await EnsureDemoEmployeesAsync(db, now, ct);
+        var employeeIds = await EnsureDemoEmployeesAsync(db, workspaceId, now, ct);
 
         var surveys = DemoSurveyFactory.Create(now, adminId);
         db.Surveys.AddRange(surveys.All);
@@ -200,16 +236,17 @@ public sealed class DbSeeder(
     /// <summary>
     /// Ensures the demo employee accounts exist (respondents of the login-required pulse survey) and
     /// returns their ids. They are inserted in bulk on the demo context (inside its transaction) and
-    /// have no password, so nobody can sign in with them.
+    /// have no password, so nobody can sign in with them. Addresses already used in another workspace are
+    /// skipped (e-mail addresses are unique system-wide).
     /// </summary>
-    private async Task<IReadOnlyList<Guid>> EnsureDemoEmployeesAsync(AppDbContext db, DateTime now, CancellationToken ct)
+    private async Task<IReadOnlyList<Guid>> EnsureDemoEmployeesAsync(AppDbContext db, Guid workspaceId, DateTime now, CancellationToken ct)
     {
         var people = DemoPeople.Employees();
         var normalized = people.Select(p => userManager.NormalizeEmail(p.Email)!).ToList();
         var existing = await db.Users
             .Where(u => u.NormalizedEmail != null && normalized.Contains(u.NormalizedEmail))
-            .Select(u => new { u.Id, u.NormalizedEmail })
-            .ToDictionaryAsync(u => u.NormalizedEmail!, u => u.Id, ct);
+            .Select(u => new { u.Id, u.NormalizedEmail, u.WorkspaceId })
+            .ToDictionaryAsync(u => u.NormalizedEmail!, u => (u.Id, u.WorkspaceId), ct);
 
         var userRoleName = roleManager.NormalizeKey(AppRoles.User);
         var userRoleId = await db.Roles.Where(r => r.NormalizedName == userRoleName).Select(r => r.Id).FirstAsync(ct);
@@ -217,13 +254,17 @@ public sealed class DbSeeder(
         var ids = new List<Guid>(people.Count);
         for (var i = 0; i < people.Count; i++)
         {
-            if (existing.TryGetValue(normalized[i], out var id))
+            if (existing.TryGetValue(normalized[i], out var found))
             {
-                ids.Add(id);
+                if (found.WorkspaceId == workspaceId)
+                {
+                    ids.Add(found.Id);
+                }
+
                 continue;
             }
 
-            var employee = NewUser(people[i].Email, people[i].DisplayName);
+            var employee = NewUser(people[i].Email, people[i].DisplayName, workspaceId);
             employee.NormalizedEmail = normalized[i];
             employee.NormalizedUserName = userManager.NormalizeName(people[i].Email);
             employee.CreatedAt = now.AddDays(-120 + i); // joined before the pulse survey was published
@@ -237,8 +278,9 @@ public sealed class DbSeeder(
         return ids;
     }
 
-    private ApplicationUser NewUser(string email, string displayName) => new()
+    private ApplicationUser NewUser(string email, string displayName, Guid? workspaceId) => new()
     {
+        WorkspaceId = workspaceId,
         UserName = email,
         Email = email,
         EmailConfirmed = true,

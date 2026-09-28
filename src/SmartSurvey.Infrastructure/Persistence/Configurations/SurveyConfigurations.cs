@@ -19,6 +19,9 @@ internal sealed class SurveyConfiguration : IEntityTypeConfiguration<Survey>
         b.Property(x => x.ThankYouMessage).HasMaxLength(4000);
         b.Property(x => x.Version).IsConcurrencyToken();
 
+        b.BelongsToWorkspace();
+
+        // Slugs are unique system-wide (not per workspace) so share links stay /s/{slug}.
         b.HasIndex(x => x.Slug).IsUnique();
         b.HasIndex(x => new { x.Status, x.IsTemplate });
         b.HasIndex(x => x.CreatedAt);

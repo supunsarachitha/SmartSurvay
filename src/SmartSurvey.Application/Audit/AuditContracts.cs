@@ -58,6 +58,13 @@ public interface IAuditService
     /// </summary>
     Task LogAsync(string action, string entityType, string? entityId, string? details = null, CancellationToken ct = default);
 
+    /// <summary>
+    /// Like <see cref="LogAsync"/>, but records the entry in the given workspace — for actions of
+    /// people who are not signed in to it (e.g. a response submitted through a share link). The
+    /// actor is only named when they are a member of that workspace.
+    /// </summary>
+    Task LogInWorkspaceAsync(Guid workspaceId, string action, string entityType, string? entityId, string? details = null, CancellationToken ct = default);
+
     /// <summary>Paged, newest-first list.</summary>
     Task<PagedResult<AuditLogDto>> ListAsync(AuditQuery query, CancellationToken ct = default);
 }

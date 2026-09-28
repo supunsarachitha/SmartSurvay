@@ -6,7 +6,9 @@ using SmartSurvey.Domain.Identity;
 namespace SmartSurvey.Web.Infrastructure;
 
 /// <summary>
-/// Adds the user's display name to the sign-in claims so the UI can greet people by name without a
+/// Adds the user's workspace (<see cref="AppClaimTypes.WorkspaceId"/>) and display name to the
+/// sign-in claims (cookie and bearer token). The workspace never changes for an account, so the claim
+/// is safe to trust for data scoping. Also adds the display name so the UI can greet people by name without a
 /// database lookup per request (falls back to the e-mail address when no name is set).
 /// </summary>
 public sealed class AppClaimsPrincipalFactory(
@@ -22,6 +24,11 @@ public sealed class AppClaimsPrincipalFactory(
     protected override async Task<ClaimsIdentity> GenerateClaimsAsync(ApplicationUser user)
     {
         var identity = await base.GenerateClaimsAsync(user);
+        if (user.WorkspaceId is { } workspaceId)
+        {
+            identity.AddClaim(new Claim(AppClaimTypes.WorkspaceId, workspaceId.ToString()));
+        }
+
         if (!string.IsNullOrWhiteSpace(user.DisplayName))
         {
             identity.AddClaim(new Claim(DisplayNameClaim, user.DisplayName));

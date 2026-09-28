@@ -30,7 +30,14 @@ public sealed class CurrentUser : ICurrentUser
     public bool IsAuthenticated => _principal.Identity?.IsAuthenticated == true;
 
     /// <inheritdoc />
-    public bool IsAdmin => IsInRole(AppRoles.Admin);
+    public Guid? WorkspaceId =>
+        IsAuthenticated && Guid.TryParse(_principal.FindFirstValue(AppClaimTypes.WorkspaceId), out var id) ? id : null;
+
+    /// <inheritdoc />
+    public bool IsAdmin => IsInRole(AppRoles.Admin) && WorkspaceId.HasValue;
+
+    /// <inheritdoc />
+    public bool IsSuperAdmin => IsInRole(AppRoles.SuperAdmin);
 
     /// <inheritdoc />
     public bool IsInRole(string role) => IsAuthenticated && _principal.IsInRole(role);

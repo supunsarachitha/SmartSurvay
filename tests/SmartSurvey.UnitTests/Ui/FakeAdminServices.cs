@@ -179,6 +179,8 @@ public sealed class FakeAuditService : Application.Audit.IAuditService
 
     public Task LogAsync(string action, string entityType, string? entityId, string? details = null, CancellationToken ct = default) => Task.CompletedTask;
 
+    public Task LogInWorkspaceAsync(Guid workspaceId, string action, string entityType, string? entityId, string? details = null, CancellationToken ct = default) => Task.CompletedTask;
+
     public Task<PagedResult<Application.Audit.AuditLogDto>> ListAsync(Application.Audit.AuditQuery query, CancellationToken ct = default)
     {
         Queries.Add(query);

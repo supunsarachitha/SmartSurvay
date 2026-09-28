@@ -3,9 +3,12 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SmartSurvey.Domain.Identity;
 
 namespace SmartSurvey.IntegrationTests;
 
@@ -20,6 +23,9 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public const string AdminPassword = "Admin123!";
     public const string UserEmail = "respondent@it.local";
     public const string UserPassword = "Respondent123!";
+
+    /// <summary>Slug of the workspace the seeder creates for the administrator.</summary>
+    public const string WorkspaceSlug = "default";
 
     /// <summary>JSON settings matching the API (camelCase, enums as strings).</summary>
     public static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
@@ -41,7 +47,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     /// <summary>Client authenticated as the seeded administrator (bearer token).</summary>
     public HttpClient Admin() => WithToken(_adminToken!);
 
-    /// <summary>Client authenticated as a registered respondent without roles (bearer token).</summary>
+    /// <summary>Client authenticated as a member (User role) of the administrator's workspace (bearer token).</summary>
     public HttpClient Respondent() => WithToken(_userToken!);
 
     /// <summary>Logs in once per test run (the auth endpoints are rate limited).</summary>
@@ -50,8 +56,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         var client = Anonymous();
         _adminToken = await LoginAsync(client, AdminEmail, AdminPassword);
 
-        var register = await client.PostAsJsonAsync("/api/auth/register", new { email = UserEmail, password = UserPassword });
-        register.EnsureSuccessStatusCode();
+        await CreateMemberAsync(UserEmail, UserPassword);
         _userToken = await LoginAsync(client, UserEmail, UserPassword);
     }
 
@@ -86,6 +91,22 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
         builder.UseSetting("Swagger:Enabled", "true");
         builder.UseSetting("Https:Redirect", "false");
         builder.UseSetting("DataProtection:KeysPath", _keysPath);
+    }
+
+    /// <summary>Creates a member (User role) of the administrator's workspace directly through Identity.</summary>
+    public async Task<ApplicationUser> CreateMemberAsync(string email, string password)
+    {
+        await using var scope = Services.CreateAsyncScope();
+        var users = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+        var admin = await users.FindByEmailAsync(AdminEmail) ?? throw new InvalidOperationException("The seeded admin is missing.");
+        var member = new ApplicationUser { UserName = email, Email = email, EmailConfirmed = true, WorkspaceId = admin.WorkspaceId };
+        var result = await users.CreateAsync(member, password);
+        if (result.Succeeded)
+        {
+            result = await users.AddToRoleAsync(member, AppRoles.User);
+        }
+
+        return result.Succeeded ? member : throw new InvalidOperationException(string.Join(" ", result.Errors.Select(e => e.Description)));
     }
 
     private HttpClient WithToken(string token)

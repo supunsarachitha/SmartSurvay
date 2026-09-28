@@ -97,6 +97,7 @@ public sealed class UserAdminService(
 
         var user = new ApplicationUser
         {
+            WorkspaceId = currentUser.WorkspaceId,
             UserName = email,
             Email = email,
             EmailConfirmed = true, // created by an administrator: no confirmation round-trip needed

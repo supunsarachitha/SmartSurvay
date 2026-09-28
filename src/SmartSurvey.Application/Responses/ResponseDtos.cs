@@ -161,6 +161,12 @@ public enum SurveyEligibility
 
     /// <summary>User already submitted and multiple responses are not allowed.</summary>
     AlreadyResponded = 7,
+
+    /// <summary>Survey is for members of its workspace and the signed-in user belongs to another workspace.</summary>
+    OtherWorkspace = 8,
+
+    /// <summary>The survey's workspace is disabled or waiting for approval.</summary>
+    Unavailable = 9,
 }
 
 /// <summary>Everything the survey runner needs to start or resume answering.</summary>

@@ -447,9 +447,9 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 
 #### Phase 9 — Workspace data model, isolation core, upgrade migration
 - [x] 9.1 Domain: `Workspace`, `WorkspaceStatus`, `PlatformSettings`, `ITenantOwned`; `WorkspaceId` on the entities in § 10.2; `AppRoles.SuperAdmin`
-- [~] 9.2 Persistence: configurations + indexes, `DataScope` on `AppDbContext`, global query filters, SaveChanges workspace guard/stamping; `IAppDbContextFactory.CreateAsync` (current user's workspace) / `CreateForWorkspaceAsync` / `CreateSystemAsync`; `ICurrentUser.WorkspaceId` + `IsSuperAdmin` (claim `workspace_id`)
-- [ ] 9.3 Keep existing behaviour working inside one workspace: public survey flows open the survey's workspace, slug check system-wide, seeder puts admin/demo data into a default workspace
-- [ ] 9.4 Migration `AddWorkspaces` with data backfill into "Default workspace" (PostgreSQL); `has-pending-model-changes` clean
+- [x] 9.2 Persistence: configurations + indexes, `DataScope` on `AppDbContext`, global query filters, SaveChanges workspace guard/stamping; `IAppDbContextFactory.CreateAsync` (current user's workspace) / `CreateForWorkspaceAsync` / `CreateSystemAsync`; `ICurrentUser.WorkspaceId` + `IsSuperAdmin` (claim `workspace_id`)
+- [x] 9.3 Keep existing behaviour working inside one workspace: public survey flows open the survey's workspace, slug check system-wide, seeder puts admin/demo data into a default workspace
+- [~] 9.4 Migration `AddWorkspaces` with data backfill into "Default workspace" (PostgreSQL); `has-pending-model-changes` clean
 - [ ] 9.5 Test support (default test workspace, scoped seeding, `TestCurrentUser.WorkspaceId`); existing suite green; new data-layer isolation tests (filters, write guard, fail-closed `None` scope)
 - [ ] 9.6 Phase gate (§ 10.0 step 5) — verify the v1.0 compose database upgrades (data lands in Default workspace, admin still signs in)
 
@@ -495,3 +495,4 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 | Date | Phase / task | Notes |
 |---|---|---|
 | 2026-09-28 | Plan | Branch `feature/multi-workspace` created from `main` (v1.0.0). Plan written (§ 10). Note: `feature/password-protected-surveys` (5 commits, own migration) is not on `main`; merging it later needs its migration re-generated on top of `AddWorkspaces`. Next: 9.1 |
+| 2026-09-28 | 9.1–9.3 | Domain (`Workspace`, `PlatformSettings`, `IWorkspaceOwned` on 11 entities, nullable on audit/users, `SuperAdmin` role); `DataScope` + global filters + save guard in `AppDbContext`; factory `CreateAsync/CreateForWorkspaceAsync/CreateSystemAsync`; `ICurrentUser.WorkspaceId/IsSuperAdmin` (claim `workspace_id`). Respondent flow resolves the survey's workspace (D9 + `OtherWorkspace`/`Unavailable` verdicts), `ListAvailableAsync(workspaceSlug)`, audit `LogInWorkspaceAsync`, system-wide slug check, seeder default workspace (`Seed:WorkspaceName/Slug`). 719 unit + 42 integration green. Next: 9.4 migration |

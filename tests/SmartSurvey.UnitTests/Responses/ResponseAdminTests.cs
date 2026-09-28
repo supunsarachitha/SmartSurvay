@@ -307,7 +307,8 @@ public class ResponseAdminTests
         var response = await h.SeedResponseAsync(s, null, ResponseStatus.Completed);
         h.User.ActAsAnonymous();
 
-        await Assert.ThrowsAsync<ForbiddenException>(() => h.Service.GetAsync(response.Id));
+        // Outside any workspace the response does not exist at all (no existence leak).
+        await Assert.ThrowsAsync<NotFoundException>(() => h.Service.GetAsync(response.Id));
     }
 
     [Fact]

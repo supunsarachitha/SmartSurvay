@@ -58,12 +58,29 @@ public sealed class AuditableEntityInterceptor(TimeProvider timeProvider, ICurre
     }
 }
 
-/// <summary>Adapts EF Core's <see cref="IDbContextFactory{TContext}"/> to the Application abstraction.</summary>
-internal sealed class AppDbContextFactory(IDbContextFactory<AppDbContext> factory) : IAppDbContextFactory
+/// <summary>
+/// Adapts EF Core's <see cref="IDbContextFactory{TContext}"/> to the Application abstraction and binds
+/// every context to a <see cref="DataScope"/>.
+/// </summary>
+internal sealed class AppDbContextFactory(IDbContextFactory<AppDbContext> factory, ICurrentUser currentUser) : IAppDbContextFactory
 {
     /// <inheritdoc />
-    public async Task<IAppDbContext> CreateAsync(CancellationToken cancellationToken = default) =>
-        await factory.CreateDbContextAsync(cancellationToken);
+    public Task<IAppDbContext> CreateAsync(CancellationToken cancellationToken = default) =>
+        CreateAsync(currentUser.WorkspaceId is { } id ? DataScope.ForWorkspace(id) : DataScope.None, cancellationToken);
+
+    /// <inheritdoc />
+    public Task<IAppDbContext> CreateForWorkspaceAsync(Guid workspaceId, CancellationToken cancellationToken = default) =>
+        CreateAsync(DataScope.ForWorkspace(workspaceId), cancellationToken);
+
+    /// <inheritdoc />
+    public Task<IAppDbContext> CreateSystemAsync(CancellationToken cancellationToken = default) =>
+        CreateAsync(DataScope.System, cancellationToken);
+
+    private async Task<IAppDbContext> CreateAsync(DataScope scope, CancellationToken cancellationToken)
+    {
+        var db = await factory.CreateDbContextAsync(cancellationToken);
+        return db.UseScope(scope);
+    }
 }
 
 /// <summary>Supported database providers.</summary>
@@ -100,6 +117,12 @@ public sealed class SeedOptions
 
     /// <summary>Initial admin e-mail.</summary>
     public string AdminEmail { get; set; } = "admin@smartsurvey.local";
+
+    /// <summary>Name of the workspace created for the initial admin and the demo data.</summary>
+    public string WorkspaceName { get; set; } = "Default workspace";
+
+    /// <summary>Slug (address) of that workspace; an existing workspace with this slug is reused.</summary>
+    public string WorkspaceSlug { get; set; } = "default";
 
     /// <summary>Initial admin password. Leave empty in production and set it via environment/secrets.</summary>
     public string? AdminPassword { get; set; }

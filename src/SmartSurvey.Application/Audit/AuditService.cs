@@ -28,24 +28,40 @@ public sealed class AuditService(
     private static readonly AuditQueryValidator QueryValidator = new();
 
     /// <inheritdoc />
-    public async Task LogAsync(string action, string entityType, string? entityId, string? details = null, CancellationToken ct = default)
+    /// <remarks>
+    /// The entry lands in the current user's workspace; actions of super admins and anonymous
+    /// visitors are system events (no workspace).
+    /// </remarks>
+    public Task LogAsync(string action, string entityType, string? entityId, string? details = null, CancellationToken ct = default) =>
+        WriteAsync(null, action, entityType, entityId, details, ct);
+
+    /// <inheritdoc />
+    public Task LogInWorkspaceAsync(Guid workspaceId, string action, string entityType, string? entityId, string? details = null, CancellationToken ct = default) =>
+        WriteAsync(workspaceId, action, entityType, entityId, details, ct);
+
+    private async Task WriteAsync(Guid? workspaceId, string action, string entityType, string? entityId, string? details, CancellationToken ct)
     {
         try
         {
+            // Workspaces never learn about accounts of other workspaces: foreign actors stay anonymous.
+            var namedActor = workspaceId is null || currentUser.WorkspaceId == workspaceId;
+
             // Values are truncated to the column sizes so an over-long detail text can never make
             // the insert fail (PostgreSQL rejects values longer than varchar(n)).
             var entry = new AuditLogEntry
             {
                 Timestamp = time.GetUtcNow().UtcDateTime,
-                UserId = currentUser.UserId,
-                UserName = TruncateOrNull(currentUser.UserName, MaxUserNameLength),
+                UserId = namedActor ? currentUser.UserId : null,
+                UserName = namedActor ? TruncateOrNull(currentUser.UserName, MaxUserNameLength) : null,
                 Action = Truncate(action, MaxCodeLength),
                 EntityType = Truncate(entityType, MaxCodeLength),
                 EntityId = TruncateOrNull(entityId, MaxCodeLength),
                 Details = TruncateOrNull(details, MaxDetailsLength),
             };
 
-            await using var db = await dbFactory.CreateAsync(ct);
+            await using var db = workspaceId is { } id
+                ? await dbFactory.CreateForWorkspaceAsync(id, ct)
+                : await dbFactory.CreateAsync(ct);
             db.AuditLogs.Add(entry);
             await db.SaveChangesAsync(ct);
         }

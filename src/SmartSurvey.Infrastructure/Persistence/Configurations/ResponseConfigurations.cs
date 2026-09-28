@@ -17,6 +17,7 @@ internal sealed class SurveyResponseConfiguration : IEntityTypeConfiguration<Sur
         // Deleting a user keeps their responses (anonymised).
         b.HasOne(x => x.Respondent).WithMany().HasForeignKey(x => x.RespondentId).OnDelete(DeleteBehavior.SetNull);
 
+        b.BelongsToWorkspace();
         b.HasIndex(x => new { x.SurveyId, x.Status, x.SubmittedAt });
         b.HasIndex(x => new { x.RespondentId, x.SurveyId });
 
@@ -61,5 +62,9 @@ internal sealed class ApplicationUserConfiguration : IEntityTypeConfiguration<Ap
     public void Configure(EntityTypeBuilder<ApplicationUser> b)
     {
         b.Property(x => x.DisplayName).HasMaxLength(200);
+
+        // Null = super admin. Accounts are removed explicitly together with their workspace.
+        b.HasOne<Workspace>().WithMany().HasForeignKey(x => x.WorkspaceId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => x.WorkspaceId);
     }
 }

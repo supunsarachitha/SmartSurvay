@@ -20,7 +20,7 @@ public sealed class PublicApiTests(ApiFactory factory)
         var survey = await CreatePublishedSurveyAsync(_admin, "Anonymous flow survey");
         var anonymous = factory.Anonymous();
 
-        var available = await ReadAsync<List<AvailableSurveyDto>>(await anonymous.GetAsync("/api/v1/public/surveys"));
+        var available = await ReadAsync<List<AvailableSurveyDto>>(await anonymous.GetAsync($"/api/v1/public/surveys?workspace={ApiFactory.WorkspaceSlug}"));
         Assert.Contains(available, s => s.SurveyId == survey.Id && s.CanRespond);
 
         var session = await ReadAsync<SurveySessionDto>(await anonymous.GetAsync($"/api/v1/public/surveys/{survey.Slug}"));
@@ -111,7 +111,7 @@ public sealed class PublicApiTests(ApiFactory factory)
         var draft = await ReadAsync<Application.Surveys.SurveyDefinitionDto>(
             await _admin.PostAsJsonAsync("/api/v1/surveys", Survey("Unpublished survey"), ApiFactory.Json), HttpStatusCode.Created);
 
-        var available = await ReadAsync<List<AvailableSurveyDto>>(await factory.Anonymous().GetAsync("/api/v1/public/surveys"));
+        var available = await ReadAsync<List<AvailableSurveyDto>>(await factory.Anonymous().GetAsync($"/api/v1/public/surveys?workspace={ApiFactory.WorkspaceSlug}"));
         var session = await ReadAsync<SurveySessionDto>(await factory.Anonymous().GetAsync($"/api/v1/public/surveys/{draft.Slug}"));
 
         Assert.DoesNotContain(available, s => s.SurveyId == draft.Id);
