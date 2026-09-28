@@ -155,6 +155,7 @@ public sealed class PlatformWorkspaceService(
     /// <inheritdoc />
     public Task<WorkspaceSummaryDto> DisableAsync(Guid id, string? reason, CancellationToken ct = default)
     {
+        EnsureSuperAdmin(); // before validating anything
         var trimmed = string.IsNullOrWhiteSpace(reason) ? null : reason.Trim();
         if (trimmed is { Length: > MaxReasonLength })
         {

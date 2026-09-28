@@ -30,6 +30,9 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      # Host names the app answers to (e.g. surveys.example.com). Set it in production: e-mail links are built from
+      # the request's host, so "*" lets a forged Host header put a foreign address into confirmation e-mails.
+      AllowedHosts: ${ALLOWED_HOSTS:-*}
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=smartsurvey;Username=smartsurvey;Password=${POSTGRES_PASSWORD:-smartsurvey}"
       Database__Provider: PostgreSQL
       Database__ApplyMigrationsOnStartup: "true"

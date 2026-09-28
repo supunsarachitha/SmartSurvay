@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.RegularExpressions;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using static SmartSurvey.IntegrationTests.ApiTestData;
 
@@ -85,6 +86,22 @@ public sealed partial class WorkspacePageTests(ApiFactory factory)
         var dashboard = await browser.GetAsync("/admin");
         await AssertStatusAsync(dashboard, HttpStatusCode.OK);
         Assert.Contains($"Form Team {suffix}", await dashboard.Content.ReadAsStringAsync()); // the sidebar shows the new workspace
+    }
+
+    [Fact]
+    public async Task Sign_up_and_join_pages_are_rate_limited_like_the_api()
+    {
+        await using var strict = factory.WithWebHostBuilder(b => b.UseSetting("RateLimits:AuthPerMinute", "2"));
+        var client = strict.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
+
+        var codes = new List<HttpStatusCode>();
+        foreach (var path in new[] { "/signup", "/Account/Register", "/signup" })
+        {
+            codes.Add((await client.GetAsync(path)).StatusCode);
+        }
+
+        Assert.Equal([HttpStatusCode.OK, HttpStatusCode.OK, HttpStatusCode.TooManyRequests], codes);
+        await AssertStatusAsync(await client.GetAsync("/w/default"), HttpStatusCode.OK); // other pages are not limited
     }
 
     [Theory]

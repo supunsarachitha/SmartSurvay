@@ -1,4 +1,6 @@
 @page "/signup"
+@* Rate limited like the sign-up / join API: accounts must not be mass-created. *@
+@attribute [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimitPolicies.Auth)]
 
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Identity
