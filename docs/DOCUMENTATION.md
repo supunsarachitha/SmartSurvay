@@ -276,8 +276,13 @@ Nothing is shared between workspaces. The code and the UI both call it *workspac
    (sign-in, unique e-mail checks). `Workspaces` is not filtered. Services additionally check roles (workspace admin vs.
    super admin).
 
-The workspace status, name and slug are cached for 30 seconds (`WorkspaceStatusCache`) and dropped immediately when
-this process changes them; with several app instances another instance picks a change up within that time.
+The workspace status, name and slug are cached per app instance (`WorkspaceStatusCache`, `Workspaces:StatusCacheSeconds`,
+default 30) and dropped immediately when this instance changes them; with several app instances the others pick a change
+up within that time — lower it (or `0` = no cache) when disabling must take effect everywhere at once.
+
+**Starter templates:** unless switched off in System → Settings (`PlatformSettings.ProvideStarterTemplates`), every new
+workspace — self-service or created by a super admin — starts with three draft templates (customer satisfaction with
+display logic, a members-only team pulse check, event feedback), so "create from template" works on day one.
 
 ## 6. Project structure
 
@@ -662,7 +667,7 @@ its admin — or on a "waiting for approval" page when approval is required.
    workspace's last admin are protected).
 4. **Branding** (`/system/branding`) — product name, tagline, icon or logo (also the favicon), with a live preview;
    applies to the whole site. **Settings** (`/system/settings`) — workspace sign-up on/off, approval of new workspaces,
-   support e-mail. **Audit log** (`/system/audit`) — super admin actions and sign-ups.
+   starter templates for new workspaces on/off, support e-mail. **Audit log** (`/system/audit`) — super admin actions and sign-ups.
 
 ### 15.4 Design system
 
@@ -710,8 +715,9 @@ remembered per browser). Reusable components live in `Components/Shared` (`PageH
   for PostgreSQL, and TLS for database connections across networks (`SSL Mode=Require` in the connection string).
 * **Data protection:** keys can be persisted (`DataProtection:KeysPath`) so cookies/tokens survive restarts.
 * **Transport:** HTTPS redirection and HSTS outside Development; forwarded headers support behind proxies.
-* **Host names:** e-mail links are built from the request's host; set `AllowedHosts` (Docker: `ALLOWED_HOSTS`) to the
-  site's host name(s) in production so a forged `Host` header cannot put a foreign address into confirmation e-mails.
+* **Host names:** set `App:PublicBaseUrl` (Docker: `PUBLIC_BASE_URL`) so every e-mail and share link carries the site's
+  public address whatever `Host` header a request used, and `AllowedHosts` (Docker: `ALLOWED_HOSTS`) to the site's host
+  name(s) so the app ignores requests for other hosts.
 * **Secrets:** no production credentials in configuration — set `Seed:AdminPassword`, `Seed:SuperAdminPassword` and
   connection strings via environment variables or a secret store.
 
@@ -755,6 +761,8 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 | `DataProtection:KeysPath` | *(empty)* | Directory for persisted data-protection keys |
 | `ReverseProxy:Enabled` | `false` | Honour `X-Forwarded-For/Proto` |
 | `Https:Redirect` | `true` | Enable HTTPS redirection |
+| `App:PublicBaseUrl` | *(empty = the request's address)* | Public address (`https://surveys.example.com`) used in account e-mails, survey share links, QR codes, embed snippets and join links; an invalid value stops the app at start-up |
+| `Workspaces:StatusCacheSeconds` | `30` | How long each instance caches a workspace's status (0–3600, `0` = no cache) |
 | `RateLimits:AuthPerMinute` | `20` | Sign-in, sign-up and join requests per IP and minute (Identity API, workspace sign-up/join API and pages) |
 | `AllowedHosts` | `*` | Host names the app answers to (set in production, see §16) |
 | `SMARTSURVEY_MIGRATIONS_CONNECTION` (env) | local PostgreSQL | Connection used by `dotnet ef` |
@@ -801,7 +809,8 @@ key encryption (`ProtectKeysWithCertificate`) for stricter environments.
 
 - [ ] Strong `Seed:SuperAdminPassword` and `Seed:AdminPassword` (or create the accounts once and set `Seed:CreateSuperAdmin` / `Seed:CreateAdmin` to `false`); change them after the first sign-in
 - [ ] Decide on self-service sign-up (System → Settings: on, off, or with approval) and set a support e-mail
-- [ ] `AllowedHosts` (Docker: `ALLOWED_HOSTS`) set to the site's host name(s)
+- [ ] `App:PublicBaseUrl` (Docker: `PUBLIC_BASE_URL`) and `AllowedHosts` (Docker: `ALLOWED_HOSTS`) set to the site's address
+- [ ] Several app instances: consider a lower `Workspaces:StatusCacheSeconds` so disabling a workspace takes effect everywhere quickly
 - [ ] `Seed:DemoData=false`
 - [ ] Connection string from a secret store
 - [ ] `DataProtection:KeysPath` on persistent storage (or a shared key ring when scaling out) — it holds the keys that

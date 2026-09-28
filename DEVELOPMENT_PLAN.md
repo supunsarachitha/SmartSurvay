@@ -556,7 +556,7 @@ As § 10.0 (resume from the last § 11.3 row, `[~]` markers, commit per task, ph
 - [x] 15.2 `App:PublicBaseUrl` (Docker `PUBLIC_BASE_URL`): e-mail links (confirmation, reset, change e-mail — every flow, via the e-mail sender) and the join link use it when set
 - [x] 15.3 `Workspaces:StatusCacheSeconds` (default 30) — how quickly other app instances notice a disabled workspace
 - [x] 15.4 Starter templates for new workspaces (sign-up and super admin create): system setting "Give new workspaces starter templates" (migration), templates built from the demo designs with unique links; tests
-- [~] 15.5 Docs + Phase gate
+- [x] 15.5 Docs + Phase gate
 
 #### Phase 16 — Guide screenshots
 - [ ] 16.1 `scripts/browser/screenshots.js`: reproducible capture of every guide image from a fresh demo instance
@@ -575,3 +575,4 @@ As § 10.0 (resume from the last § 11.3 row, `[~]` markers, commit per task, ph
 | Date | Phase / task | Notes |
 |---|---|---|
 | 2026-09-28 | Plan | Branch `feature/v2-follow-ups` from `main` (`f6fdc38`, PR #2 merged). .NET SDK 10.0.300 is already installed. Next: 15.1 |
+| 2026-09-28 | **Phase 15 done** | 15.1: scratch DB `smartsurvey_upgrade_test` dropped; pre-upgrade dump copied (byte-identical, `pg_restore --list` OK) to `../backups/` with a README. 15.2: `App:PublicBaseUrl` → `PublicUrls` (origin rewrite; e-mail sender rewrites every link, share/embed/join/slug preview use it; invalid value fails start-up; tests incl. HTML-encoded links and path base). 15.3: `Workspaces:StatusCacheSeconds` (0–3600, 0 = no cache). 15.4: `StarterTemplates` (Customer satisfaction, Team pulse check, Event feedback from the demo designs, `-template-xxxxxx` slugs) on sign-up and super admin create, `PlatformSettings.ProvideStarterTemplates` + migration `AddStarterTemplatesSetting` (default true for existing rows), System → Settings toggle. 858 unit + 76 integration green; containers rebuilt (migration applied live), smoke OK, live check: new workspace gets 3 templates (cleaned up). Next: 16.1 |

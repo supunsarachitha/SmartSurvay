@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- `App:PublicBaseUrl` (Docker `PUBLIC_BASE_URL`): the public address used in every link the app hands out — account
+  e-mails of every flow (the e-mail sender rewrites them), survey share links, QR codes, embed snippets, join links and
+  the link preview in the survey settings. Invalid values stop the app at start-up.
+- **Starter templates:** new workspaces (sign-up and super admin) start with three draft templates — customer
+  satisfaction, team pulse check and event feedback. System → Settings can switch this off. Migration
+  `AddStarterTemplatesSetting`.
+- `Workspaces:StatusCacheSeconds` (default 30, `0` = no cache): how quickly other app instances notice a disabled
+  workspace.
+
 ## [2.0.0] - 2026-09-28
 
 **Workspaces.** One installation now hosts many fully isolated workspaces with their own admins and members, a

@@ -142,7 +142,8 @@ every feature step by step.
 |---|---|---|
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` | `admin@smartsurvey.local` / `ChangeMe123!` | First workspace admin (created with "Default workspace" on an empty database) |
 | `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` | `superadmin@smartsurvey.local` / `ChangeMe123!` | First super admin (created when none exists) |
-| `ALLOWED_HOSTS` | `*` | Host name(s) of the site — set it on a server (used for links in e-mails) |
+| `PUBLIC_BASE_URL` | *(empty)* | Public address of the site (e.g. `https://surveys.example.com`) for links in e-mails, share links and QR codes |
+| `ALLOWED_HOSTS` | `*` | Host name(s) of the site — set it on a server |
 | `POSTGRES_PASSWORD` | `smartsurvey` | Database password |
 | `WEB_PORT` | `8080` | Port of the website on your computer |
 | `POSTGRES_PORT` | `5432` | Port of the database on your computer (change it if 5432 is taken) |
@@ -156,7 +157,7 @@ every feature step by step.
 ### Putting it on a server
 
 Run the same stack on a server and put a reverse proxy with HTTPS (for example Caddy, nginx or Traefik) in front of
-port 8080. Before going live: set strong passwords, `DEMO_DATA=false`, `ALLOWED_HOSTS`, decide on `SWAGGER_ENABLED`
+port 8080. Before going live: set strong passwords, `DEMO_DATA=false`, `PUBLIC_BASE_URL`, `ALLOWED_HOSTS`, decide on `SWAGGER_ENABLED`
 and on self-service sign-up (System → Settings), configure e-mail and back up the database regularly. The full checklist is in
 [DOCUMENTATION.md § Deployment](docs/DOCUMENTATION.md#19-deployment).
 
