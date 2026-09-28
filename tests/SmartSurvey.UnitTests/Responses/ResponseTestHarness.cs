@@ -78,15 +78,16 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
     /// <param name="configure">Adjusts the survey entity (status, schedule, quota, flags…).</param>
     /// <param name="design">Adjusts the design before it is converted to entities.</param>
     /// <param name="title">Survey title.</param>
+    /// <param name="workspaceId">Workspace of the survey (default <see cref="TestWorkspaces.DefaultId"/>).</param>
     public async Task<SampleSurvey> SeedSurveyAsync(
-        Action<Survey>? configure = null, Action<SampleSurvey>? design = null, string title = "Customer feedback")
+        Action<Survey>? configure = null, Action<SampleSurvey>? design = null, string title = "Customer feedback", Guid? workspaceId = null)
     {
         var sample = SampleSurveys.CustomerFeedback(title);
         design?.Invoke(sample);
 
         var survey = ToEntity(sample.Definition);
         configure?.Invoke(survey);
-        await Db.SeedAsync(survey);
+        await Db.SeedInWorkspaceAsync(workspaceId ?? TestWorkspaces.DefaultId, survey);
 
         sample.Definition.Id = survey.Id;
         sample.Definition.Slug = survey.Slug;
@@ -97,7 +98,7 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
     /// Seeds a response (started 30 minutes ago; completed ones submitted 5 minutes later).
     /// </summary>
     public async Task<SurveyResponse> SeedResponseAsync(
-        SampleSurvey survey, Guid? respondentId, ResponseStatus status, Action<SurveyResponse>? configure = null)
+        SampleSurvey survey, Guid? respondentId, ResponseStatus status, Action<SurveyResponse>? configure = null, Guid? workspaceId = null)
     {
         var startedAt = Now.AddMinutes(-30);
         var response = new SurveyResponse
@@ -109,7 +110,7 @@ internal sealed class ResponseTestHarness : IAsyncDisposable
             SubmittedAt = status == ResponseStatus.Completed ? startedAt.AddMinutes(5) : null,
         };
         configure?.Invoke(response);
-        await Db.SeedAsync(response);
+        await Db.SeedInWorkspaceAsync(workspaceId ?? TestWorkspaces.DefaultId, response);
         return response;
     }
 

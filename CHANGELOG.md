@@ -15,6 +15,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `GET /api/v1/public/surveys?workspace={slug}` lists a workspace's public surveys. Migration `AddWorkspaces` moves the
   data of an existing installation into "Default workspace" (its users become members, admins stay admins). New role
   `SuperAdmin` (seeded; the System console follows in later phases). Seeder settings `Seed:WorkspaceName/WorkspaceSlug`.
+- **Workspace services:** workspace settings for its admins (name, description, contact, join link on/off, public
+  survey page on/off); system settings, workspace administration (create with first admin, rename, enable, disable
+  with a reason, approve, delete) and a system overview for super admins; self-service sign-up (creator becomes the
+  admin; can be switched off or require approval) and joining a workspace with its link; separate system audit log.
+  User administration is scoped: workspace admins manage only their own members, super admins every account.
+- **Super admin bootstrap:** `Seed:SuperAdminEmail` / `Seed:SuperAdminPassword` (Docker: `SUPERADMIN_EMAIL`,
+  `SUPERADMIN_PASSWORD`) create the first super admin. Demo data adds a second workspace "Acme Research"
+  (`admin@acme.local`, admin password) to show the isolation.
+
+### Changed
+- Branding can only be changed by super admins (it is system-wide); `PUT/POST/DELETE /api/v1/branding*` require the
+  SuperAdmin role.
 - **User guide** at `/guide`: plain-language, step-by-step help with screenshots for respondents and administrators
   (linked from the top menu, footer, FAQ and admin sidebar).
 - **GitHub links** in the top menu, admin sidebar, home page and footer (`Support:GitHubUrl`); the Buy Me a Coffee page
