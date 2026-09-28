@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `AddStarterTemplatesSetting`.
 - `Workspaces:StatusCacheSeconds` (default 30, `0` = no cache): how quickly other app instances notice a disabled
   workspace.
+- `scripts/browser/screenshots.js` recaptures every guide and README screenshot from a fresh demo instance.
+
+### Changed
+- All user-guide and README screenshots recaptured for v2 (workspace name in the sidebar, Workspace settings, System
+  console, public address in share links); the display-logic caption now matches its picture.
 
 ## [2.0.0] - 2026-09-28
 

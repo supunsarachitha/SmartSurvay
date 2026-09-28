@@ -612,8 +612,10 @@ System endpoints; a test checks that every request in the walkthrough is a real 
 ## 15. User interface guide
 
 The app includes a **user guide** for non-technical users at `/guide` (linked in the top menu, the footer, the FAQ and
-the admin sidebar): plain-language, step-by-step chapters with screenshots for respondents and administrators. The
-screenshots live in `wwwroot/img/guide` (WebP) and are also used by the README.
+the admin sidebar): plain-language, step-by-step chapters with screenshots for respondents, workspace admins and super
+admins. The screenshots live in `wwwroot/img/guide` (WebP, 1280×800; the phone image 780×1688) and are also used by the
+README. `scripts/browser/screenshots.js` recaptures all of them from a fresh demo instance, so they can be refreshed
+after UI changes.
 
 ### 15.1 Respondents
 
@@ -776,6 +778,7 @@ bash scripts/smoke.sh --user admin / /admin /admin/surveys   # boot the app and 
 bash scripts/smoke.sh --user superadmin /system /system/workspaces  # users: admin, user, acme, superadmin, anon
 scripts/container-smoke.sh http://localhost:8080             # smoke-test a running container stack
 cd scripts/browser && npm install && npm run check           # headless-browser workspace flows (see the script)
+cd scripts/browser && npm run screenshots                    # recapture every guide/README screenshot (fresh instance!)
 ```
 
 * **Unit tests** cover the logic evaluator, condition matcher, answer validator, slug generator, EF model
