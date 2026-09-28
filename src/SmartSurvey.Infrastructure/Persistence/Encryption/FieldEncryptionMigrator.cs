@@ -8,7 +8,7 @@ namespace SmartSurvey.Infrastructure.Persistence.Encryption;
 /// <summary>
 /// Encrypts values that were stored before field encryption was enabled (run at start-up; idempotent). Rows are
 /// found with plain SQL — values without the <c>enc:v1:</c> prefix — and re-saved through the encrypting converters
-/// in batches.
+/// in batches. Runs across all workspaces (system scope).
 /// </summary>
 public sealed class FieldEncryptionMigrator(AppDbContext db, IOptions<FieldEncryptionOptions> options, ILogger<FieldEncryptionMigrator> logger)
 {
@@ -22,6 +22,9 @@ public sealed class FieldEncryptionMigrator(AppDbContext db, IOptions<FieldEncry
         {
             return 0;
         }
+
+        // Start-up maintenance of every workspace's rows; the injected context is fail-closed by default.
+        db.UseScope(DataScope.System);
 
         var total = await EncryptAsync<Answer>("Answers", "TextValue", a => a.TextValue, ct)
             + await EncryptAsync<AnswerSelection>("AnswerSelections", "FreeText", s => s.FreeText, ct)
@@ -45,6 +48,7 @@ public sealed class FieldEncryptionMigrator(AppDbContext db, IOptions<FieldEncry
 #pragma warning disable EF1002
             var ids = await db.Database
                 .SqlQueryRaw<Guid>($"SELECT \"Id\" AS \"Value\" FROM \"{table}\" WHERE \"{column}\" IS NOT NULL AND \"{column}\" NOT LIKE {{0}}", Pattern)
+                .OrderBy(id => id)
                 .Take(BatchSize)
                 .ToListAsync(ct);
 #pragma warning restore EF1002
@@ -54,6 +58,13 @@ public sealed class FieldEncryptionMigrator(AppDbContext db, IOptions<FieldEncry
             }
 
             var rows = await db.Set<TEntity>().Where(e => ids.Contains(e.Id)).ToListAsync(ct);
+            if (rows.Count == 0)
+            {
+                // The ids exist but cannot be loaded (should not happen in system scope): stop instead of looping forever.
+                logger.LogWarning("{Count} plain-text values in {Table} could not be loaded for encryption.", ids.Count, table);
+                return updated;
+            }
+
             foreach (var row in rows)
             {
                 db.Entry(row).Property(property).IsModified = true; // re-written through the encrypting converter

@@ -8,6 +8,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **Workspaces (multi-tenancy, in progress on `feature/multi-workspace`):** every survey, response, report and audit
+  entry now belongs to a workspace, and the data layer only ever returns the current workspace's rows (fail-closed
+  query filters plus a save guard that stamps and checks `WorkspaceId`). Share links stay `/s/{slug}`; people who are
+  not members of a survey's workspace answer as guests, and surveys of disabled workspaces are unavailable.
+  `GET /api/v1/public/surveys?workspace={slug}` lists a workspace's public surveys. Migration `AddWorkspaces` moves the
+  data of an existing installation into "Default workspace" (its users become members, admins stay admins). New role
+  `SuperAdmin` (seeded; the System console follows in later phases). Seeder settings `Seed:WorkspaceName/WorkspaceSlug`.
 - **User guide** at `/guide`: plain-language, step-by-step help with screenshots for respondents and administrators
   (linked from the top menu, footer, FAQ and admin sidebar).
 - **GitHub links** in the top menu, admin sidebar, home page and footer (`Support:GitHubUrl`); the Buy Me a Coffee page
@@ -33,6 +40,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   export menu, guide, FAQ, README (including how to back up the keys) and documentation.
 
 ### Fixed
+- Start-up encryption of older plain-text answers could loop forever when combined with workspace scoping; it now
+  runs in system scope, stops when rows cannot be loaded, and orders its batches (no more EF Core 10102 warnings).
+- `scripts/container-smoke.sh` accepts an empty admin password to skip the admin checks (avoids lockout counts on stacks
+  with a changed admin password).
 - The user guide no longer scrolls sideways on phones, and its screenshots scale to the text column and screen height
   (click to enlarge).
 

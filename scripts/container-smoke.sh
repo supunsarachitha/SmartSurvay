@@ -6,12 +6,14 @@
 #
 # Usage:   scripts/container-smoke.sh [base-url] [admin-email] [admin-password]
 # Example: scripts/container-smoke.sh http://localhost:8080 admin@smartsurvey.local 'ChangeMe123!'
+#          Pass an empty password ('') to skip the admin checks, e.g. on a stack whose admin changed the password
+#          (every wrong attempt counts towards the account lockout).
 # Exit code: 0 when every check passed, 1 otherwise.
 # ---------------------------------------------------------------------------------------------
 set -u
 BASE="${1:-http://localhost:8080}"
 EMAIL="${2:-admin@smartsurvey.local}"
-PASSWORD="${3:-ChangeMe123!}"
+PASSWORD="${3-ChangeMe123!}" # only an omitted argument gets the default; '' skips the admin checks
 FAIL=0
 
 check() { # $1=description $2=condition result (0 = ok)
@@ -28,6 +30,11 @@ for path in / /surveys /faq /s/customer-satisfaction-survey /Account/Login; do
   code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE$path")
   [ "$code" = "200" ]; check "GET $path ($code)" $?
 done
+
+if [ -z "$PASSWORD" ]; then
+  echo "SKIP admin sign-in and PDF export (no admin password given)"
+  exit $FAIL
+fi
 
 TOKEN=$(curl -fs -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' \
   -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["accessToken"])' 2>/dev/null)
