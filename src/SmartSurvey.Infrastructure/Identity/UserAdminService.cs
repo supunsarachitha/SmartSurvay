@@ -12,9 +12,14 @@ using SmartSurvey.Infrastructure.Persistence;
 namespace SmartSurvey.Infrastructure.Identity;
 
 /// <summary>
-/// User administration (admin only) implemented with ASP.NET Core Identity.
+/// Account administration implemented with ASP.NET Core Identity, scoped by workspace.
 /// </summary>
 /// <remarks>
+/// <para><b>Who manages whom.</b> A workspace admin sees and changes only the accounts of their own
+/// workspace (others are reported as not found) and can grant the roles Admin and User. A super admin
+/// sees every account and can create members of any workspace or further super admins. Accounts never
+/// move between workspaces; super admin accounts hold only the SuperAdmin role. Every workspace keeps at
+/// least one admin and the system at least one super admin.</para>
 /// <para>Services are scoped per Blazor circuit, which can live for hours. A <see cref="UserManager{TUser}"/>
 /// caches entities in its (scoped) <see cref="AppDbContext"/>, so holding one for the lifetime of a circuit
 /// would serve stale data and grow without bound. Every mutation therefore creates its own DI scope and
@@ -45,8 +50,12 @@ public sealed class UserAdminService(
         ArgumentNullException.ThrowIfNull(query);
         ThrowIfInvalid(QueryValidator.Validate(query));
 
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var users = ApplyFilters(db, db.Users.AsNoTracking(), query);
+        await using var db = await OpenReadContextAsync(ct);
+        var users = ApplyFilters(db, VisibleUsers(db), query);
+        if (currentUser.IsSuperAdmin && query.WorkspaceId is { } workspaceId)
+        {
+            users = users.Where(u => u.WorkspaceId == workspaceId);
+        }
 
         var total = await users.CountAsync(ct);
         var page = users
@@ -68,8 +77,8 @@ public sealed class UserAdminService(
     {
         EnsureAdmin();
 
-        await using var db = await dbFactory.CreateDbContextAsync(ct);
-        var row = await ProjectRows(db, db.Users.AsNoTracking().Where(u => u.Id == id)).FirstOrDefaultAsync(ct)
+        await using var db = await OpenReadContextAsync(ct);
+        var row = await ProjectRows(db, VisibleUsers(db).Where(u => u.Id == id)).FirstOrDefaultAsync(ct)
             ?? throw new NotFoundException(EntityName, id);
 
         var roles = await LoadRoleNamesAsync(db, [id], ct);
@@ -84,7 +93,11 @@ public sealed class UserAdminService(
         ThrowIfInvalid(CreateValidator.Validate(request));
 
         var email = request.Email.Trim();
-        IReadOnlyList<string> roles = request.Roles is { Count: > 0 } ? AppRoleNames.Normalize(request.Roles) : [AppRoles.User];
+        var workspaceId = await ResolveNewUserWorkspaceAsync(request.WorkspaceId, ct);
+        IReadOnlyList<string> roles = request.Roles is { Count: > 0 }
+            ? AppRoleNames.Normalize(request.Roles)
+            : [workspaceId is null ? AppRoles.SuperAdmin : AppRoles.User];
+        EnsureRolesFit(workspaceId, roles, nameof(CreateUserRequest.Roles));
 
         await using var scope = scopeFactory.CreateAsyncScope();
         var identity = IdentityServices.From(scope.ServiceProvider);
@@ -97,6 +110,7 @@ public sealed class UserAdminService(
 
         var user = new ApplicationUser
         {
+            WorkspaceId = workspaceId,
             UserName = email,
             Email = email,
             EmailConfirmed = true, // created by an administrator: no confirmation round-trip needed
@@ -136,6 +150,7 @@ public sealed class UserAdminService(
         await using var scope = scopeFactory.CreateAsyncScope();
         var identity = IdentityServices.From(scope.ServiceProvider);
         var user = await FindUserAsync(identity.Users, id);
+        EnsureRolesFit(user.WorkspaceId, requested, nameof(SetUserRolesRequest.Roles));
 
         var current = await identity.Users.GetRolesAsync(user);
         var toRemove = current.Where(r => !requested.Contains(r, StringComparer.OrdinalIgnoreCase)).ToList();
@@ -146,7 +161,8 @@ public sealed class UserAdminService(
             return await GetAsync(id, ct); // nothing changes: no write, no audit entry
         }
 
-        if (toRemove.Contains(AppRoles.Admin, StringComparer.OrdinalIgnoreCase))
+        if (toRemove.Contains(AppRoles.Admin, StringComparer.OrdinalIgnoreCase)
+            || toRemove.Contains(AppRoles.SuperAdmin, StringComparer.OrdinalIgnoreCase))
         {
             if (IsSelf(id))
             {
@@ -224,10 +240,7 @@ public sealed class UserAdminService(
         var identity = IdentityServices.From(scope.ServiceProvider);
         var user = await FindUserAsync(identity.Users, id);
 
-        if (await identity.Users.IsInRoleAsync(user, AppRoles.Admin))
-        {
-            await EnsureNotLastAdminAsync(identity.Users, user, "lock");
-        }
+        await EnsureNotLastAdminAsync(identity.Users, user, "lock");
 
         await using (var transaction = await identity.Db.Database.BeginTransactionAsync(ct))
         {
@@ -288,10 +301,7 @@ public sealed class UserAdminService(
         var identity = IdentityServices.From(scope.ServiceProvider);
         var user = await FindUserAsync(identity.Users, id);
 
-        if (await identity.Users.IsInRoleAsync(user, AppRoles.Admin))
-        {
-            await EnsureNotLastAdminAsync(identity.Users, user, "delete");
-        }
+        await EnsureNotLastAdminAsync(identity.Users, user, "delete");
 
         // Responses reference the user with ON DELETE SET NULL: they are kept and become anonymous.
         ThrowIfFailed(await identity.Users.DeleteAsync(user));
@@ -339,6 +349,8 @@ public sealed class UserAdminService(
             LockoutEnabled = u.LockoutEnabled,
             LockoutEnd = u.LockoutEnd,
             ResponseCount = db.Responses.Count(r => r.RespondentId == u.Id && r.Status == ResponseStatus.Completed),
+            WorkspaceId = u.WorkspaceId,
+            WorkspaceName = db.Workspaces.Where(w => w.Id == u.WorkspaceId).Select(w => w.Name).FirstOrDefault(),
         });
 
     /// <summary>Role names of the given users in one query, keyed by user id.</summary>
@@ -373,6 +385,8 @@ public sealed class UserAdminService(
         CreatedAt = row.CreatedAt,
         LastLoginAt = row.LastLoginAt,
         ResponseCount = row.ResponseCount,
+        WorkspaceId = row.WorkspaceId,
+        WorkspaceName = row.WorkspaceName,
     };
 
     /// <summary>Known roles in the order of <see cref="AppRoles.All"/>, then any other role alphabetically.</summary>
@@ -399,7 +413,7 @@ public sealed class UserAdminService(
 
     private void EnsureAdmin()
     {
-        if (!currentUser.IsAdmin)
+        if (!currentUser.IsAdmin && !currentUser.IsSuperAdmin)
         {
             throw new ForbiddenException("Only administrators can manage users.");
         }
@@ -407,20 +421,117 @@ public sealed class UserAdminService(
 
     private bool IsSelf(Guid id) => currentUser.UserId == id;
 
-    private static async Task<ApplicationUser> FindUserAsync(UserManager<ApplicationUser> users, Guid id) =>
-        await users.FindByIdAsync(id.ToString()) ?? throw new NotFoundException(EntityName, id);
+    /// <summary>
+    /// Read context: a workspace admin's workspace (response counts stay within it) or, for super
+    /// admins, every workspace.
+    /// </summary>
+    private async Task<AppDbContext> OpenReadContextAsync(CancellationToken ct)
+    {
+        var db = await dbFactory.CreateDbContextAsync(ct);
+        return db.UseScope(currentUser.IsSuperAdmin ? DataScope.System : DataScope.ForWorkspace(currentUser.WorkspaceId!.Value));
+    }
 
-    /// <summary>Prevents operations that would leave the application without any administrator.</summary>
+    /// <summary>Accounts the caller may see: their workspace's members, or every account for super admins.</summary>
+    private IQueryable<ApplicationUser> VisibleUsers(AppDbContext db)
+    {
+        var users = db.Users.AsNoTracking();
+        if (currentUser.IsSuperAdmin)
+        {
+            return users;
+        }
+
+        var workspaceId = currentUser.WorkspaceId;
+        return users.Where(u => u.WorkspaceId == workspaceId);
+    }
+
+    /// <summary>Loads an account the caller may manage; accounts of other workspaces are reported as not found.</summary>
+    private async Task<ApplicationUser> FindUserAsync(UserManager<ApplicationUser> users, Guid id)
+    {
+        var user = await users.FindByIdAsync(id.ToString());
+        if (user is null || (!currentUser.IsSuperAdmin && user.WorkspaceId != currentUser.WorkspaceId))
+        {
+            throw new NotFoundException(EntityName, id);
+        }
+
+        return user;
+    }
+
+    /// <summary>
+    /// Workspace of a new account: always the caller's own for workspace admins; for super admins the
+    /// requested workspace (which must exist) or none (a new super admin).
+    /// </summary>
+    private async Task<Guid?> ResolveNewUserWorkspaceAsync(Guid? requested, CancellationToken ct)
+    {
+        if (!currentUser.IsSuperAdmin)
+        {
+            return requested is null || requested == currentUser.WorkspaceId
+                ? currentUser.WorkspaceId
+                : throw new ForbiddenException("You can only add people to your own workspace.");
+        }
+
+        if (requested is { } workspaceId)
+        {
+            await using var db = (await dbFactory.CreateDbContextAsync(ct)).UseScope(DataScope.System);
+            if (!await db.Workspaces.AnyAsync(w => w.Id == workspaceId, ct))
+            {
+                throw new AppValidationException(nameof(CreateUserRequest.WorkspaceId), "The selected workspace does not exist.");
+            }
+        }
+
+        return requested;
+    }
+
+    /// <summary>
+    /// Members of a workspace hold Admin/User; super admin accounts (no workspace) hold only SuperAdmin,
+    /// which only super admins can grant.
+    /// </summary>
+    private void EnsureRolesFit(Guid? workspaceId, IReadOnlyCollection<string> roles, string property)
+    {
+        var allowed = workspaceId is null ? [AppRoles.SuperAdmin] : AppRoles.WorkspaceRoles;
+        var misfits = roles.Where(r => !allowed.Contains(r, StringComparer.OrdinalIgnoreCase)).ToList();
+        if (misfits.Count > 0)
+        {
+            throw new AppValidationException(property, workspaceId is null
+                ? "Super admin accounts belong to no workspace and can only hold the SuperAdmin role."
+                : $"Workspace members can hold these roles: {string.Join(", ", AppRoles.WorkspaceRoles)}.");
+        }
+
+        if (workspaceId is null && !currentUser.IsSuperAdmin)
+        {
+            throw new ForbiddenException("Only super admins can manage super admin accounts.");
+        }
+    }
+
+    /// <summary>
+    /// Prevents operations that would leave a workspace without an admin, or the system without a super
+    /// admin. Accounts without such a role pass.
+    /// </summary>
     /// <param name="users">User manager of the current scope.</param>
-    /// <param name="user">The administrator about to lose access.</param>
+    /// <param name="user">The account about to lose access or its admin role.</param>
     /// <param name="operation">Verb phrase used in the message, e.g. "delete".</param>
     private static async Task EnsureNotLastAdminAsync(UserManager<ApplicationUser> users, ApplicationUser user, string operation)
     {
+        if (await users.IsInRoleAsync(user, AppRoles.SuperAdmin))
+        {
+            if ((await users.GetUsersInRoleAsync(AppRoles.SuperAdmin)).All(a => a.Id == user.Id))
+            {
+                throw new BusinessRuleException(
+                    $"You cannot {operation} {user.Email}: it is the last super admin account. Make another account a super admin first.");
+            }
+
+            return;
+        }
+
+        if (!await users.IsInRoleAsync(user, AppRoles.Admin))
+        {
+            return;
+        }
+
         var admins = await users.GetUsersInRoleAsync(AppRoles.Admin);
-        if (admins.All(a => a.Id == user.Id))
+        if (admins.Where(a => a.WorkspaceId == user.WorkspaceId).All(a => a.Id == user.Id))
         {
             throw new BusinessRuleException(
-                $"You cannot {operation} {user.Email}: it is the last administrator account. Make another user an administrator first.");
+                $"You cannot {operation} {user.Email}: it is the last administrator of the workspace. Make another member an administrator first.");
         }
     }
 
@@ -436,45 +547,8 @@ public sealed class UserAdminService(
         }
     }
 
-    /// <summary>
-    /// Translates a failed <see cref="IdentityResult"/> into an application exception: duplicates and
-    /// concurrency failures are conflicts, password / e-mail problems are validation errors keyed
-    /// "Password" / "Email", anything else violates a business rule.
-    /// </summary>
-    private static void ThrowIfFailed(IdentityResult result)
-    {
-        if (result.Succeeded)
-        {
-            return;
-        }
-
-        var errors = result.Errors.ToList();
-        var conflict = errors.FirstOrDefault(e => e.Code is "DuplicateEmail" or "DuplicateUserName" or "ConcurrencyFailure");
-        if (conflict is not null)
-        {
-            throw new ConflictException(conflict.Description);
-        }
-
-        var validation = errors
-            .Select(e => (Key: ValidationKey(e.Code), e.Description))
-            .Where(e => e.Key is not null)
-            .GroupBy(e => e.Key!)
-            .ToDictionary(g => g.Key, g => g.Select(e => e.Description).Distinct().ToArray());
-        if (validation.Count > 0)
-        {
-            throw new AppValidationException(validation);
-        }
-
-        throw new BusinessRuleException(string.Join(" ", errors.Select(e => e.Description)));
-    }
-
-    /// <summary>Maps Identity error codes (see <see cref="IdentityErrorDescriber"/>) to request properties.</summary>
-    private static string? ValidationKey(string code) => code switch
-    {
-        _ when code.StartsWith("Password", StringComparison.Ordinal) => nameof(CreateUserRequest.Password),
-        "InvalidEmail" or "InvalidUserName" => nameof(CreateUserRequest.Email),
-        _ => null,
-    };
+    private static void ThrowIfFailed(IdentityResult result) =>
+        IdentityErrors.ThrowIfFailed(result, nameof(CreateUserRequest.Email), nameof(CreateUserRequest.Password));
 
     /// <summary>Converts FluentValidation failures into an <see cref="AppValidationException"/> keyed by property.</summary>
     private static void ThrowIfInvalid(ValidationResult result)
@@ -516,6 +590,10 @@ public sealed class UserAdminService(
         public string? Email { get; init; }
 
         public string? UserName { get; init; }
+
+        public Guid? WorkspaceId { get; init; }
+
+        public string? WorkspaceName { get; init; }
 
         public string? DisplayName { get; init; }
 

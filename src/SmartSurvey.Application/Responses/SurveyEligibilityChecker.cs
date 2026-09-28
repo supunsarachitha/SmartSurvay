@@ -63,6 +63,19 @@ internal static class SurveyEligibilityChecker
     /// <summary>Verdict for an unknown survey.</summary>
     public static EligibilityVerdict NotFound { get; } = new(SurveyEligibility.NotFound, NotFoundMessage);
 
+    /// <summary>Message for <see cref="SurveyEligibility.OtherWorkspace"/>.</summary>
+    public const string OtherWorkspaceMessage =
+        "This survey is only for members of the workspace that runs it, and you are signed in with an account of another workspace.";
+
+    /// <summary>Message for <see cref="SurveyEligibility.Unavailable"/>.</summary>
+    public const string UnavailableMessage = "This survey is currently unavailable. Please try again later.";
+
+    /// <summary>Verdict when the signed-in user belongs to another workspace than a members-only survey.</summary>
+    public static EligibilityVerdict OtherWorkspace { get; } = new(SurveyEligibility.OtherWorkspace, OtherWorkspaceMessage);
+
+    /// <summary>Verdict when the survey's workspace is not active.</summary>
+    public static EligibilityVerdict Unavailable { get; } = new(SurveyEligibility.Unavailable, UnavailableMessage);
+
     /// <summary>Verdict for an eligible respondent.</summary>
     public static EligibilityVerdict Eligible { get; } = new(SurveyEligibility.Eligible, null);
 

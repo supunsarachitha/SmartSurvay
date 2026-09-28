@@ -62,9 +62,11 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddRoles<IdentityRole<Guid>>()
     .AddClaimsPrincipalFactory<AppClaimsPrincipalFactory>()
     .AddEntityFrameworkStores<AppDbContext>()
-    .AddSignInManager()
     .AddDefaultTokenProviders()
-    .AddApiEndpoints();
+    .AddApiEndpoints()
+    // After AddApiEndpoints, which registers the default sign-in manager again (last registration wins).
+    // Refuses members of disabled / pending workspaces on every sign-in path.
+    .AddSignInManager<AppSignInManager>();
 
 builder.Services.ConfigureApiFriendlyCookies();
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityEmailSender>(); // MapIdentityApi resolves it from the root provider
@@ -133,6 +135,7 @@ app.UseRateLimiter();
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseMiddleware<CurrentUserMiddleware>();
+app.UseMiddleware<WorkspaceAccessMiddleware>();
 app.UseAntiforgery();
 
 if (app.Environment.IsDevelopment() || app.Configuration.GetValue("Swagger:Enabled", false))
@@ -154,6 +157,7 @@ app.MapAdditionalIdentityEndpoints();
 app.MapGroup("/api/auth")
     .WithTags("Auth")
     .RequireRateLimiting(RateLimitPolicies.Auth)
+    .AddEndpointFilter(WorkspaceEndpoints.RefuseIdentityRegister) // accounts are created per workspace
     .MapIdentityApi<ApplicationUser>();
 
 app.MapApiEndpoints();

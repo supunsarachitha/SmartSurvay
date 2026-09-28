@@ -1,0 +1,179 @@
+@page "/admin/settings"
+@rendermode InteractiveServer
+@inject IWorkspaceService Workspaces
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+@* Workspace settings for its admins: name, description, contact, joining with the link and the public
+   survey page. The address and the product branding are managed by the site's super admins. *@
+
+<PageHeader Title="Workspace settings" Subtitle="How your workspace introduces itself and how people join it.">
+    <Breadcrumb><li class="breadcrumb-item"><a href="admin">Admin</a></li><li class="breadcrumb-item active" aria-current="page">Settings</li></Breadcrumb>
+    <Actions>
+        <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(saving || !dirty || current is null)">
+            @if (saving)
+            {
+                <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Saving…</span>
+            }
+            else
+            {
+                <i class="bi bi-check2"></i><span>@(dirty ? "Save changes" : "Saved")</span>
+            }
+        </button>
+    </Actions>
+</PageHeader>
+
+<ErrorAlert Message="@loadError" Class="mb-3" />
+
+@if (current is null)
+{
+    @if (loadError is null)
+    {
+        <LoadingSpinner Text="Loading settings…" />
+    }
+}
+else
+{
+    <div class="row g-4">
+        <div class="col-lg-7">
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-buildings me-1"></i>About the workspace</h2>
+                    <div class="mb-3">
+                        <label class="form-label small" for="ws-name">Name <span class="text-danger">*</span></label>
+                        <input class="form-control @Invalid(nameof(UpdateWorkspaceSettingsRequest.Name))" id="ws-name" maxlength="100"
+                               @bind="form.Name" @bind:event="oninput" @bind:after="MarkDirty" />
+                        <FieldErrors Messages="@ErrorsFor(nameof(UpdateWorkspaceSettingsRequest.Name))" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label small" for="ws-description">Description <span class="text-muted">(shown on the workspace page)</span></label>
+                        <textarea class="form-control @Invalid(nameof(UpdateWorkspaceSettingsRequest.Description))" id="ws-description" rows="3" maxlength="2000"
+                                  @bind="form.Description" @bind:event="oninput" @bind:after="MarkDirty"></textarea>
+                        <FieldErrors Messages="@ErrorsFor(nameof(UpdateWorkspaceSettingsRequest.Description))" />
+                    </div>
+                    <div>
+                        <label class="form-label small" for="ws-contact">Contact e-mail <span class="text-muted">(optional)</span></label>
+                        <input class="form-control @Invalid(nameof(UpdateWorkspaceSettingsRequest.ContactEmail))" id="ws-contact" type="email" maxlength="256"
+                               placeholder="team@example.com" @bind="form.ContactEmail" @bind:event="oninput" @bind:after="MarkDirty" />
+                        <FieldErrors Messages="@ErrorsFor(nameof(UpdateWorkspaceSettingsRequest.ContactEmail))" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-person-plus me-1"></i>Joining</h2>
+                    <div class="form-check form-switch mb-3">
+                        <input class="form-check-input" type="checkbox" role="switch" id="ws-join" @bind="form.AllowSelfRegistration" @bind:after="MarkDirty" />
+                        <label class="form-check-label" for="ws-join">People can create a member account with the join link</label>
+                    </div>
+                    @if (form.AllowSelfRegistration)
+                    {
+                        <JoinLinkBox Slug="@current.Slug" />
+                        <p class="form-text mb-0">Share this link with the people who should answer your members-only surveys.</p>
+                    }
+                    else
+                    {
+                        <p class="small text-muted mb-0">Only you and other admins can add members (on the <a href="admin/users">Users</a> page).</p>
+                    }
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-globe me-1"></i>Public survey page</h2>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" role="switch" id="ws-public" @bind="form.ShowPublicSurveyList" @bind:after="MarkDirty" />
+                        <label class="form-check-label" for="ws-public">List the surveys that anyone may answer on the workspace page</label>
+                    </div>
+                    <a class="small" href="w/@current.Slug" target="_blank" rel="noopener"><i class="bi bi-box-arrow-up-right me-1"></i>Open the workspace page</a>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-5">
+            <div class="card">
+                <div class="card-body">
+                    <h2 class="h6 mb-3"><i class="bi bi-info-circle me-1"></i>Good to know</h2>
+                    <dl class="small mb-0">
+                        <dt>Workspace address</dt>
+                        <dd class="font-monospace">/w/@current.Slug</dd>
+                        <dt>Survey links</dt>
+                        <dd>Every survey keeps its own link (<span class="font-monospace">/s/…</span>), shown on its Share page.</dd>
+                        <dt>Branding</dt>
+                        <dd class="mb-0">The product name, logo and the workspace address are managed by the site administrator.</dd>
+                    </dl>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private WorkspaceDto? current;
+    private UpdateWorkspaceSettingsRequest form = new();
+    private IReadOnlyDictionary<string, string[]> errors = new Dictionary<string, string[]>();
+    private string? loadError;
+    private bool dirty;
+    private bool saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            Apply(await Workspaces.GetCurrentAsync());
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            loadError = UiErrors.Describe(ex);
+        }
+    }
+
+    private void Apply(WorkspaceDto workspace)
+    {
+        current = workspace;
+        form = new UpdateWorkspaceSettingsRequest
+        {
+            Name = workspace.Name,
+            Description = workspace.Description,
+            ContactEmail = workspace.ContactEmail,
+            AllowSelfRegistration = workspace.AllowSelfRegistration,
+            ShowPublicSurveyList = workspace.ShowPublicSurveyList,
+        };
+        errors = new Dictionary<string, string[]>();
+        dirty = false;
+    }
+
+    private string? Invalid(string field) => errors.ContainsKey(field) ? "is-invalid" : null;
+
+    private IReadOnlyList<string> ErrorsFor(string field) => errors.TryGetValue(field, out var messages) ? messages : [];
+
+    private void MarkDirty() => dirty = true;
+
+    private async Task SaveAsync()
+    {
+        saving = true;
+        try
+        {
+            var renamed = current?.Name != form.Name.Trim();
+            Apply(await Workspaces.UpdateSettingsAsync(form));
+            Toasts.Success("Settings saved");
+            if (renamed)
+            {
+                Navigation.Refresh(forceReload: true); // the sidebar and menus show the new name
+            }
+        }
+        catch (AppValidationException ex)
+        {
+            errors = ex.Errors;
+            Toasts.Error("Please fix the highlighted fields");
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            Toasts.Error("Could not save the settings", UiErrors.Describe(ex));
+        }
+        finally
+        {
+            saving = false;
+        }
+    }
+}

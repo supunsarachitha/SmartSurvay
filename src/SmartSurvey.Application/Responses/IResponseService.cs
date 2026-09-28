@@ -10,10 +10,15 @@ namespace SmartSurvey.Application.Responses;
 public interface IResponseService
 {
     /// <summary>
-    /// Published, open, non-template surveys the current user may see: all of them for logged-in
-    /// users, anonymous-enabled ones for guests. Includes per-user draft/completion flags.
+    /// Published, open, non-template surveys of one workspace: all of them for its members,
+    /// anonymous-enabled ones for everyone else. Includes per-user draft/completion flags.
     /// </summary>
-    Task<IReadOnlyList<AvailableSurveyDto>> ListAvailableAsync(CancellationToken ct = default);
+    /// <param name="workspaceSlug">
+    /// Workspace to list (its public survey page). Null = the signed-in member's own workspace;
+    /// guests and super admins then get an empty list.
+    /// </param>
+    /// <param name="ct">Cancellation token.</param>
+    Task<IReadOnlyList<AvailableSurveyDto>> ListAvailableAsync(string? workspaceSlug = null, CancellationToken ct = default);
 
     /// <summary>
     /// Determines eligibility for <paramref name="slug"/> and returns the survey plus, for logged-in

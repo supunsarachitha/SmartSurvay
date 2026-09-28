@@ -5,8 +5,11 @@ using SmartSurvey.Domain.ValueObjects;
 namespace SmartSurvey.Domain.Entities;
 
 /// <summary>A question on a survey page.</summary>
-public class Question : Entity
+public class Question : Entity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Owning survey.</summary>
     public Guid SurveyId { get; set; }
 
@@ -48,8 +51,11 @@ public class Question : Entity
 /// An answer option of a choice question. Setting <see cref="AllowsFreeText"/> turns the option into a
 /// combined "choice + text" option such as <em>Other (please specify)</em>.
 /// </summary>
-public class QuestionOption : Entity
+public class QuestionOption : Entity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Owning question.</summary>
     public Guid QuestionId { get; set; }
 
@@ -76,8 +82,11 @@ public class QuestionOption : Entity
 /// Conditional logic rule: shows or hides a target question or section depending on answers to
 /// earlier questions. Exactly one of <see cref="TargetQuestionId"/> / <see cref="TargetSectionId"/> is set.
 /// </summary>
-public class LogicRule : Entity
+public class LogicRule : Entity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Owning survey.</summary>
     public Guid SurveyId { get; set; }
 
@@ -107,8 +116,11 @@ public class LogicRule : Entity
 }
 
 /// <summary>A single condition of a <see cref="LogicRule"/>.</summary>
-public class LogicCondition : Entity
+public class LogicCondition : Entity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Owning rule.</summary>
     public Guid LogicRuleId { get; set; }
 

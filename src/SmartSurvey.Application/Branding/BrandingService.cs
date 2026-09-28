@@ -113,7 +113,7 @@ public sealed partial class BrandingService(
     public async Task<BrandingDto> UpdateAsync(UpdateBrandingRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        EnsureAdmin();
+        EnsureSuperAdmin();
 
         var errors = new Dictionary<string, string[]>();
         var name = request.ProductName?.Trim() ?? string.Empty;
@@ -156,7 +156,7 @@ public sealed partial class BrandingService(
     public async Task<BrandingDto> SetLogoAsync(byte[] content, string? fileName, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(content);
-        EnsureAdmin();
+        EnsureSuperAdmin();
 
         var contentType = LogoImageInspector.DetectContentType(content, out var error)
             ?? throw new AppValidationException("Logo", error ?? "Unsupported image.");
@@ -171,7 +171,7 @@ public sealed partial class BrandingService(
     /// <inheritdoc />
     public async Task<BrandingDto> RemoveLogoAsync(CancellationToken ct = default)
     {
-        EnsureAdmin();
+        EnsureSuperAdmin();
         return await MutateAsync(row =>
         {
             row.LogoContent = null;
@@ -182,7 +182,7 @@ public sealed partial class BrandingService(
     /// <inheritdoc />
     public async Task<BrandingDto> ResetAsync(CancellationToken ct = default)
     {
-        EnsureAdmin();
+        EnsureSuperAdmin();
         var defaults = cache.Defaults;
         return await MutateAsync(row =>
         {
@@ -244,11 +244,12 @@ public sealed partial class BrandingService(
         return await cache.GetAsync(ct);
     }
 
-    private void EnsureAdmin()
+    /// <summary>Branding is system-wide, so only super admins change it (workspace admins cannot).</summary>
+    private void EnsureSuperAdmin()
     {
-        if (!currentUser.IsAdmin)
+        if (!currentUser.IsSuperAdmin)
         {
-            throw new ForbiddenException("Only administrators can change the branding.");
+            throw new ForbiddenException("Only super admins can change the branding.");
         }
     }
 

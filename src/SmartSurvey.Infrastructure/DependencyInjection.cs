@@ -7,12 +7,14 @@ using SmartSurvey.Application.Common;
 using SmartSurvey.Application.Exports;
 using SmartSurvey.Application.Responses;
 using SmartSurvey.Application.Users;
+using SmartSurvey.Application.Workspaces;
 using SmartSurvey.Infrastructure.Email;
 using SmartSurvey.Infrastructure.Exports;
 using SmartSurvey.Infrastructure.Identity;
 using SmartSurvey.Infrastructure.Persistence;
 using SmartSurvey.Infrastructure.Persistence.Encryption;
 using SmartSurvey.Infrastructure.Persistence.Seed;
+using SmartSurvey.Infrastructure.Workspaces;
 using SmartSurvey.Infrastructure.Security;
 
 namespace SmartSurvey.Infrastructure;
@@ -82,6 +84,8 @@ public static class DependencyInjection
         services.Configure<BotProtectionOptions>(configuration.GetSection(BotProtectionOptions.SectionName));
         services.AddSingleton<IBotProtection, ProofOfWorkBotProtection>();
         services.AddScoped<IUserAdminService, UserAdminService>();
+        services.AddScoped<IPlatformWorkspaceService, PlatformWorkspaceService>();
+        services.AddScoped<IWorkspaceSignupService, WorkspaceSignupService>();
         services.AddScoped<DbSeeder>();
 
         services.AddHealthChecks().AddDbContextCheck<AppDbContext>("database");

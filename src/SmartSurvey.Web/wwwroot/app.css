@@ -291,6 +291,10 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
 }
 .app-sidebar .sidebar-brand { display: flex; align-items: center; gap: .6rem; padding: 1.15rem 1.25rem; color: #fff; font-weight: 750; font-size: 1.05rem; letter-spacing: -.02em; }
 .app-sidebar .sidebar-brand:hover { text-decoration: none; color: #fff; }
+.app-sidebar .sidebar-workspace { display: flex; align-items: center; gap: .5rem; margin: -.35rem .9rem .5rem; padding: .45rem .6rem; border-radius: 8px; background: rgba(255,255,255,.06); color: rgba(255,255,255,.82); font-size: .85rem; font-weight: 600; }
+.app-sidebar .sidebar-workspace:hover { background: rgba(255,255,255,.1); color: #fff; text-decoration: none; }
+.app-sidebar .sidebar-workspace .bi { color: var(--bs-primary-border-subtle, #a5b4fc); }
+.app-sidebar.system-sidebar { background: linear-gradient(180deg, #1e1b4b 0%, var(--ss-sidebar-bg) 55%); }
 .app-sidebar .sidebar-nav { flex: 1; overflow-y: auto; padding: .5rem .75rem 1rem; }
 .app-sidebar .sidebar-heading { font-size: .68rem; text-transform: uppercase; letter-spacing: .1em; color: var(--ss-sidebar-muted); font-weight: 650; padding: 1rem .75rem .4rem; }
 .app-sidebar .nav-link {
@@ -553,6 +557,8 @@ a.btn:hover, .nav-link:hover, .dropdown-item:hover, .card-link-plain:hover, .nav
 .guide-audience { display: inline-block; font-size: .75rem; font-weight: 600; padding: .15rem .6rem; border-radius: 999px; background: var(--ss-surface-2); color: var(--ss-muted); border: 1px solid var(--ss-border); }
 .guide-audience-respondents { background: rgba(14, 165, 233, .12); color: #0369a1; border-color: transparent; }
 .guide-audience-admins { background: var(--ss-primary-soft); color: var(--ss-primary); border-color: transparent; }
+.guide-audience-superadmins { background: rgba(139, 92, 246, .14); color: #6d28d9; border-color: transparent; }
+[data-bs-theme="dark"] .guide-audience-superadmins { color: #c4b5fd; }
 [data-bs-theme="dark"] .guide-audience-respondents { color: #7dd3fc; }
 .guide-steps { counter-reset: step; list-style: none; padding-left: 0 !important; }
 .guide-steps > li { counter-increment: step; position: relative; padding-left: 2.4rem; margin-bottom: .75rem; }

@@ -3,10 +3,13 @@
 @using System.ComponentModel.DataAnnotations
 @using Microsoft.AspNetCore.Authentication
 @using Microsoft.AspNetCore.Identity
+@using SmartSurvey.Application.Workspaces
+@using SmartSurvey.Domain.Entities
 @using SmartSurvey.Domain.Identity
 
 @inject SignInManager<ApplicationUser> SignInManager
 @inject UserManager<ApplicationUser> UserManager
+@inject IWorkspaceStatusProvider Workspaces
 @inject TimeProvider Time
 @inject ILogger<Login> Logger
 @inject NavigationManager NavigationManager
@@ -106,10 +109,34 @@
             Logger.LogWarning("User account locked out.");
             RedirectManager.RedirectTo("Account/Lockout");
         }
+        else if (result.IsNotAllowed && await BlockedWorkspaceReasonAsync() is { } reason)
+        {
+            RedirectManager.RedirectTo("workspace-unavailable", new() { ["reason"] = reason });
+        }
         else
         {
             errorMessage = "Error: The e-mail address or password is not correct.";
         }
+    }
+
+    /// <summary>
+    /// "pending" / "disabled" when sign-in was refused because of the account's workspace. Identity refuses
+    /// before it checks the password, so the password is verified first: strangers learn nothing.
+    /// </summary>
+    private async Task<string?> BlockedWorkspaceReasonAsync()
+    {
+        var user = await UserManager.FindByEmailAsync(Input.Email) ?? await UserManager.FindByNameAsync(Input.Email);
+        if (user?.WorkspaceId is not { } workspaceId || !await UserManager.CheckPasswordAsync(user, Input.Password))
+        {
+            return null;
+        }
+
+        return await Workspaces.GetStatusAsync(workspaceId) switch
+        {
+            WorkspaceStatus.PendingApproval => "pending",
+            WorkspaceStatus.Active => null,
+            _ => "disabled",
+        };
     }
 
     /// <summary>Stores the sign-in time shown on the admin Users page (best effort).</summary>

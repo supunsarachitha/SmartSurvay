@@ -2,6 +2,8 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Design;
 using Microsoft.EntityFrameworkCore.Diagnostics;
 using SmartSurvey.Application.Common;
+using SmartSurvey.Application.Workspaces;
+using SmartSurvey.Domain.Entities;
 using SmartSurvey.Domain.Common;
 
 namespace SmartSurvey.Infrastructure.Persistence;
@@ -58,12 +60,43 @@ public sealed class AuditableEntityInterceptor(TimeProvider timeProvider, ICurre
     }
 }
 
-/// <summary>Adapts EF Core's <see cref="IDbContextFactory{TContext}"/> to the Application abstraction.</summary>
-internal sealed class AppDbContextFactory(IDbContextFactory<AppDbContext> factory) : IAppDbContextFactory
+/// <summary>
+/// Adapts EF Core's <see cref="IDbContextFactory{TContext}"/> to the Application abstraction and binds
+/// every context to a <see cref="DataScope"/>. Members of a workspace that is no longer active get no
+/// context at all (defence in depth behind the sign-in and request checks).
+/// </summary>
+internal sealed class AppDbContextFactory(
+    IDbContextFactory<AppDbContext> factory, ICurrentUser currentUser, IWorkspaceStatusProvider workspaces) : IAppDbContextFactory
 {
     /// <inheritdoc />
-    public async Task<IAppDbContext> CreateAsync(CancellationToken cancellationToken = default) =>
-        await factory.CreateDbContextAsync(cancellationToken);
+    public async Task<IAppDbContext> CreateAsync(CancellationToken cancellationToken = default)
+    {
+        if (currentUser.WorkspaceId is not { } id)
+        {
+            return await CreateAsync(DataScope.None, cancellationToken);
+        }
+
+        if (await workspaces.GetStatusAsync(id, cancellationToken) != WorkspaceStatus.Active)
+        {
+            throw new ForbiddenException("Your workspace is currently unavailable.");
+        }
+
+        return await CreateAsync(DataScope.ForWorkspace(id), cancellationToken);
+    }
+
+    /// <inheritdoc />
+    public Task<IAppDbContext> CreateForWorkspaceAsync(Guid workspaceId, CancellationToken cancellationToken = default) =>
+        CreateAsync(DataScope.ForWorkspace(workspaceId), cancellationToken);
+
+    /// <inheritdoc />
+    public Task<IAppDbContext> CreateSystemAsync(CancellationToken cancellationToken = default) =>
+        CreateAsync(DataScope.System, cancellationToken);
+
+    private async Task<IAppDbContext> CreateAsync(DataScope scope, CancellationToken cancellationToken)
+    {
+        var db = await factory.CreateDbContextAsync(cancellationToken);
+        return db.UseScope(scope);
+    }
 }
 
 /// <summary>Supported database providers.</summary>
@@ -101,6 +134,21 @@ public sealed class SeedOptions
     /// <summary>Initial admin e-mail.</summary>
     public string AdminEmail { get; set; } = "admin@smartsurvey.local";
 
+    /// <summary>Create the initial super admin when none exists (requires <see cref="SuperAdminPassword"/>).</summary>
+    public bool CreateSuperAdmin { get; set; } = true;
+
+    /// <summary>Initial super admin e-mail.</summary>
+    public string SuperAdminEmail { get; set; } = "superadmin@smartsurvey.local";
+
+    /// <summary>Initial super admin password. Leave empty in production and set it via environment/secrets.</summary>
+    public string? SuperAdminPassword { get; set; }
+
+    /// <summary>Name of the workspace created for the initial admin and the demo data.</summary>
+    public string WorkspaceName { get; set; } = "Default workspace";
+
+    /// <summary>Slug (address) of that workspace; an existing workspace with this slug is reused.</summary>
+    public string WorkspaceSlug { get; set; } = "default";
+
     /// <summary>Initial admin password. Leave empty in production and set it via environment/secrets.</summary>
     public string? AdminPassword { get; set; }
 
@@ -112,6 +160,15 @@ public sealed class SeedOptions
 
     /// <summary>Demo respondent password.</summary>
     public string DemoUserPassword { get; set; } = "User123!";
+
+    /// <summary>
+    /// With <see cref="DemoData"/>: also create the second demo workspace "Acme Research" (admin
+    /// <see cref="DemoSecondAdminEmail"/>, password <see cref="AdminPassword"/>) to show workspace isolation.
+    /// </summary>
+    public bool DemoSecondWorkspace { get; set; } = true;
+
+    /// <summary>Admin of the second demo workspace.</summary>
+    public string DemoSecondAdminEmail { get; set; } = "admin@acme.local";
 }
 
 /// <summary>

@@ -81,7 +81,8 @@ public sealed class FieldEncryptionTests
             Assert.Equal("written before encryption", (await context.Answers.SingleAsync(a => a.Id == text.Id)).TextValue);
         }
 
-        await using (var context = db.CreateContext())
+        // A default (fail-closed) context, exactly as dependency injection hands it to the migrator at start-up.
+        await using (var context = db.CreateContext(DataScope.None))
         {
             var migrator = new FieldEncryptionMigrator(context, Options.Create(new FieldEncryptionOptions()), NullLogger<FieldEncryptionMigrator>.Instance);
             Assert.Equal(1, await migrator.EncryptExistingAsync());

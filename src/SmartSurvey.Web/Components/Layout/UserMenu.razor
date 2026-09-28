@@ -1,5 +1,7 @@
 @inject NavigationManager NavigationManager
-@* Account dropdown (static; Bootstrap JS dropdown). Logout is a POST with antiforgery token. *@
+@inject CurrentWorkspace CurrentWorkspace
+@* Account dropdown (static; Bootstrap JS dropdown). Shows the member's workspace (or "Super admin") and the
+   links of each role. Logout is a POST with antiforgery token. *@
 
 <AuthorizeView>
     <Authorized>
@@ -13,14 +15,29 @@
             <ul class="dropdown-menu dropdown-menu-end">
                 <li class="px-3 py-2 small text-muted text-truncate" style="max-width:260px">
                     Signed in as<br /><span class="fw-semibold text-body">@context.User.Identity?.Name</span>
+                    @if (workspace is not null)
+                    {
+                        <br /><span class="d-inline-flex align-items-center gap-1 mt-1"><i class="bi bi-buildings"></i>@workspace.Name</span>
+                    }
+                    else if (context.User.IsInRole(AppRoles.SuperAdmin))
+                    {
+                        <br /><span class="badge badge-soft-primary mt-1"><i class="bi bi-shield-lock me-1"></i>Super admin</span>
+                    }
                 </li>
                 <li><hr class="dropdown-divider" /></li>
-                @if (context.User.IsInRole(AppRoles.Admin))
+                @if (context.User.IsInRole(AppRoles.SuperAdmin))
                 {
-                    <li><a class="dropdown-item" href="admin"><i class="bi bi-speedometer2"></i>Admin dashboard</a></li>
+                    <li><a class="dropdown-item" href="system"><i class="bi bi-shield-lock"></i>System console</a></li>
                 }
-                <li><a class="dropdown-item" href="surveys"><i class="bi bi-ui-checks"></i>Available surveys</a></li>
-                <li><a class="dropdown-item" href="my/responses"><i class="bi bi-inboxes"></i>My responses</a></li>
+                @if (workspace is not null)
+                {
+                    @if (context.User.IsInRole(AppRoles.Admin))
+                    {
+                        <li><a class="dropdown-item" href="admin"><i class="bi bi-speedometer2"></i>Admin dashboard</a></li>
+                    }
+                    <li><a class="dropdown-item" href="surveys"><i class="bi bi-ui-checks"></i>Available surveys</a></li>
+                    <li><a class="dropdown-item" href="my/responses"><i class="bi bi-inboxes"></i>My responses</a></li>
+                }
                 <li><a class="dropdown-item" href="Account/Manage"><i class="bi bi-person-gear"></i>Account settings</a></li>
                 <li><hr class="dropdown-divider" /></li>
                 <li>
@@ -35,12 +52,15 @@
     </Authorized>
     <NotAuthorized>
         <a class="btn btn-light btn-sm" href="Account/Login">Log in</a>
-        <a class="btn btn-primary btn-sm" href="Account/Register">Sign up free</a>
+        <a class="btn btn-primary btn-sm" href="signup">Create workspace</a>
     </NotAuthorized>
 </AuthorizeView>
 
 @code {
     private string? currentUrl;
+    private WorkspaceInfo? workspace;
+
+    protected override async Task OnInitializedAsync() => workspace = await CurrentWorkspace.GetAsync();
 
     protected override void OnParametersSet() =>
         currentUrl = NavigationManager.ToBaseRelativePath(NavigationManager.Uri);

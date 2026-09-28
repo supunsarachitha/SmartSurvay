@@ -11,6 +11,12 @@ namespace SmartSurvey.Application.Common;
 /// </summary>
 public interface IAppDbContext : IDisposable, IAsyncDisposable
 {
+    /// <summary>Workspaces (not filtered by the data scope; filter explicitly).</summary>
+    DbSet<Workspace> Workspaces { get; }
+
+    /// <summary>System settings (single row).</summary>
+    DbSet<PlatformSettings> PlatformSettings { get; }
+
     /// <summary>Surveys.</summary>
     DbSet<Survey> Surveys { get; }
 
@@ -50,7 +56,10 @@ public interface IAppDbContext : IDisposable, IAsyncDisposable
     /// <summary>Product branding (single row).</summary>
     DbSet<BrandingSettings> BrandingSettings { get; }
 
-    /// <summary>Identity users (read access for display names / respondent info).</summary>
+    /// <summary>
+    /// Identity users (read access for display names / respondent info). Limited to the workspace in a
+    /// workspace scope; not filtered in the other scopes.
+    /// </summary>
     DbSet<ApplicationUser> Users { get; }
 
     /// <summary>Persists pending changes.</summary>
@@ -62,10 +71,30 @@ public interface IAppDbContext : IDisposable, IAsyncDisposable
 /// operation (<c>await using var db = await factory.CreateAsync(ct);</c>) which is the recommended
 /// pattern for Blazor Server where DI scopes live as long as the user's circuit.
 /// </summary>
+/// <remarks>
+/// Every context is bound to a data scope: it only returns rows of one workspace (or none), and
+/// inserts are stamped with that workspace. Workspaces never see each other's data.
+/// </remarks>
 public interface IAppDbContextFactory
 {
-    /// <summary>Creates a new context; the caller owns and must dispose it.</summary>
+    /// <summary>
+    /// Creates a context scoped to the current user's workspace. Anonymous visitors and super admins
+    /// have no workspace and get a context that sees no workspace data. The caller disposes it.
+    /// </summary>
     Task<IAppDbContext> CreateAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates a context scoped to the given workspace — for flows that act on behalf of a workspace
+    /// without being signed in to it (answering a survey from a share link).
+    /// </summary>
+    Task<IAppDbContext> CreateForWorkspaceAsync(Guid workspaceId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Creates an unfiltered context. Only for system operations that must span workspaces
+    /// (system-wide slug check, resolving the workspace of a share link, super admin workspace
+    /// administration, seeding). Inserts must set <c>WorkspaceId</c> explicitly.
+    /// </summary>
+    Task<IAppDbContext> CreateSystemAsync(CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -83,8 +112,14 @@ public interface ICurrentUser
     /// <summary>True when a user is logged in.</summary>
     bool IsAuthenticated { get; }
 
-    /// <summary>True when the user is in the <see cref="AppRoles.Admin"/> role.</summary>
+    /// <summary>Workspace of the signed-in user; null for anonymous visitors and super admins.</summary>
+    Guid? WorkspaceId { get; }
+
+    /// <summary>True for an admin of the current workspace (<see cref="AppRoles.Admin"/> role and a workspace).</summary>
     bool IsAdmin { get; }
+
+    /// <summary>True for a super admin (<see cref="AppRoles.SuperAdmin"/> role).</summary>
+    bool IsSuperAdmin { get; }
 
     /// <summary>Role membership check.</summary>
     bool IsInRole(string role);

@@ -1,0 +1,65 @@
+@inherits LayoutComponentBase
+@inject IOptions<SupportOptions> Support
+@* System console layout for super admins (pages under Pages/System): tinted sidebar, top bar. Like the admin
+   layout it is static; the ToastHost island shares the page's circuit. *@
+
+<div class="app-shell">
+    <aside class="app-sidebar system-sidebar" aria-label="System navigation">
+        <a class="sidebar-brand" href="system">
+            <BrandMark />
+            <span class="badge badge-soft-primary ms-auto" style="font-size:.65rem">SYSTEM</span>
+        </a>
+        <nav class="sidebar-nav">
+            <div class="sidebar-heading">Overview</div>
+            <NavLink class="nav-link" href="system" Match="NavLinkMatch.All"><i class="bi bi-grid-1x2"></i> Overview</NavLink>
+
+            <div class="sidebar-heading">Tenants</div>
+            <NavLink class="nav-link" href="system/workspaces"><i class="bi bi-buildings"></i> Workspaces</NavLink>
+            <NavLink class="nav-link" href="system/accounts"><i class="bi bi-people"></i> Accounts</NavLink>
+
+            <div class="sidebar-heading">Configuration</div>
+            <NavLink class="nav-link" href="system/branding"><i class="bi bi-palette"></i> Branding</NavLink>
+            <NavLink class="nav-link" href="system/settings"><i class="bi bi-sliders"></i> Settings</NavLink>
+            <NavLink class="nav-link" href="system/audit"><i class="bi bi-journal-text"></i> Audit log</NavLink>
+            <a class="nav-link" href="swagger" target="_blank" rel="noopener"><i class="bi bi-braces"></i> API docs</a>
+
+            <div class="sidebar-heading">Help</div>
+            <NavLink class="nav-link" href="guide"><i class="bi bi-book"></i> User guide</NavLink>
+            @if (!string.IsNullOrWhiteSpace(Support.Value.GitHubUrl))
+            {
+                <a class="nav-link" href="@Support.Value.GitHubUrl" target="_blank" rel="noopener"><i class="bi bi-github"></i> GitHub</a>
+            }
+        </nav>
+        <div class="sidebar-footer d-flex justify-content-between">
+            <a href=""><i class="bi bi-arrow-left me-1"></i> Back to site</a>
+            <a href="guide" title="User guide"><i class="bi bi-question-circle"></i></a>
+        </div>
+    </aside>
+    <div class="sidebar-backdrop"></div>
+
+    <div class="app-main">
+        <header class="app-topbar">
+            <button type="button" class="btn btn-icon btn-light d-lg-none" data-action="toggle-sidebar" aria-label="Open navigation">
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="flex-grow-1"></div>
+            <a class="btn btn-sm btn-primary d-none d-md-inline-flex align-items-center" href="system/workspaces/new">
+                <i class="bi bi-building-add"></i>New workspace
+            </a>
+            <ThemeToggle />
+            <UserMenu />
+        </header>
+
+        <main class="app-content">
+            @Body
+        </main>
+    </div>
+</div>
+
+<ToastHost @rendermode="InteractiveServer" />
+
+<div id="blazor-error-ui" role="alert">
+    <i class="bi bi-exclamation-octagon me-1"></i> An unexpected error has occurred.
+    <a href="" class="reload fw-semibold ms-2">Reload</a>
+    <a class="dismiss" aria-label="Dismiss"><i class="bi bi-x-lg"></i></a>
+</div>

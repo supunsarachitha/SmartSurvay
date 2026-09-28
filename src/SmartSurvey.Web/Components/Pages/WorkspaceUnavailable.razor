@@ -1,0 +1,37 @@
+@page "/workspace-unavailable"
+@using SmartSurvey.Application.Workspaces
+@inject IPlatformSettingsService PlatformSettings
+
+@* Shown when a member's workspace was disabled (they were signed out) or still waits for approval. *@
+
+<PageTitle>Workspace unavailable</PageTitle>
+
+<div class="container py-5">
+    <EmptyState Icon="@(IsPending ? "bi-hourglass-split" : "bi-slash-circle")"
+                Title="@(IsPending ? "Your workspace is waiting for approval" : "Your workspace is unavailable")"
+                Message="@Message">
+        <div class="d-flex justify-content-center flex-wrap gap-2">
+            @if (!string.IsNullOrWhiteSpace(supportEmail))
+            {
+                <a class="btn btn-primary" href="mailto:@supportEmail"><i class="bi bi-envelope"></i>Contact support</a>
+            }
+            <a class="btn btn-light" href=""><i class="bi bi-house"></i>Go home</a>
+        </div>
+    </EmptyState>
+</div>
+
+@code {
+    /// <summary><c>pending</c> or <c>disabled</c> (default).</summary>
+    [SupplyParameterFromQuery(Name = "reason")]
+    public string? Reason { get; set; }
+
+    private string? supportEmail;
+
+    private bool IsPending => string.Equals(Reason, "pending", StringComparison.OrdinalIgnoreCase);
+
+    private string Message => IsPending
+        ? "A site administrator has to approve new workspaces before they can be used. You can sign in as soon as it is approved."
+        : "A site administrator has switched this workspace off, so you have been signed out. Its data is kept; please contact the site administrator for details.";
+
+    protected override async Task OnInitializedAsync() => supportEmail = (await PlatformSettings.GetAsync()).SupportEmail;
+}

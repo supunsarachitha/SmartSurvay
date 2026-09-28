@@ -93,7 +93,11 @@ else if (run is null)
                     {
                         <a class="btn btn-primary" href="my/responses"><i class="bi bi-inboxes"></i>My responses</a>
                     }
-                    @if (!Embedded)
+                    @if (!Embedded && session.WorkspaceSlug is { } workspaceSlug)
+                    {
+                        <a class="btn btn-light" href="w/@workspaceSlug"><i class="bi bi-grid"></i>More from @session.WorkspaceName</a>
+                    }
+                    else if (!Embedded)
                     {
                         <a class="btn btn-light" href="surveys"><i class="bi bi-grid"></i>Browse open surveys</a>
                     }
@@ -338,7 +342,10 @@ else
 
     private string LoginUrl => $"Account/Login?ReturnUrl={Uri.EscapeDataString("/" + LiveUrl)}";
 
-    private string RegisterUrl => $"Account/Register?ReturnUrl={Uri.EscapeDataString("/" + LiveUrl)}";
+    // Accounts belong to a workspace: "Create account" is the join form of the workspace running the survey.
+    private string RegisterUrl => session?.WorkspaceSlug is { } workspaceSlug
+        ? $"Account/Register?workspace={Uri.EscapeDataString(workspaceSlug)}&ReturnUrl={Uri.EscapeDataString("/" + LiveUrl)}"
+        : $"Account/Register?ReturnUrl={Uri.EscapeDataString("/" + LiveUrl)}";
 
     private string ThankYouUrl => Embedded ? $"embed/{LiveUrl}/thank-you" : $"{LiveUrl}/thank-you";
 
@@ -350,6 +357,8 @@ else
         SurveyEligibility.Closed => "bi-lock",
         SurveyEligibility.QuotaReached => "bi-people",
         SurveyEligibility.NotPublished => "bi-hourglass-split",
+        SurveyEligibility.OtherWorkspace => "bi-buildings",
+        SurveyEligibility.Unavailable => "bi-slash-circle",
         _ => "bi-question-circle",
     };
 
@@ -361,6 +370,8 @@ else
         SurveyEligibility.Closed => "This survey is closed",
         SurveyEligibility.QuotaReached => "This survey is full",
         SurveyEligibility.NotPublished => "This survey isn't available",
+        SurveyEligibility.OtherWorkspace => "This survey is for another workspace",
+        SurveyEligibility.Unavailable => "This survey isn't available",
         _ => "Survey not found",
     };
 

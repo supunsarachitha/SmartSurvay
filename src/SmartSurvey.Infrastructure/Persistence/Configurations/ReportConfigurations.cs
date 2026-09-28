@@ -21,6 +21,7 @@ internal sealed class ReportDefinitionConfiguration : IEntityTypeConfiguration<R
         b.HasOne(x => x.Survey).WithMany().HasForeignKey(x => x.SurveyId).OnDelete(DeleteBehavior.Cascade);
         b.HasMany(x => x.Widgets).WithOne(w => w.Report).HasForeignKey(w => w.ReportId).OnDelete(DeleteBehavior.Cascade);
         b.HasIndex(x => x.SurveyId);
+        b.BelongsToWorkspace();
     }
 }
 
@@ -55,5 +56,9 @@ internal sealed class AuditLogEntryConfiguration : IEntityTypeConfiguration<Audi
         b.Property(x => x.Details).HasMaxLength(4000);
         b.HasIndex(x => x.Timestamp);
         b.HasIndex(x => new { x.EntityType, x.EntityId });
+
+        // Null = system event. Entries are removed explicitly together with their workspace.
+        b.HasOne<Workspace>().WithMany().HasForeignKey(x => x.WorkspaceId).OnDelete(DeleteBehavior.Restrict);
+        b.HasIndex(x => new { x.WorkspaceId, x.Timestamp });
     }
 }

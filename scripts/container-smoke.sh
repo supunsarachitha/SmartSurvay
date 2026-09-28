@@ -4,14 +4,18 @@
 # admin sign-in over the REST API and a PDF export (proves QuestPDF's native libraries and fonts
 # work inside the image). Requires curl and python3.
 #
-# Usage:   scripts/container-smoke.sh [base-url] [admin-email] [admin-password]
+# Usage:   scripts/container-smoke.sh [base-url] [admin-email] [admin-password] [super-admin-email] [super-admin-password]
 # Example: scripts/container-smoke.sh http://localhost:8080 admin@smartsurvey.local 'ChangeMe123!'
+#          Pass an empty password ('') to skip the admin checks, e.g. on a stack whose admin changed the password
+#          (every wrong attempt counts towards the account lockout). The same applies to the super admin password.
 # Exit code: 0 when every check passed, 1 otherwise.
 # ---------------------------------------------------------------------------------------------
 set -u
 BASE="${1:-http://localhost:8080}"
 EMAIL="${2:-admin@smartsurvey.local}"
-PASSWORD="${3:-ChangeMe123!}"
+PASSWORD="${3-ChangeMe123!}" # only an omitted argument gets the default; '' skips the admin checks
+SUPER_EMAIL="${4:-superadmin@smartsurvey.local}"
+SUPER_PASSWORD="${5-ChangeMe123!}"
 FAIL=0
 
 check() { # $1=description $2=condition result (0 = ok)
@@ -24,10 +28,30 @@ for _ in $(seq 1 90); do
 done
 curl -fs "$BASE/health" | grep -q Healthy; check "health endpoint" $?
 
-for path in / /surveys /faq /s/customer-satisfaction-survey /Account/Login; do
+for path in / /surveys /faq /s/customer-satisfaction-survey /Account/Login /signup /Account/Register /w/default; do
   code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE$path")
   [ "$code" = "200" ]; check "GET $path ($code)" $?
 done
+
+curl -fs "$BASE/api/v1/public/settings" | grep -q allowWorkspaceSignup; check "public system settings" $?
+
+if [ -n "$SUPER_PASSWORD" ]; then
+  SUPER=$(curl -fs -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' \
+    -d "{\"email\":\"$SUPER_EMAIL\",\"password\":\"$SUPER_PASSWORD\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["accessToken"])' 2>/dev/null)
+  [ -n "$SUPER" ]; check "super admin sign-in (bearer token)" $?
+  if [ -n "$SUPER" ]; then
+    curl -fs "$BASE/api/v1/system/overview" -H "Authorization: Bearer $SUPER" | grep -q workspaceCount; check "system overview" $?
+    code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/v1/surveys" -H "Authorization: Bearer $SUPER")
+    [ "$code" = "403" ]; check "super admin cannot open workspace content ($code)" $?
+  fi
+else
+  echo "SKIP super admin checks (no super admin password given)"
+fi
+
+if [ -z "$PASSWORD" ]; then
+  echo "SKIP admin sign-in and PDF export (no admin password given)"
+  exit $FAIL
+fi
 
 TOKEN=$(curl -fs -X POST "$BASE/api/auth/login" -H 'Content-Type: application/json' \
   -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | python3 -c 'import sys,json; print(json.load(sys.stdin)["accessToken"])' 2>/dev/null)

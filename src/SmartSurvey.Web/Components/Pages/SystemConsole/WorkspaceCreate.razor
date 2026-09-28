@@ -1,0 +1,108 @@
+@page "/system/workspaces/new"
+@rendermode InteractiveServer
+@inject IPlatformWorkspaceService Platform
+@inject ToastService Toasts
+@inject NavigationManager Navigation
+@* A super admin creates an active workspace together with its first admin account. *@
+
+<PageHeader Title="New workspace" Subtitle="The workspace is active right away; its first admin can sign in with the password you set.">
+    <Breadcrumb>
+        <li class="breadcrumb-item"><a href="system">System</a></li>
+        <li class="breadcrumb-item"><a href="system/workspaces">Workspaces</a></li>
+        <li class="breadcrumb-item active" aria-current="page">New</li>
+    </Breadcrumb>
+</PageHeader>
+
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card">
+            <div class="card-body">
+                <h2 class="h6 mb-3"><i class="bi bi-buildings me-1"></i>Workspace</h2>
+                <div class="mb-3">
+                    <label class="form-label small" for="nw-name">Name <span class="text-danger">*</span></label>
+                    <input class="form-control @Invalid(nameof(CreateWorkspaceRequest.Name))" id="nw-name" maxlength="100" @bind="form.Name" @bind:event="oninput" />
+                    <FieldErrors Messages="@ErrorsFor(nameof(CreateWorkspaceRequest.Name))" />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small" for="nw-slug">Address <span class="text-muted">(optional — generated from the name)</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text text-muted small">/w/</span>
+                        <input class="form-control @Invalid(nameof(CreateWorkspaceRequest.Slug))" id="nw-slug" maxlength="60" @bind="form.Slug" @bind:event="oninput" />
+                    </div>
+                    <FieldErrors Messages="@ErrorsFor(nameof(CreateWorkspaceRequest.Slug))" />
+                </div>
+
+                <h2 class="h6 mb-3"><i class="bi bi-person-badge me-1"></i>First admin</h2>
+                <div class="mb-3">
+                    <label class="form-label small" for="nw-email">E-mail <span class="text-danger">*</span></label>
+                    <input class="form-control @Invalid(nameof(CreateWorkspaceRequest.AdminEmail))" id="nw-email" type="email" autocomplete="off"
+                           @bind="form.AdminEmail" @bind:event="oninput" />
+                    <FieldErrors Messages="@ErrorsFor(nameof(CreateWorkspaceRequest.AdminEmail))" />
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small" for="nw-admin-name">Display name</label>
+                    <input class="form-control @Invalid(nameof(CreateWorkspaceRequest.AdminDisplayName))" id="nw-admin-name" @bind="form.AdminDisplayName" @bind:event="oninput" />
+                    <FieldErrors Messages="@ErrorsFor(nameof(CreateWorkspaceRequest.AdminDisplayName))" />
+                </div>
+                <div class="mb-4">
+                    <label class="form-label small" for="nw-password">Password <span class="text-danger">*</span></label>
+                    <input class="form-control @Invalid(nameof(CreateWorkspaceRequest.AdminPassword))" id="nw-password" type="password" autocomplete="new-password"
+                           @bind="form.AdminPassword" @bind:event="oninput" />
+                    <div class="form-text">At least 8 characters with upper- and lower-case letters, a digit and a symbol. Share it securely.</div>
+                    <FieldErrors Messages="@ErrorsFor(nameof(CreateWorkspaceRequest.AdminPassword))" />
+                </div>
+
+                <ErrorAlert Message="@error" Class="mb-3" />
+                <div class="d-flex gap-2">
+                    <button class="btn btn-primary" @onclick="CreateAsync" disabled="@creating">
+                        @if (creating)
+                        {
+                            <span class="spinner-border spinner-border-sm" aria-hidden="true"></span><span>Creating…</span>
+                        }
+                        else
+                        {
+                            <i class="bi bi-check2"></i><span>Create workspace</span>
+                        }
+                    </button>
+                    <a class="btn btn-light" href="system/workspaces">Cancel</a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private CreateWorkspaceRequest form = new();
+    private IReadOnlyDictionary<string, string[]> errors = new Dictionary<string, string[]>();
+    private string? error;
+    private bool creating;
+
+    private string? Invalid(string field) => errors.ContainsKey(field) ? "is-invalid" : null;
+
+    private IReadOnlyList<string> ErrorsFor(string field) => errors.TryGetValue(field, out var messages) ? messages : [];
+
+    private async Task CreateAsync()
+    {
+        creating = true;
+        error = null;
+        errors = new Dictionary<string, string[]>();
+        try
+        {
+            var created = await Platform.CreateAsync(form);
+            Toasts.Success("Workspace created", $"{created.Name} — its admin can sign in now.");
+            Navigation.NavigateTo($"system/workspaces/{created.Id}");
+        }
+        catch (AppValidationException ex)
+        {
+            errors = ex.Errors;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            error = UiErrors.Describe(ex);
+        }
+        finally
+        {
+            creating = false;
+        }
+    }
+}

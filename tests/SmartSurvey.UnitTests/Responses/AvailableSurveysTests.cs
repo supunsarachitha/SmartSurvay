@@ -7,6 +7,9 @@ namespace SmartSurvey.UnitTests.Responses;
 /// <summary>Tests of <see cref="ResponseService.ListAvailableAsync"/>.</summary>
 public class AvailableSurveysTests
 {
+    /// <summary>Guests list a workspace's surveys through its public page (slug of the default test workspace).</summary>
+    private const string PublicPage = "test";
+
     [Fact]
     public async Task Guests_see_only_open_surveys_that_accept_anonymous_responses()
     {
@@ -23,7 +26,7 @@ public class AvailableSurveysTests
         await h.SeedResponseAsync(full, null, ResponseStatus.Completed);
         h.User.ActAsAnonymous();
 
-        var list = await h.Service.ListAvailableAsync();
+        var list = await h.Service.ListAvailableAsync(PublicPage);
 
         var item = Assert.Single(list);
         Assert.Equal(open.Definition.Id, item.SurveyId);
@@ -84,7 +87,7 @@ public class AvailableSurveysTests
         h.User.ActAsRespondent();
         var asUser = Assert.Single(await h.Service.ListAvailableAsync());
         h.User.ActAsAnonymous();
-        var asGuest = Assert.Single(await h.Service.ListAvailableAsync());
+        var asGuest = Assert.Single(await h.Service.ListAvailableAsync(PublicPage));
 
         Assert.False(asUser.HasDraft);
         Assert.False(asUser.HasCompleted);
@@ -107,7 +110,7 @@ public class AvailableSurveysTests
         });
         h.User.ActAsAnonymous();
 
-        var list = (await h.Service.ListAvailableAsync()).ToDictionary(x => x.SurveyId);
+        var list = (await h.Service.ListAvailableAsync(PublicPage)).ToDictionary(x => x.SurveyId);
 
         Assert.Equal(7, list[full.Definition.Id].QuestionCount);
         Assert.Equal(3, list[full.Definition.Id].EstimatedMinutes); // 7 × 20 s = 140 s → 3 min
@@ -124,7 +127,7 @@ public class AvailableSurveysTests
         var middle = await h.SeedSurveyAsync(x => x.PublishedAt = h.Now.AddDays(-2), title: "Middle");
         h.User.ActAsAnonymous();
 
-        var list = await h.Service.ListAvailableAsync();
+        var list = await h.Service.ListAvailableAsync(PublicPage);
 
         Assert.Equal(
             [newest.Definition.Id, middle.Definition.Id, oldest.Definition.Id],
@@ -138,9 +141,9 @@ public class AvailableSurveysTests
         var s = await h.SeedSurveyAsync(x => x.MaxResponses = 1);
         h.User.ActAsAnonymous();
 
-        var before = await h.Service.ListAvailableAsync();
+        var before = await h.Service.ListAvailableAsync(PublicPage);
         await h.Service.SubmitAsync(s.Definition.Id, ResponseTestData.ValidRequest(s));
-        var after = await h.Service.ListAvailableAsync();
+        var after = await h.Service.ListAvailableAsync(PublicPage);
 
         Assert.Single(before);
         Assert.Empty(after);

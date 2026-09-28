@@ -30,3 +30,14 @@ public abstract class AuditableEntity : Entity
     /// <summary>User that last modified the entity.</summary>
     public Guid? UpdatedById { get; set; }
 }
+
+/// <summary>
+/// Data that belongs to exactly one <see cref="Entities.Workspace"/>. Workspaces are fully isolated:
+/// the persistence layer only returns rows of the workspace an operation runs in and stamps/guards
+/// <see cref="WorkspaceId"/> when saving (see <c>AppDbContext</c> in the Infrastructure layer).
+/// </summary>
+public interface IWorkspaceOwned
+{
+    /// <summary>Owning workspace. Set automatically on insert; never changes afterwards.</summary>
+    Guid WorkspaceId { get; set; }
+}

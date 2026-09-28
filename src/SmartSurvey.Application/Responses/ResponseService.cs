@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using FluentValidation;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
@@ -19,6 +20,11 @@ namespace SmartSurvey.Application.Responses;
 /// design, and submissions re-run conditional logic (<see cref="LogicEvaluator"/>) and validation
 /// (<see cref="ResponseValidator"/>) with exactly the code the Blazor runner uses. Every operation
 /// works on its own short-lived context, which keeps the service safe for long-lived Blazor circuits.
+/// <para><b>Workspaces.</b> Share links are system-wide, so the respondent flow first resolves the
+/// survey's workspace (<see cref="ResolveSurveyAsync"/>) and then works in a context scoped to it.
+/// Only members of that workspace are respondents with an identity (drafts, "one response per
+/// user"); anyone else — guests, super admins, members of other workspaces — answers as a guest.
+/// Surveys of disabled workspaces are unavailable. The admin flow works in the admin's workspace.</para>
 /// </remarks>
 /// <param name="dbFactory">Creates one context per operation.</param>
 /// <param name="currentUser">The acting user.</param>
@@ -61,15 +67,44 @@ public sealed class ResponseService(
     // ---------------------------------------------------------------- respondent flow
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<AvailableSurveyDto>> ListAvailableAsync(CancellationToken ct = default)
+    public async Task<IReadOnlyList<AvailableSurveyDto>> ListAvailableAsync(string? workspaceSlug = null, CancellationToken ct = default)
     {
         var now = UtcNow;
-        var userId = UserId;
+        Guid workspaceId;
+        Guid? userId;
+        if (string.IsNullOrWhiteSpace(workspaceSlug))
+        {
+            // Without a slug: the signed-in member's own workspace (guests and super admins have none).
+            if (currentUser.WorkspaceId is not { } own)
+            {
+                return [];
+            }
+
+            workspaceId = own;
+            userId = UserId;
+        }
+        else
+        {
+            var slug = workspaceSlug.Trim().ToLowerInvariant();
+            await using var system = await dbFactory.CreateSystemAsync(ct);
+            var workspace = await system.Workspaces.AsNoTracking()
+                .Where(w => w.Slug == slug && w.Status == WorkspaceStatus.Active)
+                .Select(w => new { w.Id, w.ShowPublicSurveyList })
+                .FirstOrDefaultAsync(ct);
+            var isMember = workspace is not null && currentUser.WorkspaceId == workspace.Id;
+            if (workspace is null || (!isMember && !workspace.ShowPublicSurveyList))
+            {
+                return [];
+            }
+
+            workspaceId = workspace.Id;
+            userId = isMember ? UserId : null;
+        }
 
         // Guid.Empty never matches a respondent, so guests get "false" flags from the same query shape.
         var userKey = userId ?? Guid.Empty;
 
-        await using var db = await dbFactory.CreateAsync(ct);
+        await using var db = await dbFactory.CreateForWorkspaceAsync(workspaceId, ct);
 
         // Status and schedule are pre-filtered in SQL; the eligibility checker below then applies the
         // complete rule set (quota, one response per user) exactly like StartOrResumeAsync does.
@@ -114,14 +149,21 @@ public sealed class ResponseService(
         }
 
         var normalizedSlug = slug.Trim().ToLowerInvariant();
-        await using var db = await dbFactory.CreateAsync(ct);
+        var target = await ResolveSurveyAsync(s => s.Slug.ToLower() == normalizedSlug, ct);
+        if (target is not { IsAvailable: true })
+        {
+            return ToSession(target is null ? SurveyEligibilityChecker.NotFound : SurveyEligibilityChecker.Unavailable);
+        }
 
-        var survey = await db.LoadSurveyGraphAsync(s => s.Slug.ToLower() == normalizedSlug, ct);
+        await using var db = await dbFactory.CreateForWorkspaceAsync(target.WorkspaceId, ct);
+        var survey = await db.LoadSurveyGraphAsync(s => s.Id == target.SurveyId, ct);
         var verdict = survey is null
             ? SurveyEligibilityChecker.NotFound
-            : await CheckEligibilityAsync(db, survey, ct);
+            : await CheckEligibilityAsync(db, survey, target.RespondentId, ct);
 
         var session = ToSession(verdict);
+        session.WorkspaceName = target.WorkspaceName;
+        session.WorkspaceSlug = target.WorkspaceSlug;
         if (!verdict.IsEligible || survey is null)
         {
             return session; // the design is only handed out to eligible respondents
@@ -136,14 +178,14 @@ public sealed class ResponseService(
         }
 
         session.SurveyTitle = survey.Title;
-        if (UserId is null && botProtection.IsEnabled)
+        if (target.RespondentId is null && botProtection.IsEnabled)
         {
-            session.Challenge = botProtection.CreateChallenge(survey.Id); // anonymous submissions must solve it
+            session.Challenge = botProtection.CreateChallenge(survey.Id); // guest submissions must solve it
         }
 
         var definition = survey.ToDefinitionDto();
         session.Survey = definition;
-        if (UserId is { } userId)
+        if (target.RespondentId is { } userId)
         {
             await AttachLatestDraftAsync(db, session, definition, userId, ct);
         }
@@ -155,9 +197,15 @@ public sealed class ResponseService(
     public async Task<SurveyUnlockResult> UnlockAsync(string slug, string password, CancellationToken ct = default)
     {
         var normalizedSlug = slug?.Trim().ToLowerInvariant() ?? string.Empty;
-        await using var db = await dbFactory.CreateAsync(ct);
+        var target = await ResolveSurveyAsync(s => s.Slug.ToLower() == normalizedSlug && !s.IsTemplate && s.Status != SurveyStatus.Draft, ct);
+        if (target is not { IsAvailable: true })
+        {
+            throw new NotFoundException(SurveyEntity, slug ?? string.Empty);
+        }
+
+        await using var db = await dbFactory.CreateForWorkspaceAsync(target.WorkspaceId, ct);
         var survey = await db.Surveys.AsNoTracking()
-            .Where(s => s.Slug.ToLower() == normalizedSlug && !s.IsTemplate && s.Status != SurveyStatus.Draft)
+            .Where(s => s.Id == target.SurveyId)
             .Select(s => new { s.Id, s.AccessPasswordHash })
             .FirstOrDefaultAsync(ct)
             ?? throw new NotFoundException(SurveyEntity, slug ?? string.Empty);
@@ -181,11 +229,13 @@ public sealed class ResponseService(
     public async Task<Guid> SaveDraftAsync(Guid surveyId, SaveResponseRequest request, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(request);
-        var userId = UserId ?? throw new ForbiddenException("Please log in to save your progress.");
+        _ = UserId ?? throw new ForbiddenException("Please log in to save your progress.");
         await ValidateAsync(requestValidator, request, ct);
 
-        await using var db = await dbFactory.CreateAsync(ct);
-        var survey = await LoadEligibleSurveyAsync(db, surveyId, request.AccessKey, ct);
+        var target = await ResolveAvailableSurveyAsync(surveyId, ct);
+        var userId = target.RespondentId ?? throw new ForbiddenException(SurveyEligibilityChecker.OtherWorkspaceMessage);
+        await using var db = await dbFactory.CreateForWorkspaceAsync(target.WorkspaceId, ct);
+        var survey = await LoadEligibleSurveyAsync(db, surveyId, userId, request.AccessKey, ct);
         var definition = survey.ToDefinitionDto();
         var questions = IndexQuestions(definition);
 
@@ -210,11 +260,14 @@ public sealed class ResponseService(
         ArgumentNullException.ThrowIfNull(request);
         await ValidateAsync(requestValidator, request, ct);
 
-        await using var db = await dbFactory.CreateAsync(ct);
-        var survey = await LoadEligibleSurveyAsync(db, surveyId, request.AccessKey, ct);
+        var target = await ResolveAvailableSurveyAsync(surveyId, ct);
+        var userId = target.RespondentId;
+        await using var db = await dbFactory.CreateForWorkspaceAsync(target.WorkspaceId, ct);
+        var survey = await LoadEligibleSurveyAsync(db, surveyId, userId, request.AccessKey, ct);
 
-        // Anonymous submissions must look human (proof of work, timing, honeypot); signed-in accounts are accountable.
-        var isGuest = UserId is null;
+        // Guest submissions must look human (proof of work, timing, honeypot); members are accountable.
+        // Members of other workspaces answer as guests, so they are checked too.
+        var isGuest = userId is null;
         if (isGuest && botProtection.Check(surveyId, request.Challenge, request.Website) is { Passed: false } bot)
         {
             logger.LogInformation("Anonymous submission for survey {SurveyId} rejected by bot protection: {Reason}", surveyId, bot.Message);
@@ -231,9 +284,8 @@ public sealed class ResponseService(
             throw new BusinessRuleException(BotRejectedMessage);
         }
 
-        // Logged-in respondents complete their draft (keeping its StartedAt); everyone else starts fresh.
+        // Members complete their draft (keeping its StartedAt); everyone else starts fresh.
         // Guests cannot own drafts, so a ResponseId sent by a guest is ignored.
-        var userId = UserId;
         var response = (userId is { } uid ? await FindDraftForUpdateAsync(db, surveyId, uid, request.ResponseId, ct) : null)
             ?? StartResponse(db, surveyId, userId);
 
@@ -248,7 +300,8 @@ public sealed class ResponseService(
         await db.SaveChangesAsync(ct);
 
         logger.LogInformation("Response {ResponseId} submitted for survey {SurveyId}.", response.Id, survey.Id);
-        await audit.LogAsync(
+        await audit.LogInWorkspaceAsync(
+            target.WorkspaceId,
             AuditActions.ResponseSubmitted,
             ResponseEntity,
             response.Id.ToString(),
@@ -267,18 +320,24 @@ public sealed class ResponseService(
         }
 
         var normalizedSlug = slug.Trim().ToLowerInvariant();
-        await using var db = await dbFactory.CreateAsync(ct);
-        var survey = await db.Surveys.AsNoTracking().FirstOrDefaultAsync(s => s.Slug.ToLower() == normalizedSlug, ct);
+        var target = await ResolveSurveyAsync(s => s.Slug.ToLower() == normalizedSlug, ct);
+        if (target is not { IsAvailable: true })
+        {
+            return null;
+        }
+
+        await using var db = await dbFactory.CreateForWorkspaceAsync(target.WorkspaceId, ct);
+        var survey = await db.Surveys.AsNoTracking().FirstOrDefaultAsync(s => s.Id == target.SurveyId, ct);
         // Password-protected surveys show their thank-you message inside the survey page instead (this page is public).
         if (survey is null || survey.IsTemplate || survey.Status == SurveyStatus.Draft || survey.AccessPasswordHash is not null
-            || (!survey.AllowAnonymous && UserId is null))
+            || (!survey.AllowAnonymous && target.RespondentId is null))
         {
             return null;
         }
 
         // "Answer again" is only offered where repeat answers are intended; guests cannot be told apart,
         // so without AllowMultipleResponses the button would just invite duplicates.
-        var verdict = await CheckEligibilityAsync(db, survey, ct);
+        var verdict = await CheckEligibilityAsync(db, survey, target.RespondentId, ct);
         return new SurveyCompletionDto(
             survey.Id, survey.Title, survey.Slug, survey.ThankYouMessage, verdict.IsEligible && survey.AllowMultipleResponses);
     }
@@ -448,15 +507,67 @@ public sealed class ResponseService(
 
     // ---------------------------------------------------------------- eligibility & loading
 
+    /// <summary>A survey addressed by a respondent, with the workspace it belongs to.</summary>
+    /// <param name="SurveyId">Survey id.</param>
+    /// <param name="WorkspaceId">Owning workspace.</param>
+    /// <param name="IsAvailable">False when the workspace is disabled or waiting for approval.</param>
+    /// <param name="RespondentId">The current user when they are a member of the workspace; null = guest.</param>
+    /// <param name="WorkspaceName">Name of the workspace.</param>
+    /// <param name="WorkspaceSlug">Address of the workspace.</param>
+    private sealed record SurveyTarget(
+        Guid SurveyId, Guid WorkspaceId, bool IsAvailable, Guid? RespondentId, string WorkspaceName, string WorkspaceSlug);
+
+    /// <summary>
+    /// Finds a survey system-wide (share links carry no workspace) and determines who the current
+    /// user is for it. Only ids and the workspace status are read outside the workspace scope.
+    /// </summary>
+    private async Task<SurveyTarget?> ResolveSurveyAsync(Expression<Func<Survey, bool>> match, CancellationToken ct)
+    {
+        await using var system = await dbFactory.CreateSystemAsync(ct);
+        var row = await system.Surveys.AsNoTracking()
+            .Where(match)
+            .Select(s => new { s.Id, s.WorkspaceId })
+            .FirstOrDefaultAsync(ct);
+        if (row is null)
+        {
+            return null;
+        }
+
+        var workspace = await system.Workspaces.AsNoTracking()
+            .Where(w => w.Id == row.WorkspaceId)
+            .Select(w => new { w.Name, w.Slug, w.Status })
+            .FirstAsync(ct);
+        var respondentId = currentUser.WorkspaceId == row.WorkspaceId ? UserId : null;
+        return new SurveyTarget(row.Id, row.WorkspaceId, workspace.Status == WorkspaceStatus.Active, respondentId, workspace.Name, workspace.Slug);
+    }
+
+    /// <summary>
+    /// <see cref="ResolveSurveyAsync"/> by id for write operations: unknown surveys throw
+    /// <see cref="NotFoundException"/>, surveys of inactive workspaces <see cref="BusinessRuleException"/>.
+    /// </summary>
+    private async Task<SurveyTarget> ResolveAvailableSurveyAsync(Guid surveyId, CancellationToken ct)
+    {
+        var target = await ResolveSurveyAsync(s => s.Id == surveyId, ct) ?? throw new NotFoundException(SurveyEntity, surveyId);
+        return target.IsAvailable ? target : throw new BusinessRuleException(SurveyEligibilityChecker.UnavailableMessage);
+    }
+
     /// <summary>Gathers the response facts for <paramref name="survey"/> and evaluates eligibility.</summary>
-    private async Task<EligibilityVerdict> CheckEligibilityAsync(IAppDbContext db, Survey survey, CancellationToken ct)
+    /// <param name="db">Context scoped to the survey's workspace.</param>
+    /// <param name="survey">The survey.</param>
+    /// <param name="respondentId">Member respondent, or null for a guest.</param>
+    /// <param name="ct">Cancellation token.</param>
+    private async Task<EligibilityVerdict> CheckEligibilityAsync(IAppDbContext db, Survey survey, Guid? respondentId, CancellationToken ct)
     {
         var completed = await db.CountCompletedAsync(survey.Id, ct);
-        var userId = UserId;
-        var hasCompleted = userId.HasValue && await db.Responses.AnyAsync(
-            r => r.SurveyId == survey.Id && r.RespondentId == userId && r.Status == ResponseStatus.Completed, ct);
+        var hasCompleted = respondentId.HasValue && await db.Responses.AnyAsync(
+            r => r.SurveyId == survey.Id && r.RespondentId == respondentId && r.Status == ResponseStatus.Completed, ct);
 
-        return SurveyEligibilityChecker.Check(survey, UtcNow, new ParticipationFacts(completed, userId.HasValue, hasCompleted));
+        var verdict = SurveyEligibilityChecker.Check(survey, UtcNow, new ParticipationFacts(completed, respondentId.HasValue, hasCompleted));
+
+        // Signing in would not help someone who is already signed in to another workspace.
+        return verdict.Eligibility == SurveyEligibility.LoginRequired && currentUser.IsAuthenticated
+            ? SurveyEligibilityChecker.OtherWorkspace
+            : verdict;
     }
 
     /// <summary>
@@ -464,12 +575,12 @@ public sealed class ResponseService(
     /// <see cref="NotFoundException"/> for unknown surveys, <see cref="ForbiddenException"/> when a login
     /// is required and <see cref="BusinessRuleException"/> for every other reason.
     /// </summary>
-    private async Task<Survey> LoadEligibleSurveyAsync(IAppDbContext db, Guid surveyId, string? accessKey, CancellationToken ct)
+    private async Task<Survey> LoadEligibleSurveyAsync(IAppDbContext db, Guid surveyId, Guid? respondentId, string? accessKey, CancellationToken ct)
     {
         var survey = await db.LoadSurveyGraphAsync(s => s.Id == surveyId, ct)
             ?? throw new NotFoundException(SurveyEntity, surveyId);
 
-        var verdict = await CheckEligibilityAsync(db, survey, ct);
+        var verdict = await CheckEligibilityAsync(db, survey, respondentId, ct);
         if (verdict.IsEligible)
         {
             if (survey.AccessPasswordHash is { } passwordHash && !accessKeys.IsValid(accessKey, survey.Id, passwordHash))
@@ -481,7 +592,7 @@ public sealed class ResponseService(
         }
 
         var message = verdict.Message ?? SurveyEligibilityChecker.ClosedMessage;
-        if (verdict.Eligibility == SurveyEligibility.LoginRequired)
+        if (verdict.Eligibility is SurveyEligibility.LoginRequired or SurveyEligibility.OtherWorkspace)
         {
             throw new ForbiddenException(message);
         }

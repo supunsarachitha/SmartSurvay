@@ -58,8 +58,18 @@ public interface IAuditService
     /// </summary>
     Task LogAsync(string action, string entityType, string? entityId, string? details = null, CancellationToken ct = default);
 
-    /// <summary>Paged, newest-first list.</summary>
+    /// <summary>
+    /// Like <see cref="LogAsync"/>, but records the entry in the given workspace — for actions of
+    /// people who are not signed in to it (e.g. a response submitted through a share link). The
+    /// actor is only named when they are a member of that workspace.
+    /// </summary>
+    Task LogInWorkspaceAsync(Guid workspaceId, string action, string entityType, string? entityId, string? details = null, CancellationToken ct = default);
+
+    /// <summary>Paged, newest-first list of the current workspace's entries (workspace admins).</summary>
     Task<PagedResult<AuditLogDto>> ListAsync(AuditQuery query, CancellationToken ct = default);
+
+    /// <summary>Paged, newest-first list of system events — entries without a workspace (super admins).</summary>
+    Task<PagedResult<AuditLogDto>> ListSystemAsync(AuditQuery query, CancellationToken ct = default);
 }
 
 /// <summary>Well-known audit action codes.</summary>
@@ -127,4 +137,31 @@ public static class AuditActions
 
     /// <summary>Product branding (name, tagline, icon, logo) changed.</summary>
     public const string BrandingUpdated = "branding.updated";
+
+    /// <summary>A workspace admin saved the workspace settings.</summary>
+    public const string WorkspaceSettingsUpdated = "workspace.settings_updated";
+
+    /// <summary>A workspace was created (by a super admin or by self-service sign-up).</summary>
+    public const string WorkspaceCreated = "workspace.created";
+
+    /// <summary>A super admin changed a workspace's name, address or contact.</summary>
+    public const string WorkspaceUpdated = "workspace.updated";
+
+    /// <summary>A super admin enabled a workspace.</summary>
+    public const string WorkspaceEnabled = "workspace.enabled";
+
+    /// <summary>A super admin approved a workspace that was waiting for approval.</summary>
+    public const string WorkspaceApproved = "workspace.approved";
+
+    /// <summary>A super admin disabled a workspace.</summary>
+    public const string WorkspaceDisabled = "workspace.disabled";
+
+    /// <summary>A super admin deleted a workspace with all its data.</summary>
+    public const string WorkspaceDeleted = "workspace.deleted";
+
+    /// <summary>Someone joined a workspace with its join link.</summary>
+    public const string MemberJoined = "workspace.member_joined";
+
+    /// <summary>A super admin changed the system settings.</summary>
+    public const string PlatformSettingsUpdated = "system.settings_updated";
 }

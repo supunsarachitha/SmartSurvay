@@ -59,7 +59,7 @@ public sealed class DashboardService(
             .ToListAsync(ct);
 
         var inProgress = await db.Responses.CountAsync(r => r.Status == ResponseStatus.InProgress, ct);
-        var totalUsers = await db.Users.CountAsync(ct);
+        var totalUsers = await db.Users.CountAsync(ct); // the data scope limits accounts to the workspace
         var totalReports = await db.Reports.CountAsync(ct);
         var topSurveys = await LoadTopSurveysAsync(db, ct);
         var recentResponses = await LoadRecentResponsesAsync(db, ct);

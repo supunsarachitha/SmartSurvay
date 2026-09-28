@@ -1,0 +1,37 @@
+@* Table of workspaces with their figures (System console). *@
+
+<div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+        <thead>
+            <tr>
+                <th scope="col">Workspace</th>
+                <th scope="col">Status</th>
+                <th scope="col" class="col-num d-none d-md-table-cell">Members</th>
+                <th scope="col" class="col-num d-none d-md-table-cell">Surveys</th>
+                <th scope="col" class="col-num d-none d-lg-table-cell">Responses</th>
+                <th scope="col" class="d-none d-lg-table-cell">Created</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var ws in Workspaces)
+            {
+                <tr @key="ws.Id">
+                    <td class="min-w-0">
+                        <a class="fw-semibold" href="system/workspaces/@ws.Id">@ws.Name</a>
+                        <div class="small text-muted text-truncate">/w/@ws.Slug@(ws.AdminEmails.Count > 0 ? $" · {string.Join(", ", ws.AdminEmails)}" : "")</div>
+                    </td>
+                    <td><WorkspaceStatusBadge Status="ws.Status" /></td>
+                    <td class="col-num d-none d-md-table-cell">@UiFormat.Number(ws.MemberCount)</td>
+                    <td class="col-num d-none d-md-table-cell">@UiFormat.Number(ws.SurveyCount)</td>
+                    <td class="col-num d-none d-lg-table-cell">@UiFormat.Number(ws.ResponseCount)</td>
+                    <td class="d-none d-lg-table-cell small text-muted">@UiFormat.Relative(ws.CreatedAt)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+@code {
+    /// <summary>Workspaces to show.</summary>
+    [Parameter, EditorRequired] public IReadOnlyList<WorkspaceSummaryDto> Workspaces { get; set; } = [];
+}

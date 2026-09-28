@@ -1,0 +1,111 @@
+@page "/system/workspaces"
+@rendermode InteractiveServer
+@inject IPlatformWorkspaceService Platform
+@* All workspaces with search, status filter and paging. *@
+
+<PageHeader Title="Workspaces" Subtitle="Every workspace of the site. Open one to change, disable, approve or delete it.">
+    <Breadcrumb><li class="breadcrumb-item"><a href="system">System</a></li><li class="breadcrumb-item active" aria-current="page">Workspaces</li></Breadcrumb>
+    <Actions>
+        <a class="btn btn-primary" href="system/workspaces/new"><i class="bi bi-building-add"></i>New workspace</a>
+    </Actions>
+</PageHeader>
+
+<div class="card mb-3">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-center">
+            <div class="col-md-8">
+                <div class="input-group">
+                    <span class="input-group-text bg-body"><i class="bi bi-search"></i></span>
+                    <input class="form-control" type="search" placeholder="Search name or address" aria-label="Search workspaces"
+                           @bind="search" @bind:event="oninput" @onkeyup="OnSearchKeyUp" />
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" aria-label="Filter by status" @bind="statusFilter" @bind:after="ReloadFromFirstPageAsync">
+                    <option value="">All statuses</option>
+                    <option value="@WorkspaceStatus.Active">Active</option>
+                    <option value="@WorkspaceStatus.PendingApproval">Waiting for approval</option>
+                    <option value="@WorkspaceStatus.Disabled">Disabled</option>
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<ErrorAlert Message="@error" OnDismiss="() => error = null" Class="mb-3" />
+
+@if (result is null)
+{
+    <LoadingSpinner Text="Loading workspaces…" />
+}
+else if (result.TotalCount == 0)
+{
+    <EmptyState Icon="bi-search" Title="No workspaces match" Message="Try another search term or status." />
+}
+else
+{
+    <div class="card table-card">
+        <WorkspaceTable Workspaces="result.Items" />
+        <div class="card-footer bg-transparent d-flex flex-wrap justify-content-between align-items-center gap-2">
+            <span class="small text-muted">@UiFormat.Plural(result.TotalCount, "workspace")</span>
+            <Pager Page="result.Page" PageSize="result.PageSize" TotalCount="result.TotalCount" OnPageChanged="GoToPageAsync" />
+        </div>
+    </div>
+}
+
+@code {
+    private const int PageSize = 25;
+
+    private PagedResult<WorkspaceSummaryDto>? result;
+    private string? error;
+    private string search = string.Empty;
+    private string statusFilter = string.Empty;
+    private int page = 1;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        try
+        {
+            result = await Platform.ListAsync(new WorkspaceListQuery
+            {
+                Search = string.IsNullOrWhiteSpace(search) ? null : search.Trim(),
+                Status = Enum.TryParse<WorkspaceStatus>(statusFilter, out var status) ? status : null,
+                Page = page,
+                PageSize = PageSize,
+            });
+            error = null;
+        }
+        catch (Exception ex) when (UiErrors.IsExpected(ex))
+        {
+            error = UiErrors.Describe(ex);
+            result ??= PagedResult<WorkspaceSummaryDto>.Empty(page, PageSize);
+        }
+    }
+
+    private async Task ReloadFromFirstPageAsync()
+    {
+        page = 1;
+        await LoadAsync();
+    }
+
+    private async Task OnSearchKeyUp(KeyboardEventArgs e)
+    {
+        if (e.Key is "Enter" or "Escape" || search.Length == 0 || search.Length >= 2)
+        {
+            if (e.Key == "Escape")
+            {
+                search = string.Empty;
+            }
+
+            await ReloadFromFirstPageAsync();
+        }
+    }
+
+    private async Task GoToPageAsync(int newPage)
+    {
+        page = newPage;
+        await LoadAsync();
+    }
+}

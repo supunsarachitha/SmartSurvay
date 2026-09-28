@@ -19,9 +19,9 @@ public static class PublicEndpoints
     /// <summary>Maps the public endpoints.</summary>
     public static RouteGroupBuilder MapPublicEndpoints(this RouteGroupBuilder group)
     {
-        group.MapGet("/surveys", (IResponseService responses, CancellationToken ct) => responses.ListAvailableAsync(ct))
+        group.MapGet("/surveys", (string? workspace, IResponseService responses, CancellationToken ct) => responses.ListAvailableAsync(workspace, ct))
             .WithName("ListAvailableSurveys")
-            .WithSummary("Surveys the caller can take right now (anonymous callers see public surveys only).");
+            .WithSummary("Surveys the caller can take right now: their own workspace's, or with ?workspace={slug} that workspace's public surveys.");
 
         group.MapGet("/surveys/{slug}", (IResponseService responses, HttpContext http, string slug, CancellationToken ct) =>
                 responses.StartOrResumeAsync(slug, http.Request.Headers[AccessKeyHeader].FirstOrDefault(), ct))

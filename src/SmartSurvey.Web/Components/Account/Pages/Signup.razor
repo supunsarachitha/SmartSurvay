@@ -1,0 +1,175 @@
+@page "/signup"
+@* Rate limited like the sign-up / join API: accounts must not be mass-created. *@
+@attribute [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting(RateLimitPolicies.Auth)]
+
+@using System.ComponentModel.DataAnnotations
+@using Microsoft.AspNetCore.Identity
+@using SmartSurvey.Application.Common
+@using SmartSurvey.Application.Workspaces
+@using SmartSurvey.Domain.Entities
+@using SmartSurvey.Domain.Identity
+
+@inject IWorkspaceSignupService SignupService
+@inject IPlatformSettingsService PlatformSettings
+@inject AccountEmails AccountEmails
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager NavigationManager
+@inject IdentityRedirectManager RedirectManager
+@inject ILogger<Signup> Logger
+
+@* Self-service sign-up: creates a workspace and makes the person its admin (static SSR form). *@
+
+<PageTitle>Create your workspace</PageTitle>
+
+<div class="card auth-card">
+    <div class="card-body">
+        <div class="text-center mb-4">
+            <BrandMark ShowName="false" Size="lg" />
+            <h1 class="h4 fw-bold mt-3 mb-1">Create your workspace</h1>
+            <p class="text-muted small mb-0">Your own private space for surveys, responses and reports — you are its admin.</p>
+        </div>
+
+        @if (!settings.AllowWorkspaceSignup)
+        {
+            <div class="alert alert-light border small" role="status">
+                <i class="bi bi-door-closed text-primary me-1"></i>Creating new workspaces is switched off on this site.
+                @if (!string.IsNullOrWhiteSpace(settings.SupportEmail))
+                {
+                    <span>Please write to <a href="mailto:@settings.SupportEmail">@settings.SupportEmail</a>.</span>
+                }
+            </div>
+        }
+        else
+        {
+            <StatusMessage Message="@errorMessage" />
+            @if (settings.RequireWorkspaceApproval)
+            {
+                <div class="alert alert-info small" role="status">
+                    <i class="bi bi-hourglass-split me-1"></i>A site administrator reviews new workspaces before they can be used.
+                </div>
+            }
+            <EditForm Model="Input" method="post" OnValidSubmit="CreateWorkspace" FormName="signup">
+                <DataAnnotationsValidator />
+                <div class="mb-3">
+                    <label for="signup-workspace" class="form-label">Workspace name</label>
+                    <InputText id="signup-workspace" @bind-Value="Input.WorkspaceName" class="form-control" aria-required="true" placeholder="e.g. Acme Research" />
+                    <ValidationMessage For="() => Input.WorkspaceName" class="validation-message" />
+                </div>
+                <div class="mb-3">
+                    <label for="signup-slug" class="form-label">Workspace address <span class="text-muted small">(optional)</span></label>
+                    <div class="input-group">
+                        <span class="input-group-text text-muted small">/w/</span>
+                        <InputText id="signup-slug" @bind-Value="Input.WorkspaceSlug" class="form-control" placeholder="acme-research" aria-describedby="signup-slug-help" />
+                    </div>
+                    <div id="signup-slug-help" class="form-text">Lower-case letters, digits and hyphens. Leave empty to use the name.</div>
+                    <ValidationMessage For="() => Input.WorkspaceSlug" class="validation-message" />
+                </div>
+                <hr class="my-4" />
+                <div class="mb-3">
+                    <label for="signup-name" class="form-label">Your name <span class="text-muted small">(optional)</span></label>
+                    <InputText id="signup-name" @bind-Value="Input.DisplayName" class="form-control" autocomplete="name" />
+                    <ValidationMessage For="() => Input.DisplayName" class="validation-message" />
+                </div>
+                <div class="mb-3">
+                    <label for="signup-email" class="form-label">E-mail</label>
+                    <InputText id="signup-email" @bind-Value="Input.Email" class="form-control" autocomplete="username" aria-required="true" placeholder="name@example.com" />
+                    <ValidationMessage For="() => Input.Email" class="validation-message" />
+                </div>
+                <div class="mb-3">
+                    <label for="signup-password" class="form-label">Password</label>
+                    <InputText id="signup-password" type="password" @bind-Value="Input.Password" class="form-control" autocomplete="new-password" aria-required="true" aria-describedby="signup-password-help" />
+                    <div id="signup-password-help" class="form-text">At least 8 characters with upper- and lower-case letters, a digit and a symbol.</div>
+                    <ValidationMessage For="() => Input.Password" class="validation-message" />
+                </div>
+                <div class="mb-4">
+                    <label for="signup-confirm" class="form-label">Confirm password</label>
+                    <InputText id="signup-confirm" type="password" @bind-Value="Input.ConfirmPassword" class="form-control" autocomplete="new-password" aria-required="true" />
+                    <ValidationMessage For="() => Input.ConfirmPassword" class="validation-message" />
+                </div>
+                <button type="submit" class="w-100 btn btn-lg btn-primary"><i class="bi bi-building-add"></i>Create workspace</button>
+            </EditForm>
+        }
+
+        <div class="divider-text my-4">Already have an account?</div>
+        <a class="btn btn-light w-100" href="Account/Login"><i class="bi bi-box-arrow-in-right"></i>Sign in</a>
+        <p class="small text-muted text-center mt-3 mb-0">
+            Want to answer a workspace's surveys instead? Use the join link its admin gave you.
+        </p>
+    </div>
+</div>
+
+@code {
+    private PlatformSettingsDto settings = new() { AllowWorkspaceSignup = true };
+    private string? errorMessage;
+
+    [SupplyParameterFromForm]
+    private InputModel Input { get; set; } = new();
+
+    protected override async Task OnInitializedAsync() => settings = await PlatformSettings.GetAsync();
+
+    public async Task CreateWorkspace()
+    {
+        WorkspaceSignupResult result;
+        try
+        {
+            result = await SignupService.SignUpAsync(new WorkspaceSignupRequest
+            {
+                WorkspaceName = Input.WorkspaceName,
+                WorkspaceSlug = Input.WorkspaceSlug,
+                DisplayName = Input.DisplayName,
+                Email = Input.Email,
+                Password = Input.Password,
+            });
+        }
+        catch (AppException ex) when (ex is AppValidationException or ConflictException or BusinessRuleException)
+        {
+            errorMessage = "Error: " + UiErrors.Describe(ex);
+            return;
+        }
+
+        Logger.LogInformation("Workspace {Slug} created by sign-up.", result.WorkspaceSlug);
+        await AccountEmails.SendConfirmationAsync(result.UserId, NavigationManager.BaseUri);
+
+        if (result.Status != WorkspaceStatus.Active)
+        {
+            RedirectManager.RedirectTo("workspace-unavailable", new() { ["reason"] = "pending" });
+        }
+
+        if (UserManager.Options.SignIn.RequireConfirmedAccount)
+        {
+            RedirectManager.RedirectTo("Account/RegisterConfirmation", new() { ["email"] = Input.Email });
+        }
+
+        var user = await UserManager.FindByIdAsync(result.UserId.ToString());
+        await SignInManager.SignInAsync(user!, isPersistent: false);
+        RedirectManager.RedirectTo("admin");
+    }
+
+    private sealed class InputModel
+    {
+        [Required(ErrorMessage = "Please enter a name for the workspace.")]
+        [StringLength(Workspace.NameMaxLength, ErrorMessage = "Use at most {1} characters.")]
+        public string WorkspaceName { get; set; } = "";
+
+        // Optional: browsers post an empty string, which RegularExpression (unlike StringLength's minimum) accepts.
+        [RegularExpression("^(?=.{3,60}$)[a-z0-9]+(-[a-z0-9]+)*$", ErrorMessage = "Use 3–60 lower-case letters, digits and single hyphens.")]
+        public string? WorkspaceSlug { get; set; }
+
+        [StringLength(200, ErrorMessage = "Use at most {1} characters.")]
+        public string? DisplayName { get; set; }
+
+        [Required(ErrorMessage = "Please enter your e-mail address.")]
+        [EmailAddress(ErrorMessage = "Please enter a valid e-mail address.")]
+        public string Email { get; set; } = "";
+
+        [Required(ErrorMessage = "Please choose a password.")]
+        [StringLength(100, ErrorMessage = "The password must be at least {2} characters long.", MinimumLength = 8)]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = "";
+
+        [DataType(DataType.Password)]
+        [Compare(nameof(Password), ErrorMessage = "The passwords do not match.")]
+        public string ConfirmPassword { get; set; } = "";
+    }
+}

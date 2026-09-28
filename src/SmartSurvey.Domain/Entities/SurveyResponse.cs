@@ -5,8 +5,11 @@ using SmartSurvey.Domain.Identity;
 namespace SmartSurvey.Domain.Entities;
 
 /// <summary>One respondent's submission (or saved draft) for a survey.</summary>
-public class SurveyResponse : Entity
+public class SurveyResponse : Entity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Survey being answered.</summary>
     public Guid SurveyId { get; set; }
 
@@ -49,8 +52,11 @@ public class SurveyResponse : Entity
 /// text types → <see cref="TextValue"/>, numeric types → <see cref="NumberValue"/>,
 /// date → <see cref="DateValue"/>, choice types → <see cref="Selections"/>.
 /// </summary>
-public class Answer : Entity
+public class Answer : Entity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Owning response.</summary>
     public Guid ResponseId { get; set; }
 
@@ -77,8 +83,11 @@ public class Answer : Entity
 }
 
 /// <summary>A selected option of a choice answer, optionally with free text ("Other: …").</summary>
-public class AnswerSelection : Entity
+public class AnswerSelection : Entity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Owning answer.</summary>
     public Guid AnswerId { get; set; }
 

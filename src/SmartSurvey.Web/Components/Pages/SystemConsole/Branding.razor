@@ -1,15 +1,15 @@
-@page "/admin/branding"
+@page "/system/branding"
 @rendermode InteractiveServer
 @using System.Text.RegularExpressions
 @using SmartSurvey.Application.Branding
 @inject IBrandingService BrandingService
 @inject ToastService Toasts
 @inject NavigationManager Navigation
-@* Branding: product name, tagline and brand icon or uploaded logo (also the favicon). A live preview shows
+@* Branding (system-wide, super admins): product name, tagline and brand icon or uploaded logo (also the favicon). A live preview shows
    the navigation bar, browser tab and footer; saving refreshes the page so the layout shows the new brand. *@
 
 <PageHeader Title="Branding" Subtitle="Your product name, tagline and logo appear in the navigation, page titles, footer and exports.">
-    <Breadcrumb><li class="breadcrumb-item"><a href="admin">Admin</a></li><li class="breadcrumb-item active" aria-current="page">Branding</li></Breadcrumb>
+    <Breadcrumb><li class="breadcrumb-item"><a href="system">System</a></li><li class="breadcrumb-item active" aria-current="page">Branding</li></Breadcrumb>
     <Actions>
         <button class="btn btn-light" @onclick="ResetAsync" disabled="@IsBusy"><i class="bi bi-arrow-counterclockwise"></i>Reset to defaults</button>
         <button class="btn btn-primary" @onclick="SaveAsync" disabled="@(IsBusy || !dirty)">

@@ -30,11 +30,16 @@ services:
         condition: service_healthy
     environment:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Production}
+      # Host names the app answers to (e.g. surveys.example.com). Set it in production: e-mail links are built from
+      # the request's host, so "*" lets a forged Host header put a foreign address into confirmation e-mails.
+      AllowedHosts: ${ALLOWED_HOSTS:-*}
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=smartsurvey;Username=smartsurvey;Password=${POSTGRES_PASSWORD:-smartsurvey}"
       Database__Provider: PostgreSQL
       Database__ApplyMigrationsOnStartup: "true"
       Seed__AdminEmail: ${ADMIN_EMAIL:-admin@smartsurvey.local}
       Seed__AdminPassword: ${ADMIN_PASSWORD:-ChangeMe123!}
+      Seed__SuperAdminEmail: ${SUPERADMIN_EMAIL:-superadmin@smartsurvey.local}
+      Seed__SuperAdminPassword: ${SUPERADMIN_PASSWORD:-ChangeMe123!}
       Seed__DemoData: ${DEMO_DATA:-true}
       Swagger__Enabled: ${SWAGGER_ENABLED:-true}
       Support__BuyMeACoffeeUsername: ${BMC_USERNAME:-jkhy9gtjs}

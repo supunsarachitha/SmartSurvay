@@ -34,7 +34,7 @@ public sealed class FakeResponseService : IResponseService
     /// <summary>Id returned for saved drafts.</summary>
     public Guid DraftId { get; } = Guid.NewGuid();
 
-    public Task<IReadOnlyList<AvailableSurveyDto>> ListAvailableAsync(CancellationToken ct = default) =>
+    public Task<IReadOnlyList<AvailableSurveyDto>> ListAvailableAsync(string? workspaceSlug = null, CancellationToken ct = default) =>
         Task.FromResult<IReadOnlyList<AvailableSurveyDto>>(Available);
 
     public Task<IReadOnlyList<MyResponseDto>> ListMineAsync(CancellationToken ct = default) =>

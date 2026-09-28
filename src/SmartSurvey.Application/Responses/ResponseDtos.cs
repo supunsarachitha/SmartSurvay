@@ -185,6 +185,12 @@ public enum SurveyEligibility
 
     /// <summary>The survey is protected with a password and no valid access key was supplied.</summary>
     PasswordRequired = 8,
+
+    /// <summary>Survey is for members of its workspace and the signed-in user belongs to another workspace.</summary>
+    OtherWorkspace = 9,
+
+    /// <summary>The survey's workspace is disabled or waiting for approval.</summary>
+    Unavailable = 10,
 }
 
 /// <summary>Everything the survey runner needs to start or resume answering.</summary>
@@ -192,6 +198,12 @@ public sealed class SurveySessionDto
 {
     /// <summary>Eligibility verdict.</summary>
     public SurveyEligibility Eligibility { get; set; }
+
+    /// <summary>Name of the workspace that runs the survey (null when the survey is unknown or unavailable).</summary>
+    public string? WorkspaceName { get; set; }
+
+    /// <summary>Address of that workspace — for its page (<c>/w/{slug}</c>) and join link.</summary>
+    public string? WorkspaceSlug { get; set; }
 
     /// <summary>Human-readable explanation when not eligible.</summary>
     public string? Message { get; set; }

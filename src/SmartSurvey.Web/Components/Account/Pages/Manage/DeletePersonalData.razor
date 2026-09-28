@@ -64,6 +64,12 @@
             return;
         }
 
+        if (await LastAdminReasonAsync() is { } reason)
+        {
+            message = "Error: " + reason;
+            return;
+        }
+
         var result = await UserManager.DeleteAsync(user);
         if (!result.Succeeded)
         {
@@ -76,6 +82,28 @@
         Logger.LogInformation("User with ID '{UserId}' deleted themselves.", userId);
 
         RedirectManager.RedirectToCurrentPage();
+    }
+
+    /// <summary>
+    /// Every workspace keeps an admin and the system a super admin: the last one cannot delete their own account
+    /// (the same rule the Users pages apply).
+    /// </summary>
+    private async Task<string?> LastAdminReasonAsync()
+    {
+        if (await UserManager.IsInRoleAsync(user, AppRoles.SuperAdmin)
+            && (await UserManager.GetUsersInRoleAsync(AppRoles.SuperAdmin)).All(u => u.Id == user.Id))
+        {
+            return "You are the last super admin. Make another account a super admin before deleting yours.";
+        }
+
+        if (user.WorkspaceId is { } workspaceId
+            && await UserManager.IsInRoleAsync(user, AppRoles.Admin)
+            && (await UserManager.GetUsersInRoleAsync(AppRoles.Admin)).Where(u => u.WorkspaceId == workspaceId).All(u => u.Id == user.Id))
+        {
+            return "You are the last administrator of your workspace. Make another member an administrator before deleting your account.";
+        }
+
+        return null;
     }
 
     private sealed class InputModel
