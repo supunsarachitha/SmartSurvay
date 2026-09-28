@@ -8,8 +8,11 @@ namespace SmartSurvey.Domain.Entities;
 /// A saved, dynamically built report over one survey's responses: global filters plus an ordered
 /// list of widgets (tables and charts). Reports are computed on demand, never stored as results.
 /// </summary>
-public class ReportDefinition : AuditableEntity
+public class ReportDefinition : AuditableEntity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Report name.</summary>
     public string Name { get; set; } = string.Empty;
 
@@ -30,8 +33,11 @@ public class ReportDefinition : AuditableEntity
 }
 
 /// <summary>A table or chart inside a report.</summary>
-public class ReportWidget : Entity
+public class ReportWidget : Entity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Owning report.</summary>
     public Guid ReportId { get; set; }
 
@@ -66,6 +72,12 @@ public class ReportWidget : Entity
 /// <summary>Append-only audit trail of significant user actions.</summary>
 public class AuditLogEntry : Entity
 {
+    /// <summary>
+    /// Workspace in which the action happened; null for system events (super admin actions such as
+    /// enabling a workspace), which only super admins can see.
+    /// </summary>
+    public Guid? WorkspaceId { get; set; }
+
     /// <summary>UTC timestamp.</summary>
     public DateTime Timestamp { get; set; }
 

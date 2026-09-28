@@ -7,8 +7,11 @@ namespace SmartSurvey.Domain.Entities;
 /// Aggregate root of the survey design: settings, sections (pages), questions, options and
 /// conditional logic. Responses and reports reference a survey but are separate aggregates.
 /// </summary>
-public class Survey : AuditableEntity
+public class Survey : AuditableEntity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Title shown to respondents.</summary>
     public string Title { get; set; } = string.Empty;
 
@@ -114,8 +117,11 @@ public enum SurveyAvailability
 }
 
 /// <summary>A page of a survey. Sections can be shown/hidden by logic rules.</summary>
-public class SurveySection : Entity
+public class SurveySection : Entity, IWorkspaceOwned
 {
+    /// <inheritdoc />
+    public Guid WorkspaceId { get; set; }
+
     /// <summary>Owning survey.</summary>
     public Guid SurveyId { get; set; }
 

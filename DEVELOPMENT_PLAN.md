@@ -446,8 +446,8 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 ### 10.4 Phases & tasks
 
 #### Phase 9 — Workspace data model, isolation core, upgrade migration
-- [ ] 9.1 Domain: `Workspace`, `WorkspaceStatus`, `PlatformSettings`, `ITenantOwned`; `WorkspaceId` on the entities in § 10.2; `AppRoles.SuperAdmin`
-- [ ] 9.2 Persistence: configurations + indexes, `DataScope` on `AppDbContext`, global query filters, SaveChanges workspace guard/stamping; `IAppDbContextFactory.CreateAsync` (current user's workspace) / `CreateForWorkspaceAsync` / `CreateSystemAsync`; `ICurrentUser.WorkspaceId` + `IsSuperAdmin` (claim `workspace_id`)
+- [x] 9.1 Domain: `Workspace`, `WorkspaceStatus`, `PlatformSettings`, `ITenantOwned`; `WorkspaceId` on the entities in § 10.2; `AppRoles.SuperAdmin`
+- [~] 9.2 Persistence: configurations + indexes, `DataScope` on `AppDbContext`, global query filters, SaveChanges workspace guard/stamping; `IAppDbContextFactory.CreateAsync` (current user's workspace) / `CreateForWorkspaceAsync` / `CreateSystemAsync`; `ICurrentUser.WorkspaceId` + `IsSuperAdmin` (claim `workspace_id`)
 - [ ] 9.3 Keep existing behaviour working inside one workspace: public survey flows open the survey's workspace, slug check system-wide, seeder puts admin/demo data into a default workspace
 - [ ] 9.4 Migration `AddWorkspaces` with data backfill into "Default workspace" (PostgreSQL); `has-pending-model-changes` clean
 - [ ] 9.5 Test support (default test workspace, scoped seeding, `TestCurrentUser.WorkspaceId`); existing suite green; new data-layer isolation tests (filters, write guard, fail-closed `None` scope)
