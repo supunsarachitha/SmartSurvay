@@ -167,7 +167,9 @@ public sealed class CrossWorkspaceServiceTests : IAsyncLifetime
         await Assert.ThrowsAsync<ForbiddenException>(() => Responses.SubmitAsync(membersOnly.Definition.Id, ValidRequest(membersOnly)));
 
         _h.User.ActAsAnonymous();
-        Assert.Equal(SurveyEligibility.LoginRequired, (await Responses.StartOrResumeAsync(membersOnly.Definition.Slug!)).Eligibility);
+        var guest = await Responses.StartOrResumeAsync(membersOnly.Definition.Slug!);
+        Assert.Equal(SurveyEligibility.LoginRequired, guest.Eligibility);
+        Assert.Equal(("Other workspace", "other"), (guest.WorkspaceName, guest.WorkspaceSlug)); // for the join link
     }
 
     [Fact]
@@ -199,7 +201,9 @@ public sealed class CrossWorkspaceServiceTests : IAsyncLifetime
         }
 
         _h.User.ActAsAnonymous();
-        Assert.Equal(SurveyEligibility.Unavailable, (await Responses.StartOrResumeAsync(_foreign.Definition.Slug!)).Eligibility);
+        var unavailable = await Responses.StartOrResumeAsync(_foreign.Definition.Slug!);
+        Assert.Equal(SurveyEligibility.Unavailable, unavailable.Eligibility);
+        Assert.Null(unavailable.WorkspaceSlug); // a disabled workspace is not advertised
         await Assert.ThrowsAsync<BusinessRuleException>(() => Responses.SubmitAsync(_foreign.Definition.Id, ValidRequest(_foreign)));
         Assert.Null(await Responses.GetCompletionAsync(_foreign.Definition.Slug!));
         Assert.Empty(await Responses.ListAvailableAsync("other"));

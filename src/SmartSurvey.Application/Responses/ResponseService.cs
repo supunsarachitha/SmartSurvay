@@ -162,6 +162,8 @@ public sealed class ResponseService(
             : await CheckEligibilityAsync(db, survey, target.RespondentId, ct);
 
         var session = ToSession(verdict);
+        session.WorkspaceName = target.WorkspaceName;
+        session.WorkspaceSlug = target.WorkspaceSlug;
         if (!verdict.IsEligible || survey is null)
         {
             return session; // the design is only handed out to eligible respondents
@@ -510,7 +512,10 @@ public sealed class ResponseService(
     /// <param name="WorkspaceId">Owning workspace.</param>
     /// <param name="IsAvailable">False when the workspace is disabled or waiting for approval.</param>
     /// <param name="RespondentId">The current user when they are a member of the workspace; null = guest.</param>
-    private sealed record SurveyTarget(Guid SurveyId, Guid WorkspaceId, bool IsAvailable, Guid? RespondentId);
+    /// <param name="WorkspaceName">Name of the workspace.</param>
+    /// <param name="WorkspaceSlug">Address of the workspace.</param>
+    private sealed record SurveyTarget(
+        Guid SurveyId, Guid WorkspaceId, bool IsAvailable, Guid? RespondentId, string WorkspaceName, string WorkspaceSlug);
 
     /// <summary>
     /// Finds a survey system-wide (share links carry no workspace) and determines who the current
@@ -528,9 +533,12 @@ public sealed class ResponseService(
             return null;
         }
 
-        var isAvailable = await system.Workspaces.AnyAsync(w => w.Id == row.WorkspaceId && w.Status == WorkspaceStatus.Active, ct);
+        var workspace = await system.Workspaces.AsNoTracking()
+            .Where(w => w.Id == row.WorkspaceId)
+            .Select(w => new { w.Name, w.Slug, w.Status })
+            .FirstAsync(ct);
         var respondentId = currentUser.WorkspaceId == row.WorkspaceId ? UserId : null;
-        return new SurveyTarget(row.Id, row.WorkspaceId, isAvailable, respondentId);
+        return new SurveyTarget(row.Id, row.WorkspaceId, workspace.Status == WorkspaceStatus.Active, respondentId, workspace.Name, workspace.Slug);
     }
 
     /// <summary>

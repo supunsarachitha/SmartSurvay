@@ -295,6 +295,35 @@ public sealed class SurveyRunnerTests : UiTestBase
     }
 
     [Fact]
+    public void Create_account_joins_the_workspace_that_runs_the_survey()
+    {
+        Responses.Session = new SurveySessionDto
+        {
+            Eligibility = SurveyEligibility.LoginRequired, Message = "Please log in.", WorkspaceName = "Acme Research", WorkspaceSlug = "acme",
+        };
+
+        var cut = RenderRunner();
+
+        Assert.NotNull(cut.Find($"a[href='Account/Register?workspace=acme&ReturnUrl=%2Fs%2F{Slug}']"));
+        Assert.Contains("More from Acme Research", cut.Find("a[href='w/acme']").TextContent);
+    }
+
+    [Fact]
+    public void Members_of_another_workspace_are_told_why_instead_of_being_asked_to_sign_in()
+    {
+        Responses.Session = new SurveySessionDto
+        {
+            Eligibility = SurveyEligibility.OtherWorkspace, Message = "This survey is only for members.", WorkspaceName = "Acme Research", WorkspaceSlug = "acme",
+        };
+
+        var cut = RenderRunner();
+
+        Assert.Contains("This survey is for another workspace", cut.Markup);
+        Assert.Empty(cut.FindAll("a[href^='Account/Login']"));
+        Assert.Empty(cut.FindAll("a[href^='Account/Register']"));
+    }
+
+    [Fact]
     public void Embedded_members_only_survey_opens_the_full_page_in_a_new_tab()
     {
         Responses.Session = new SurveySessionDto { Eligibility = SurveyEligibility.LoginRequired, Message = "Please log in." };

@@ -474,8 +474,8 @@ admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/s
 
 #### Phase 12 — UI: public pages + workspace admin
 - [x] 12.1 `/signup` page, register/join page with workspace context, `/w/{slug}`, `/workspace-unavailable`, `/surveys` per workspace, home CTA, navbar/user menu (workspace name, System link)
-- [~] 12.2 Runner: sign-in-only survey from another workspace → friendly message; register link carries the workspace
-- [ ] 12.3 Admin: sidebar shows the workspace, `/admin/settings`, branding removed, users page scoped + join link (copy), last-admin guard on account self-deletion
+- [x] 12.2 Runner: sign-in-only survey from another workspace → friendly message; register link carries the workspace
+- [~] 12.3 Admin: sidebar shows the workspace, `/admin/settings`, branding removed, users page scoped + join link (copy), last-admin guard on account self-deletion
 - [ ] 12.4 bUnit tests; Phase gate
 
 #### Phase 13 — UI: System (super admin) console

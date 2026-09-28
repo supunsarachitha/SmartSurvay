@@ -199,6 +199,12 @@ public sealed class SurveySessionDto
     /// <summary>Eligibility verdict.</summary>
     public SurveyEligibility Eligibility { get; set; }
 
+    /// <summary>Name of the workspace that runs the survey (null when the survey is unknown or unavailable).</summary>
+    public string? WorkspaceName { get; set; }
+
+    /// <summary>Address of that workspace — for its page (<c>/w/{slug}</c>) and join link.</summary>
+    public string? WorkspaceSlug { get; set; }
+
     /// <summary>Human-readable explanation when not eligible.</summary>
     public string? Message { get; set; }
 
