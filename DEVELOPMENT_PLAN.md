@@ -5,6 +5,11 @@
 > [§ 9 Progress Log](#9-progress-log) and the phase checklists), then `git log --oneline`,
 > and continue with the first unchecked task. Update this file after every completed task/phase.
 
+> **▶ CURRENT WORK (since 2026-09-28): multi-workspace, v2.0, on branch `feature/multi-workspace`.**
+> Resume with [§ 10.0 Resume protocol](#100-resume-protocol-read-first-after-any-interruption):
+> check out the branch, run `git status`, then continue with the first `[~]`/`[ ]` task in § 10.4.
+> Phases 0–8 below are finished (v1.0.0).
+
 ---
 
 ## 1. Goal
@@ -365,3 +370,128 @@ Legend: `[ ]` todo · `[~]` in progress · `[x]` done
 | 2026-09-27 | Phase 7: e-mail | `IEmailTransport` (Application) + `SmtpEmailTransport` (MailKit), branded `IdentityEmailSender`, dev-only confirmation link without SMTP, admin set-password. 16 new tests (754 green). Verified against a local SMTP catcher in Production mode (reset link works; no links in the log) |
 | 2026-09-27 | Phase 7 done | Environment is now macOS: PostgreSQL 16 runs from the project's docker-compose (`docker compose up -d db`). Full verification against PostgreSQL (UI + API), review findings fixed (see Phase 7 checklist). 757 tests green, 0 warnings, no vulnerable packages. Next: Phase 8 |
 | 2026-09-27 | Phase 8 done — **v1.0.0** | Container stack verified end to end (smoke script + browser), Dockerfile port warning fixed, CI gates added (vulnerable packages, pending migrations, container smoke), documentation/README brought up to date, CHANGELOG 1.0.0. All phases complete; see the Backlog above (.NET 10 migration before 2026-11-10). Local `main` is ahead of `origin` until pushed |
+
+---
+
+## 10. Multi-workspace (v2.0) — branch `feature/multi-workspace`
+
+User request (2026-09-28): the site hosts many **workspaces** — fully isolated rooms that never share data, each
+with its own admin(s). Anyone can create a workspace and becomes its admin. A new **super admin** manages
+workspaces (enable/disable), accounts, branding and system settings. Workspace admins keep every current admin
+feature except branding, plus their own workspace settings.
+
+**Terminology.** "Workspace" is the right user-facing word (Slack, Notion, Asana use it for exactly this). The
+engineering term is *tenant* (multi-tenancy); code and UI both say *workspace* so there is only one word.
+"Super user" becomes the role **`SuperAdmin`**, shown as "Super admin"; its area is called *System*.
+
+### 10.0 Resume protocol (read first after any interruption)
+
+1. `git checkout feature/multi-workspace` · `git status` · `git log --oneline -10`.
+   Uncommitted changes = the task marked `[~]` below was interrupted: inspect the diff, finish it, don't restart it.
+2. Read § 10.1 (decisions) and the **last row of § 10.5** (it always names the next step).
+3. Continue with the first `[~]` (else first `[ ]`) task in § 10.4. Mark a task `[~]` when starting it.
+4. After **each task**: tick it, add a § 10.5 row ending in "Next: …", commit
+   (`Phase N (wip): <task>` is fine) — an interruption then loses at most one task.
+5. **Phase gate** (every phase, in this order):
+   `dotnet build SmartSurvey.sln` (0 warnings) → `dotnet test` (all green) →
+   `docker compose up -d --build` (user instruction: containers rebuilt and **left running** after every phase) →
+   `scripts/container-smoke.sh` → commit `Phase N: …` → CHANGELOG `[Unreleased]`.
+   The compose volume holds real v1.0 data, so each rebuild also exercises the upgrade migration.
+   Never push to `origin` unless asked.
+6. Working mode from § 9 still applies: no subagents/workflows, targeted reads, work directly on this branch.
+
+### 10.1 Decisions (defaults chosen by the agent; the user may revise)
+
+| # | Decision |
+|---|---|
+| D1 | **One account = one workspace.** E-mail stays unique system-wide (Identity login is global). A person in two workspaces uses two e-mail addresses. Super admins belong to no workspace. |
+| D2 | **Survey links stay `/s/{slug}`**; slugs stay unique system-wide, so existing links, QR codes and embeds keep working. The slug check is the only cross-workspace query and returns just "taken / free". |
+| D3 | **Super admin never sees workspace content** (surveys, responses, reports, workspace audit log). They see workspace metadata and aggregate counts, and manage workspaces, accounts, branding, system settings, system audit log. |
+| D4 | **Branding is system-wide, super admin only.** Workspace admins get `/admin/settings`: name, description, contact e-mail, "people can join with the workspace link" (self-registration), "show public survey page". |
+| D5 | **Self-service sign-up** (`/signup`): new workspace + creator as its admin. Super admin can switch sign-up off or require approval (status `PendingApproval`). |
+| D6 | **Disabled workspace:** members cannot sign in; open sessions and API tokens are refused (≤ 1 min, cached status); its survey links show "not available"; data is kept. Delete is allowed only for a disabled workspace (type-the-name confirmation). |
+| D7 | **Upgrade from v1.0:** a migration creates "Default workspace" (slug `default`) only when data exists and moves all data and users into it; existing admins become its admins. A super admin is created at start-up from `Seed:SuperAdminEmail/SuperAdminPassword` when none exists. |
+| D8 | **Isolation is enforced in the data layer, fail-closed:** every tenant-owned table has `WorkspaceId`; EF global query filters use the context's `DataScope` (`None` → sees nothing, `Workspace(id)`, `System` → unfiltered, used only by platform code); `SaveChanges` stamps `WorkspaceId` on inserts and throws on cross-workspace writes. Services additionally check roles as today. |
+| D9 | **Respondents:** members sign in and answer their own workspace's surveys. A signed-in member of *another* workspace is treated as a guest on anonymous surveys (no link to their account) and refused on sign-in-only surveys. |
+| D10 | `POST /api/auth/register` (Identity API) is disabled — it would create accounts outside any workspace. Replaced by `POST /api/v1/public/workspaces` (sign-up) and `POST /api/v1/public/workspaces/{slug}/register` (join). |
+| D11 | Release as **2.0.0** (roles, routes and the register endpoint change). |
+
+### 10.2 Data model changes
+
+```
+Workspace (auditable)        Name, Slug(unique), Description?, ContactEmail?, Status(Active|Disabled|PendingApproval),
+                             StatusReason?, StatusChangedAt?, AllowSelfRegistration(=true), ShowPublicSurveyList(=true), OwnerId?
+PlatformSettings (singleton) AllowWorkspaceSignup(=true), RequireWorkspaceApproval(=false), SupportEmail?
+ApplicationUser              + WorkspaceId? (null = super admin)            — no global filter (Identity needs global lookups);
+                                                                             filtered only inside a Workspace scope
+ITenantOwned.WorkspaceId     Survey, SurveySection, Question, QuestionOption, LogicRule, LogicCondition, SurveyResponse,
+                             Answer, AnswerSelection, ReportDefinition, ReportWidget  (non-null, indexed, FK → Workspace)
+AuditLogEntry                + WorkspaceId? (null = system event, visible only to super admins)
+AppRoles                     + SuperAdmin
+```
+
+### 10.3 Routes added / changed
+
+UI: `/signup` (create workspace) · `/Account/Register?workspace={slug}` (join; without a workspace it explains the
+options) · `/w/{slug}` (workspace page + public surveys) · `/workspace-unavailable` · `/admin/settings` (workspace
+settings) · `/admin/branding` removed → `/system/branding` · `/system` (overview) · `/system/workspaces`,
+`/system/workspaces/{id}` · `/system/accounts` · `/system/settings` · `/system/audit`.
+
+API: `GET/PUT /api/v1/workspace` (admin: own settings) · `/api/v1/system/workspaces` (GET list, POST create,
+GET/PUT `{id}`, POST `{id}/enable|disable|approve`, DELETE `{id}`) · `/api/v1/system/accounts` (list, create super
+admin/member, roles, password, lock/unlock, delete) · `GET/PUT /api/v1/system/settings` · `GET /api/v1/system/overview` ·
+`GET /api/v1/system/audit` · branding write endpoints → super admin · `GET /api/v1/public/workspaces/{slug}` ·
+`POST /api/v1/public/workspaces` · `POST /api/v1/public/workspaces/{slug}/register` · `GET /api/v1/public/surveys?workspace=`.
+
+### 10.4 Phases & tasks
+
+#### Phase 9 — Workspace data model, isolation core, upgrade migration
+- [ ] 9.1 Domain: `Workspace`, `WorkspaceStatus`, `PlatformSettings`, `ITenantOwned`; `WorkspaceId` on the entities in § 10.2; `AppRoles.SuperAdmin`
+- [ ] 9.2 Persistence: configurations + indexes, `DataScope` on `AppDbContext`, global query filters, SaveChanges workspace guard/stamping; `IAppDbContextFactory.CreateAsync` (current user's workspace) / `CreateForWorkspaceAsync` / `CreateSystemAsync`; `ICurrentUser.WorkspaceId` + `IsSuperAdmin` (claim `workspace_id`)
+- [ ] 9.3 Keep existing behaviour working inside one workspace: public survey flows open the survey's workspace, slug check system-wide, seeder puts admin/demo data into a default workspace
+- [ ] 9.4 Migration `AddWorkspaces` with data backfill into "Default workspace" (PostgreSQL); `has-pending-model-changes` clean
+- [ ] 9.5 Test support (default test workspace, scoped seeding, `TestCurrentUser.WorkspaceId`); existing suite green; new data-layer isolation tests (filters, write guard, fail-closed `None` scope)
+- [ ] 9.6 Phase gate (§ 10.0 step 5) — verify the v1.0 compose database upgrades (data lands in Default workspace, admin still signs in)
+
+#### Phase 10 — Workspace-aware services + platform services
+- [ ] 10.1 Review/adjust every service for scoping: surveys (duplicate/templates/import), responses (D9, my responses), reports + engine, exports, dashboard, audit (workspace vs system events)
+- [ ] 10.2 `UserAdminService` scope rules: workspace admin → own workspace, roles ⊆ {Admin, User}, last-admin protection; super admin → all accounts, create super admins / workspace members
+- [ ] 10.3 `IWorkspaceService` (own settings, public lookup by slug) + `IWorkspaceStatusProvider` (cached status, invalidated on change)
+- [ ] 10.4 `IPlatformWorkspaceService` (list with counts, create with admin account, update, enable/disable/approve, delete disabled) + `IPlatformSettingsService` + overview stats
+- [ ] 10.5 `IWorkspaceSignupService`: sign-up (workspace + owner admin, approval setting) and join (member registration when allowed)
+- [ ] 10.6 Seeder: super admin bootstrap (`Seed:SuperAdmin*`), demo data in "Demo workspace" + second demo workspace (`admin@acme.local`) to show isolation; `.env.example`/compose variables
+- [ ] 10.7 Unit tests: cross-workspace isolation for every service, platform services, sign-up/join rules
+- [ ] 10.8 Phase gate
+
+#### Phase 11 — Web host, authentication, REST API
+- [ ] 11.1 Claims (`workspace_id`), policies (`Admin` requires a workspace, `SuperAdmin`), `AppSignInManager.CanSignInAsync` (disabled/pending workspace), access middleware for open cookies/bearer tokens, circuit revalidation (1 min, cached)
+- [ ] 11.2 Disable Identity `/api/auth/register`; public workspace endpoints (info, sign-up, join; rate limited)
+- [ ] 11.3 `/api/v1/workspace`, `/api/v1/system/*`; branding writes → super admin; public surveys `?workspace=`
+- [ ] 11.4 `docs/examples` (.http) for the new endpoints; integration tests: two workspaces can't see each other (every endpoint group), disabled workspace (login, existing token, public link), role boundaries (admin ↛ system/branding, super admin ↛ survey data)
+- [ ] 11.5 Phase gate
+
+#### Phase 12 — UI: public pages + workspace admin
+- [ ] 12.1 `/signup` page, register/join page with workspace context, `/w/{slug}`, `/workspace-unavailable`, `/surveys` per workspace, home CTA, navbar/user menu (workspace name, System link)
+- [ ] 12.2 Runner: sign-in-only survey from another workspace → friendly message; register link carries the workspace
+- [ ] 12.3 Admin: sidebar shows the workspace, `/admin/settings`, branding removed, users page scoped + join link (copy), last-admin guard on account self-deletion
+- [ ] 12.4 bUnit tests; Phase gate
+
+#### Phase 13 — UI: System (super admin) console
+- [ ] 13.1 `SystemLayout` + nav, `/system` overview (KPIs, recent workspaces, pending approvals)
+- [ ] 13.2 Workspaces list/detail/create, enable/disable (reason), approve, delete (type-to-confirm)
+- [ ] 13.3 Accounts (search, workspace/role filters, lock/unlock, set password, roles, create super admin, delete)
+- [ ] 13.4 `/system/branding` (moved page), `/system/settings`, `/system/audit`
+- [ ] 13.5 bUnit tests; Phase gate
+
+#### Phase 14 — Verification & release 2.0.0
+- [ ] 14.1 Full build/tests; PostgreSQL run incl. upgrade of a v1.0 database; `scripts/smoke.sh` + `container-smoke.sh` extended (super admin, second workspace)
+- [ ] 14.2 Headless-browser checks: sign-up → own workspace; two workspaces isolated; disable → members locked out, links unavailable; enable; super admin console
+- [ ] 14.3 Security review focused on cross-workspace access (IDOR via ids in URLs/API, filters bypassed, circuits), fixes
+- [ ] 14.4 Docs: DOCUMENTATION.md (tenancy model, roles, routes, upgrade notes), README, user guide + FAQ, CHANGELOG 2.0.0, § 4–6 of this file
+- [ ] 14.5 Final phase gate (containers running on the release build)
+
+### 10.5 Log
+
+| Date | Phase / task | Notes |
+|---|---|---|
+| 2026-09-28 | Plan | Branch `feature/multi-workspace` created from `main` (v1.0.0). Plan written (§ 10). Note: `feature/password-protected-surveys` (5 commits, own migration) is not on `main`; merging it later needs its migration re-generated on top of `AddWorkspaces`. Next: 9.1 |
