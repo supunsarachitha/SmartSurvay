@@ -6,11 +6,11 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <link rel="canonical" href="https://supunsarachitha.github.io/SmartSurvay/changelog.html">
 <title>Changelog · SmartSurvey</title>
-<meta name="description" content="Release notes of SmartSurvey. Latest version: 2.1.0, released 2026-09-28.">
+<meta name="description" content="Release notes of SmartSurvey. Latest version: 2.1.1, released 2026-10-11.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="SmartSurvey">
 <meta property="og:title" content="Changelog · SmartSurvey">
-<meta property="og:description" content="Release notes of SmartSurvey. Latest version: 2.1.0, released 2026-09-28.">
+<meta property="og:description" content="Release notes of SmartSurvey. Latest version: 2.1.1, released 2026-10-11.">
 <meta property="og:url" content="https://supunsarachitha.github.io/SmartSurvay/changelog.html">
 <meta property="og:image" content="https://supunsarachitha.github.io/SmartSurvay/img/dashboard.webp">
 <meta name="twitter:card" content="summary_large_image">
@@ -67,7 +67,8 @@
 and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semantic Versioning</a>.</p>
 </div>
     <ul class="meta">
-      <li>3 releases</li>
+      <li>4 releases</li>
+      <li><a href="#v2.1.1">2.1.1</a></li>
       <li><a href="#v2.1.0">2.1.0</a></li>
       <li><a href="#v2.0.0">2.0.0</a></li>
       <li><a href="#v1.0.0">1.0.0</a></li>
@@ -76,11 +77,40 @@ and this project adheres to <a href="https://semver.org/spec/v2.0.0.html">Semant
 </div>
 <div class="read-progress" aria-hidden="true"><span></span></div>
 <div class="container timeline">
+  <section class="release" id="v2.1.1" aria-labelledby="211---2026-10-11">
+    <header class="release-meta">
+      <h2 id="211---2026-10-11">2.1.1</h2>
+      <time datetime="2026-10-11">11 October 2026</time>
+      <span class="tag">Latest</span>
+    </header>
+    <div class="card release-body prose">
+<p>Dependency updates. Nothing changes in how SmartSurvey behaves, and there is no migration.</p>
+<h3 class="change change-security" id="security"><span>Security</span><a class="anchor" href="#security" aria-label="Link to this section">#</a></h3>
+<ul>
+<li>The scripts that build the project website and run the browser checks (<code>scripts/pages</code>, <code>scripts/browser</code>) use
+puppeteer-core 25 instead of 23. The older versions brought in extract-zip 2.0.1
+(<a href="https://github.com/advisories/GHSA-7pqw-9j4j-h8q3">GHSA-7pqw-9j4j-h8q3</a>,
+<a href="https://github.com/advisories/GHSA-jmr9-qjv8-65gv">GHSA-jmr9-qjv8-65gv</a>) and basic-ftp
+(<a href="https://github.com/advisories/GHSA-c475-qrg2-pj4r">GHSA-c475-qrg2-pj4r</a>). Neither was ever part of the application
+or its container image, and the scripts did not reach the affected code.</li>
+</ul>
+<h3 class="change change-changed" id="changed"><span>Changed</span><a class="anchor" href="#changed" aria-label="Link to this section">#</a></h3>
+<ul>
+<li>FluentValidation 12.1.1 → 12.2.0 and Swashbuckle.AspNetCore 10.2.3 → 10.3.0.</li>
+<li>Building needs the .NET SDK 10.0.401 or newer (<code>global.json</code>).</li>
+<li>The website&#39;s diagrams are drawn with mermaid 12 instead of 11; the website scripts now need Node.js 22.12 or newer.</li>
+<li>CI and the image publishing workflow use the current major versions of their GitHub Actions.</li>
+<li>PostgreSQL stays on 16 in <code>docker-compose.yml</code>. An update to 18 was merged and taken back the same day: the 18
+image does not start with this compose file&#39;s volume mount, and existing data would need a migration first.</li>
+</ul>
+
+    </div>
+  </section>
   <section class="release" id="v2.1.0" aria-labelledby="210---2026-09-28">
     <header class="release-meta">
       <h2 id="210---2026-09-28">2.1.0</h2>
       <time datetime="2026-09-28">28 September 2026</time>
-      <span class="tag">Latest</span>
+      
     </header>
     <div class="card release-body prose">
 <p><strong>.NET 10 LTS</strong> (supported until November 2028; .NET 8 support ends on 2026-11-10), a public base URL for every link the
@@ -102,7 +132,7 @@ workspace.</li>
 runner, builder, exports, copy/QR/print, dialogs, live previews, account settings incl. two-factor sign-in) and a crawl that clicks every button of every page
 for each role. <code>scripts/container-smoke.sh</code> now also checks that every script the pages load is served.</li>
 </ul>
-<h3 class="change change-changed" id="changed"><span>Changed</span><a class="anchor" href="#changed" aria-label="Link to this section">#</a></h3>
+<h3 class="change change-changed" id="changed-1"><span>Changed</span><a class="anchor" href="#changed-1" aria-label="Link to this section">#</a></h3>
 <ul>
 <li><strong>.NET 10 LTS:</strong> <code>net10.0</code>, C# 14, ASP.NET Core / EF Core 10.0.12, Npgsql 10.0.3, container images <code>sdk:10.0</code> /
 <code>aspnet:10.0</code> (Ubuntu 24.04), <code>dotnet-ef</code> 10. No schema changes from the upgrade. .NET 10 serves Blazor&#39;s script as a
@@ -211,7 +241,7 @@ start-up; values without a key show a placeholder instead of an error. <code>Enc
 Migration <code>EncryptedAnswerColumns</code> widens those columns to <code>text</code>. Surfaced in the survey intro, response detail,
 export menu, guide, FAQ, README (including how to back up the keys) and documentation.</li>
 </ul>
-<h3 class="change change-changed" id="changed-1"><span>Changed</span><a class="anchor" href="#changed-1" aria-label="Link to this section">#</a></h3>
+<h3 class="change change-changed" id="changed-2"><span>Changed</span><a class="anchor" href="#changed-2" aria-label="Link to this section">#</a></h3>
 <ul>
 <li>Branding can only be changed by super admins (it is system-wide); <code>PUT/POST/DELETE /api/v1/branding*</code> require the
 SuperAdmin role.</li>
@@ -225,7 +255,7 @@ admin sidebar has &quot;Workspace settings&quot; instead of &quot;Branding&quot;
 the repository owner keeps all rights, including commercial use. The footer&#39;s &quot;Open source&quot; heading became &quot;Project&quot;
 with a link to the license.</li>
 </ul>
-<h3 class="change change-security" id="security"><span>Security</span><a class="anchor" href="#security" aria-label="Link to this section">#</a></h3>
+<h3 class="change change-security" id="security-1"><span>Security</span><a class="anchor" href="#security-1" aria-label="Link to this section">#</a></h3>
 <ul>
 <li>Workspace isolation is enforced in the data layer (fail-closed query filters on every tenant table, a save guard
 against cross-workspace writes); ids of other workspaces&#39; data return <code>404</code>. Members of disabled workspaces are
@@ -330,7 +360,7 @@ page, <code>POST /api/v1/users/{id}/password</code>), e.g. when e-mail isn&#39;t
 cookie-or-bearer default authentication scheme; string enums in API JSON.</li>
 <li>DevOps: Dockerfile, docker-compose (app + PostgreSQL), GitHub Actions CI, <code>scripts/smoke.sh</code>.</li>
 </ul>
-<h3 class="change change-security" id="security-1"><span>Security</span><a class="anchor" href="#security-1" aria-label="Link to this section">#</a></h3>
+<h3 class="change change-security" id="security-2"><span>Security</span><a class="anchor" href="#security-2" aria-label="Link to this section">#</a></h3>
 <ul>
 <li>Every response sends <code>X-Content-Type-Options: nosniff</code> and <code>Referrer-Policy: strict-origin-when-cross-origin</code>;
 pages refuse to be framed by other sites (except <code>/embed</code>).</li>
@@ -404,7 +434,7 @@ stack traces.</li>
       </nav>
     </div>
     <div class="footer-bottom">
-      <p>© 2026 Supun · SmartSurvey 2.1.0</p>
+      <p>© 2026 Supun · SmartSurvey 2.1.1</p>
       <p>Source-available under the <a href="https://github.com/supunsarachitha/SmartSurvay/blob/main/LICENSE.md">PolyForm Noncommercial License 1.0.0</a></p>
     </div>
   </div>

@@ -18,7 +18,7 @@ npm run build
 cd ../.. && git add -A && git commit -m "Website for SmartSurvey x.y.z"
 ```
 
-The build reads the working tree and writes into the repository root. It needs Node.js 20 or newer and, for the two
+The build reads the working tree and writes into the repository root. It needs Node.js 22.12 or newer and, for the two
 diagrams of the documentation and the PNG icons, a local Chrome (`CHROME_PATH` if it is not in the default macOS
 location). Without Chrome the diagrams are shown as code blocks and the existing icons are kept. It ends with a link
 check and fails if a link or an anchor of the site points nowhere. Building twice gives identical files.

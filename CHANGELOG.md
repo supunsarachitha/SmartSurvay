@@ -7,6 +7,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1] - 2026-10-11
+
+Dependency updates. Nothing changes in how SmartSurvey behaves, and there is no migration.
+
+### Security
+
+- The scripts that build the project website and run the browser checks (`scripts/pages`, `scripts/browser`) use
+  puppeteer-core 25 instead of 23. The older versions brought in extract-zip 2.0.1
+  ([GHSA-7pqw-9j4j-h8q3](https://github.com/advisories/GHSA-7pqw-9j4j-h8q3),
+  [GHSA-jmr9-qjv8-65gv](https://github.com/advisories/GHSA-jmr9-qjv8-65gv)) and basic-ftp
+  ([GHSA-c475-qrg2-pj4r](https://github.com/advisories/GHSA-c475-qrg2-pj4r)). Neither was ever part of the application
+  or its container image, and the scripts did not reach the affected code.
+
+### Changed
+
+- FluentValidation 12.1.1 → 12.2.0 and Swashbuckle.AspNetCore 10.2.3 → 10.3.0.
+- Building needs the .NET SDK 10.0.401 or newer (`global.json`).
+- The website's diagrams are drawn with mermaid 12 instead of 11; the website scripts now need Node.js 22.12 or newer.
+- CI and the image publishing workflow use the current major versions of their GitHub Actions.
+- PostgreSQL stays on 16 in `docker-compose.yml`. An update to 18 was merged and taken back the same day: the 18
+  image does not start with this compose file's volume mount, and existing data would need a migration first.
+
 ## [2.1.0] - 2026-09-28
 
 **.NET 10 LTS** (supported until November 2028; .NET 8 support ends on 2026-11-10), a public base URL for every link the
