@@ -5,7 +5,9 @@
 # Step-by-step instructions: README.md → "Run with Docker".
 services:
   db:
-    image: postgres:18-alpine
+    # Stay on 16 until the data is migrated on purpose: a newer major cannot open this volume's files, and from 18 on
+    # the image also wants the volume mounted at /var/lib/postgresql, not at /var/lib/postgresql/data.
+    image: postgres:16-alpine
     restart: unless-stopped
     environment:
       POSTGRES_DB: smartsurvey
