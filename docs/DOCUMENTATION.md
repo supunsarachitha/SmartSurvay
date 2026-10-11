@@ -845,6 +845,15 @@ first super admin via `SUPERADMIN_EMAIL` / `SUPERADMIN_PASSWORD` (both default t
 stored unencrypted on their volume (the container logs a warning about it): keep the volume private, or configure
 key encryption (`ProtectKeysWithCertificate`) for stricter environments.
 
+**Prebuilt image:** `.github/workflows/docker-publish.yml` builds and publishes the image to the GitHub Container
+Registry (`ghcr.io/supunsarachitha/smartsurvay`) for `linux/amd64` and `linux/arm64` — on a version tag (`v2.1.0` →
+tags `2.1.0`, `2.1`, `2`, `latest`), on every push to `main` that touches the app or its container build (tag `edge`),
+and on a manual run from the Actions tab. It only publishes once the CI workflow and a container smoke test of each
+platform have passed; the published image carries build provenance metadata (unsigned — not cryptographic signing).
+To use it, set
+`image: ghcr.io/supunsarachitha/smartsurvay:2.1.0` (or `:latest`) in `docker-compose.yml` instead of `build: .`, or
+`docker pull ghcr.io/supunsarachitha/smartsurvay:2.1.0` directly; the image is public, no sign-in needed to pull it.
+
 **Production checklist**
 
 - [ ] Strong `Seed:SuperAdminPassword` and `Seed:AdminPassword` (or create the accounts once and set `Seed:CreateSuperAdmin` / `Seed:CreateAdmin` to `false`); change them after the first sign-in
