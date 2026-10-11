@@ -167,6 +167,11 @@ port 8080. Before going live: set strong passwords, `DEMO_DATA=false`, `PUBLIC_B
 and on self-service sign-up (System → Settings), configure e-mail and back up the database regularly. The full checklist is in
 [DOCUMENTATION.md § Deployment](docs/DOCUMENTATION.md#19-deployment).
 
+**Prebuilt image:** instead of `docker compose up -d --build` (which builds the image locally), you can pull the
+image built by CI from the GitHub Container Registry — set `image: ghcr.io/supunsarachitha/smartsurvay:2.1.0`
+in `docker-compose.yml` in place of `build: .`, or `docker pull ghcr.io/supunsarachitha/smartsurvay:2.1.0` directly.
+It's public (no sign-in needed) and built for `linux/amd64` and `linux/arm64`.
+
 **Troubleshooting:** *port is already allocated* → change `WEB_PORT` / `POSTGRES_PORT`; *admin login fails* → the
 database already existed with another password (see the note above, or `docker compose down -v` to start fresh);
 more in [DOCUMENTATION.md § Troubleshooting](docs/DOCUMENTATION.md#21-troubleshooting).
