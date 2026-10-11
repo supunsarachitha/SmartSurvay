@@ -8,6 +8,6 @@
     "screenshots": "node screenshots.js"
   },
   "dependencies": {
-    "puppeteer-core": "^23.0.0"
+    "puppeteer-core": "^25.12.0"
   }
 }
