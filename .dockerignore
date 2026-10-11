@@ -17,3 +17,9 @@ Dockerfile
 docker-compose*.yml
 .env
 .env.*
+# Project website (GitHub Pages), served from the repository root
+*.html
+assets/
+img/
+robots.txt
+sitemap.xml
