@@ -4,7 +4,11 @@
 
 **Design smart surveys with conditional logic, collect responses anywhere, and turn them into beautiful, exportable reports.**
 
+**[Website](https://supunsarachitha.github.io/SmartSurvay/)** · **[Documentation](https://supunsarachitha.github.io/SmartSurvay/docs.html)** ·
+**[Quick start](#-run-with-docker-recommended)** · **[Changelog](https://supunsarachitha.github.io/SmartSurvay/changelog.html)**
+
 [![CI](https://github.com/supunsarachitha/SmartSurvay/actions/workflows/ci.yml/badge.svg)](https://github.com/supunsarachitha/SmartSurvay/actions/workflows/ci.yml)
+[![Website](https://img.shields.io/badge/website-supunsarachitha.github.io-4f46e5)](https://supunsarachitha.github.io/SmartSurvay/)
 ![.NET 10](https://img.shields.io/badge/.NET-10.0-512BD4?logo=dotnet)
 ![Blazor](https://img.shields.io/badge/Blazor-Interactive%20Server-5C2D91?logo=blazor)
 ![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
@@ -203,6 +207,9 @@ The Blazor UI and the REST API share one Application layer, so business rules ar
 
 ## 📚 Documentation
 
+- **[Project website](https://supunsarachitha.github.io/SmartSurvay/)** — product tour, screenshots and quick start, plus this
+  documentation and the changelog as web pages. The site is generated from this branch into the `gh-pages` branch;
+  the README of that branch explains how to rebuild it after a release.
 - **In-app user guide** — `/guide`: how to answer surveys and how to create, share and analyse them (non-technical)
 - **[docs/DOCUMENTATION.md](docs/DOCUMENTATION.md)** — complete technical documentation (architecture, schema,
   logic semantics, reporting, exports, API, configuration, security, testing, deployment, extending)
