@@ -10,6 +10,6 @@
     "highlight.js": "^11.12.0",
     "marked": "^16.0.0",
     "mermaid": "^12.1.0",
-    "puppeteer-core": "^23.11.1"
+    "puppeteer-core": "^25.13.0"
   }
 }
