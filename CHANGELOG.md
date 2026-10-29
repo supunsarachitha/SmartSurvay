@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- MailKit 4.18.1 → 4.18.2, which brings System.Security.Cryptography.Pkcs 10.0.0 → 10.0.13 and fixes a .NET
+  denial of service ([GHSA-846f-f764-76mx](https://github.com/advisories/GHSA-846f-f764-76mx), high;
+  [GHSA-2fmv-rv2c-59x7](https://github.com/advisories/GHSA-2fmv-rv2c-59x7)).
+
 ## [2.1.1] - 2026-10-11
 
 Dependency updates. Nothing changes in how SmartSurvey behaves, and there is no migration.
