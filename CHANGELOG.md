@@ -7,11 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.2] - 2026-11-07
+
+Dependency updates. Nothing changes in how SmartSurvey behaves, and there is no migration.
+
 ### Security
 
 - MailKit 4.18.1 → 4.18.2, which brings System.Security.Cryptography.Pkcs 10.0.0 → 10.0.13 and fixes a .NET
   denial of service ([GHSA-846f-f764-76mx](https://github.com/advisories/GHSA-846f-f764-76mx), high;
   [GHSA-2fmv-rv2c-59x7](https://github.com/advisories/GHSA-2fmv-rv2c-59x7)).
+- The website build script (`scripts/pages`) uses zod 4.6.7 instead of 4.6.5 and dompurify 3.4.17 instead of 3.4.16
+  ([GHSA-mrhx-c7xc-m3w5](https://github.com/advisories/GHSA-mrhx-c7xc-m3w5), high: memory exhaustion on oversized
+  collections). Build tooling only; it is not part of the application or its container image.
+
+### Changed
+
+- Entity Framework Core, ASP.NET Core Identity/diagnostics/health-check EF packages and the `dotnet-ef` tool
+  10.0.12 → 10.0.14; Microsoft.AspNetCore.Mvc.Testing 10.0.12 → 10.0.14; QRCoder 1.8.0 → 1.8.1;
+  Swashbuckle.AspNetCore 10.3.0 → 10.3.1.
+- Test packages: Microsoft.NET.Test.Sdk 18.10.1 → 18.11.0; bunit 2.11.3 → 2.14.0;
+  Microsoft.Extensions.TimeProvider.Testing 10.10.0 → 10.11.0.
 
 ## [2.1.1] - 2026-10-11
 
