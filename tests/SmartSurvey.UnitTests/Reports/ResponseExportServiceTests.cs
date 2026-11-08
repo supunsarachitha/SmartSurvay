@@ -16,14 +16,14 @@ public sealed class ResponseExportServiceTests : IAsyncLifetime
     private SampleSurvey _s = null!;
     private ResponseExportService _service = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _h = await ReportTestHarness.CreateAsync();
         _s = await _h.SeedSurveyWithResponsesAsync();
         _service = new ResponseExportService(_h.Db, _h.User, _h.Db.Time, _h.Audit, NullLogger<ResponseExportService>.Instance);
     }
 
-    public async Task DisposeAsync() => await _h.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _h.DisposeAsync();
 
     [Fact]
     public async Task Csv_has_fixed_columns_then_one_column_per_question_and_one_row_per_completed_response()

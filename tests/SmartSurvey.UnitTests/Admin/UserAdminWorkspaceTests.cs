@@ -17,7 +17,7 @@ public sealed class UserAdminWorkspaceTests : IAsyncLifetime
     private static readonly Guid TheirMemberId = Guid.Parse("00000000-0000-0000-0000-0000000fb001");
     private IdentityTestHost _host = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _host = await IdentityTestHost.CreateAsync();
         await _host.AddUserAsync(TestCurrentUser.AdminId, "admin@test.local", AppRoles.Admin, AppRoles.User);
@@ -27,7 +27,7 @@ public sealed class UserAdminWorkspaceTests : IAsyncLifetime
         await _host.AddUserAsync(TestCurrentUser.SuperAdminId, "super@test.local", (Guid?)null, AppRoles.SuperAdmin);
     }
 
-    public async Task DisposeAsync() => await _host.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _host.DisposeAsync();
 
     [Fact]
     public async Task Workspace_admins_list_only_their_own_members()

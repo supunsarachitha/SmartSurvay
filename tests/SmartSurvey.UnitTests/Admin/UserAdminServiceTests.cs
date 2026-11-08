@@ -13,14 +13,14 @@ public sealed class UserAdminServiceTests : IAsyncLifetime
     private static readonly Guid OtherAdminId = Guid.Parse("00000000-0000-0000-0000-00000000a002");
     private IdentityTestHost _host = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _host = await IdentityTestHost.CreateAsync();
         await _host.AddUserAsync(TestCurrentUser.AdminId, "admin@test.local", AppRoles.Admin, AppRoles.User);
         await _host.AddUserAsync(TestCurrentUser.RespondentId, "user@test.local", AppRoles.User);
     }
 
-    public async Task DisposeAsync() => await _host.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _host.DisposeAsync();
 
     [Fact]
     public async Task Create_adds_a_user_with_roles_and_audits_it()

@@ -18,7 +18,7 @@ public sealed class BrandingServiceTests : IAsyncLifetime
     private BrandingCache _cache = null!;
     private BrandingService _service = null!;
 
-    public Task InitializeAsync()
+    public ValueTask InitializeAsync()
     {
         // BrandingCache resolves IAppDbContextFactory from a fresh scope (it is a singleton).
         _provider = new ServiceCollection().AddSingleton<IAppDbContextFactory>(_db).BuildServiceProvider();
@@ -28,10 +28,10 @@ public sealed class BrandingServiceTests : IAsyncLifetime
             Options.Create(new BrandingOptions { ProductName = "Acme Surveys", Tagline = "Ask better", IconName = "bi-star" }));
         _db.CurrentUser.ActAsSuperAdmin(); // branding is system-wide: super admins manage it
         _service = new BrandingService(_cache, _db, _db.CurrentUser, _audit);
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
-    public async Task DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
         await _provider.DisposeAsync();
         await _db.DisposeAsync();

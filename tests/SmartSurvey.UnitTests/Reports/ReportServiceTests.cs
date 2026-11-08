@@ -15,13 +15,13 @@ public sealed class ReportServiceTests : IAsyncLifetime
     private ReportTestHarness _h = null!;
     private SampleSurvey _s = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _h = await CreateAsync();
         _s = await _h.SeedSurveyWithResponsesAsync();
     }
 
-    public async Task DisposeAsync() => await _h.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _h.DisposeAsync();
 
     [Fact]
     public async Task Create_saves_a_normalised_copy_and_writes_an_audit_entry()

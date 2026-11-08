@@ -57,7 +57,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     public HttpClient SuperAdmin() => WithToken(_superAdminToken!);
 
     /// <summary>Logs in once per test run (the auth endpoints are rate limited).</summary>
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         var client = Anonymous();
         _adminToken = await LoginAsync(client, AdminEmail, AdminPassword);
@@ -68,7 +68,7 @@ public sealed class ApiFactory : WebApplicationFactory<Program>, IAsyncLifetime
     }
 
     /// <inheritdoc />
-    public new async Task DisposeAsync()
+    public override async ValueTask DisposeAsync()
     {
         await base.DisposeAsync();
         SqliteConnection.ClearAllPools();

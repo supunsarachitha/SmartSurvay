@@ -798,7 +798,7 @@ All settings can be provided in `appsettings*.json` or as environment variables 
 
 ```bash
 dotnet test                                   # unit + integration tests
-dotnet test tests/SmartSurvey.UnitTests       # fast unit tests only
+dotnet test --project tests/SmartSurvey.UnitTests     # fast unit tests only
 bash scripts/smoke.sh --user admin / /admin /admin/surveys   # boot the app and smoke-test pages
 bash scripts/smoke.sh --user superadmin /system /system/workspaces  # users: admin, user, acme, superadmin, anon
 scripts/container-smoke.sh http://localhost:8080             # smoke-test a running container stack

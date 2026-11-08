@@ -32,7 +32,7 @@ public sealed class CrossWorkspaceServiceTests : IAsyncLifetime
     private SurveyResponse _foreignResponse = null!;
     private ReportDefinition _foreignReport = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _h = await ReportTestHarness.CreateAsync();
         var r = _h.Responses;
@@ -46,7 +46,7 @@ public sealed class CrossWorkspaceServiceTests : IAsyncLifetime
         _h.User.ActAsAdmin();
     }
 
-    public async Task DisposeAsync() => await _h.Responses.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _h.Responses.DisposeAsync();
 
     private SurveyService Surveys => new(_h.Db, _h.User, _h.Db.Time, _h.Audit, new SurveyDefinitionValidator(), NullLogger<SurveyService>.Instance);
 

@@ -11,13 +11,13 @@ public sealed class AuditServiceTests : IAsyncLifetime
     private readonly SqliteTestDatabase _db = new();
     private AuditService _service = null!;
 
-    public Task InitializeAsync()
+    public ValueTask InitializeAsync()
     {
         _service = new AuditService(_db, _db.CurrentUser, _db.Time, NullLogger<AuditService>.Instance);
-        return Task.CompletedTask;
+        return ValueTask.CompletedTask;
     }
 
-    public async Task DisposeAsync() => await _db.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _db.DisposeAsync();
 
     [Fact]
     public async Task Log_records_the_current_user_and_time()

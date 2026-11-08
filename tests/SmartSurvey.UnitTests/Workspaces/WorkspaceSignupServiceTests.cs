@@ -14,14 +14,14 @@ public sealed class WorkspaceSignupServiceTests : IAsyncLifetime
 {
     private IdentityTestHost _host = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _host = await IdentityTestHost.CreateAsync();
         await _host.AddUserAsync(TestCurrentUser.AdminId, "admin@test.local", AppRoles.Admin, AppRoles.User);
         _host.User.ActAsAnonymous(); // the forms are used by visitors
     }
 
-    public async Task DisposeAsync() => await _host.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _host.DisposeAsync();
 
     private Task<T> Signup<T>(Func<IWorkspaceSignupService, Task<T>> action) => _host.WithAsync(action);
 

@@ -12,13 +12,13 @@ public sealed class DashboardServiceTests : IAsyncLifetime
     private ReportTestHarness _h = null!;
     private DashboardService _service = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _h = await CreateAsync();
         _service = new DashboardService(_h.Db, _h.User, _h.Db.Time);
     }
 
-    public async Task DisposeAsync() => await _h.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _h.DisposeAsync();
 
     [Fact]
     public async Task Empty_database_gives_zeros_and_a_full_zero_filled_trend()
