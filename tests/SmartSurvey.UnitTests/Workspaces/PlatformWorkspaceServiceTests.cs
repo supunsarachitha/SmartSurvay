@@ -16,7 +16,7 @@ public sealed class PlatformWorkspaceServiceTests : IAsyncLifetime
     private static readonly Guid TheirAdminId = Guid.Parse("00000000-0000-0000-0000-0000000fa001");
     private IdentityTestHost _host = null!;
 
-    public async Task InitializeAsync()
+    public async ValueTask InitializeAsync()
     {
         _host = await IdentityTestHost.CreateAsync();
         await _host.AddUserAsync(TestCurrentUser.AdminId, "admin@test.local", AppRoles.Admin, AppRoles.User);
@@ -39,7 +39,7 @@ public sealed class PlatformWorkspaceServiceTests : IAsyncLifetime
         _host.User.ActAsSuperAdmin();
     }
 
-    public async Task DisposeAsync() => await _host.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _host.DisposeAsync();
 
     private Task<T> Platform<T>(Func<IPlatformWorkspaceService, Task<T>> action) => _host.WithAsync(action);
 

@@ -15,9 +15,9 @@ public sealed class WorkspaceServiceTests : IAsyncLifetime
     private readonly SqliteTestDatabase _db = new();
     private readonly RecordingAuditService _audit = new();
 
-    public Task InitializeAsync() => Task.CompletedTask;
+    public ValueTask InitializeAsync() => ValueTask.CompletedTask;
 
-    public async Task DisposeAsync() => await _db.DisposeAsync();
+    public async ValueTask DisposeAsync() => await _db.DisposeAsync();
 
     private WorkspaceService Workspaces => new(_db, _db.CurrentUser, _audit);
 
